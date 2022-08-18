@@ -1,0 +1,115 @@
+name: CI
+
+on:
+  push:
+    branches: "*"
+  pull_request:
+    branches: "*"
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Install node
+        uses: actions/setup-node@v1
+        with:
+          node-version: 14
+      - name: Cache
+        uses: actions/cache@v2
+        id: cache
+        with:
+          path: "**/node_modules"
+          key: yarn-v1-${{ hashFiles('**/yarn.lock') }}
+      - name: Install
+        run: yarn --immutable
+        if: steps.cache.outputs.cache-hit != 'true'
+      - name: Lint
+        run: yarn lint
+      - name: Lint failure
+        uses: rjstone/discord-webhook-notify@v1
+        if: failure()
+        with:
+          severity: error
+          details: Lint failed!
+          webhookUrl: ${{ secrets.DISCORD_WEBHOOK }}
+      - name: Lint cancelled
+        uses: rjstone/discord-webhook-notify@v1
+        if: cancelled()
+        with:
+          severity: warn
+          details: Lint cancelled!
+          webhookUrl: ${{ secrets.DISCORD_WEBHOOK }}
+
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Install node
+        uses: actions/setup-node@v1
+        with:
+          node-version: 14
+      - name: Cache
+        uses: actions/cache@v2
+        id: cache
+        with:
+          path: "**/node_modules"
+          key: yarn-v1-${{ hashFiles('**/yarn.lock') }}
+      - name: Install
+        run: yarn --immutable
+        if: steps.cache.outputs.cache-hit != 'true'
+      - name: Build
+        run: yarn build
+      - name: Build failure
+        uses: rjstone/discord-webhook-notify@v1
+        if: failure()
+        with:
+          severity: error
+          details: Build failed!
+          webhookUrl: ${{ secrets.DISCORD_WEBHOOK }}
+      - name: Build cancelled
+        uses: rjstone/discord-webhook-notify@v1
+        if: cancelled()
+        with:
+          severity: warn
+          details: Build cancelled!
+          webhookUrl: ${{ secrets.DISCORD_WEBHOOK }}
+
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Install node
+        uses: actions/setup-node@v1
+        with:
+          node-version: 14
+      - name: Cache
+        uses: actions/cache@v2
+        id: cache
+        with:
+          path: "**/node_modules"
+          key: yarn-v1-${{ hashFiles('**/yarn.lock') }}
+      - name: Install
+        run: yarn --immutable
+        if: steps.cache.outputs.cache-hit != 'true'
+      - name: Build
+        run: yarn build
+      - name: Test
+        run: yarn test
+      - name: Test failure
+        uses: rjstone/discord-webhook-notify@v1
+        if: failure()
+        with:
+          severity: error
+          details: Test failed!
+          webhookUrl: ${{ secrets.DISCORD_WEBHOOK }}
+      - name: Test cancelled
+        uses: rjstone/discord-webhook-notify@v1
+        if: cancelled()
+        with:
+          severity: warn
+          details: Test cancelled!
+          webhookUrl: ${{ secrets.DISCORD_WEBHOOK }}
+
+env:
+  CI: true
