@@ -1,0 +1,45 @@
+{
+  "name": "@mimic-fi/v2-helpers",
+  "version": "0.0.1",
+  "license": "GPL-3.0",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "engines": {
+    "node": ">=12.0.0"
+  },
+  "files": [
+    "artifacts/contracts/**/*",
+    "contracts",
+    "dist"
+  ],
+  "scripts": {
+    "build": "rm -rf dist && tsc",
+    "lint": "yarn lint:solidity && yarn lint:typescript",
+    "lint:solidity": "solhint 'contracts/**/*.sol' --config ../../node_modules/solhint-config-mimic/index.js",
+    "lint:typescript": "eslint . --ext .ts",
+    "test": "echo 'No test files'",
+    "prepublish": "yarn build"
+  },
+  "dependencies": {
+    "@nomiclabs/hardhat-ethers": "^2.0.2",
+    "@types/chai": "^4.2.18",
+    "@types/mocha": "^8.2.2",
+    "chai": "^4.2.0",
+    "decimal.js": "^10.3.1",
+    "ethers": "^5.0.8"
+  },
+  "peerDependencies": {
+    "hardhat": "^2.4.1"
+  },
+  "devDependencies": {
+    "eslint-config-mimic": "^0.0.2",
+    "hardhat": "^2.4.1",
+    "solhint-config-mimic": "^0.0.1",
+    "ts-node": "^8.10.2",
+    "typescript": "^4.3.4"
+  },
+  "eslintConfig": {
+    "extends": "eslint-config-mimic",
+    "ignorePatterns": ["dist"]
+  }
+}

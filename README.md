@@ -27,7 +27,9 @@
 
 ## Content 
 
-TODO
+This monorepo holds the key components of the Mimic protocol:
+
+- [Helpers](./packages/helpers): Library of solidity and typescript helpers used among all Mimic repositories.
 
 ## Setup
 
