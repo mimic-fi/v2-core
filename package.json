@@ -1,0 +1,21 @@
+{
+  "name": "@mimic-fi/smart-vaults",
+  "private": true,
+  "version": "0.0.1",
+  "license": "GPL-3.0",
+  "engines": {
+    "node": ">=12.0.0"
+  },
+  "scripts": {
+    "build": "yarn workspaces run build",
+    "lint": "yarn workspaces run lint",
+    "test": "yarn workspaces run test"
+  },
+  "dependencies": {},
+  "devDependencies": {},
+  "workspaces": {
+    "packages": [
+      "packages/*"
+    ]
+  }
+}
