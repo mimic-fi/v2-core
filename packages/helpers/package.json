@@ -18,11 +18,12 @@
     "lint": "yarn lint:solidity && yarn lint:typescript",
     "lint:solidity": "solhint 'contracts/**/*.sol' --config ../../node_modules/solhint-config-mimic/index.js",
     "lint:typescript": "eslint . --ext .ts",
-    "test": "echo 'No test files'",
+    "test": "hardhat test",
     "prepublish": "yarn build"
   },
   "dependencies": {
     "@nomiclabs/hardhat-ethers": "^2.0.2",
+    "@nomiclabs/hardhat-waffle": "^2.0.1",
     "@types/chai": "^4.2.18",
     "@types/mocha": "^8.2.2",
     "chai": "^4.2.0",
@@ -34,6 +35,8 @@
   },
   "devDependencies": {
     "eslint-config-mimic": "^0.0.2",
+    "ethereum-waffle": "^3.3.0",
+    "ethers": "^5.0.8",
     "hardhat": "^2.4.1",
     "solhint-config-mimic": "^0.0.1",
     "ts-node": "^8.10.2",
