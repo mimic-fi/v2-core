@@ -13,7 +13,8 @@
     "dist"
   ],
   "scripts": {
-    "build": "rm -rf dist && tsc",
+    "build": "yarn compile && rm -rf dist && tsc",
+    "compile": "hardhat compile",
     "lint": "yarn lint:solidity && yarn lint:typescript",
     "lint:solidity": "solhint 'contracts/**/*.sol' --config ../../node_modules/solhint-config-mimic/index.js",
     "lint:typescript": "eslint . --ext .ts",
