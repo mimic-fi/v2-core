@@ -46,12 +46,12 @@ contract Authorizer {
         _unauthorize(who, what);
     }
 
-    function _authorize(address who, bytes4 what) private {
+    function _authorize(address who, bytes4 what) internal {
         authorized[who][what] = true;
         emit Authorize(who, what);
     }
 
-    function _unauthorize(address who, bytes4 what) private {
+    function _unauthorize(address who, bytes4 what) internal {
         authorized[who][what] = false;
         emit Unauthorize(who, what);
     }

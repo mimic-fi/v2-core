@@ -21,18 +21,18 @@ describe('Authorizer', () => {
   })
 
   describe('initialization', () => {
-    it('grants authorize permission to the admin only', async () => {
-      const selector = authorizer.interface.getSighash('authorize')
+    it('authorizes the admin to authorize', async () => {
+      const authorizeRole = authorizer.interface.getSighash('authorize')
 
-      expect(await authorizer.isAuthorized(admin.address, selector)).to.be.true
-      expect(await authorizer.isAuthorized(other.address, selector)).to.be.false
+      expect(await authorizer.isAuthorized(admin.address, authorizeRole)).to.be.true
+      expect(await authorizer.isAuthorized(other.address, authorizeRole)).to.be.false
     })
 
-    it('grants unauthorize permission to the admin only', async () => {
-      const selector = authorizer.interface.getSighash('unauthorize')
+    it('authorizes the admin to unauthorize', async () => {
+      const unauthorizeRole = authorizer.interface.getSighash('unauthorize')
 
-      expect(await authorizer.isAuthorized(admin.address, selector)).to.be.true
-      expect(await authorizer.isAuthorized(other.address, selector)).to.be.false
+      expect(await authorizer.isAuthorized(admin.address, unauthorizeRole)).to.be.true
+      expect(await authorizer.isAuthorized(other.address, unauthorizeRole)).to.be.false
     })
   })
 
