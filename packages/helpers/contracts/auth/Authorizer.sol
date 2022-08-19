@@ -26,8 +26,8 @@ contract Authorizer {
     }
 
     constructor(address admin) {
-        _authorize(admin, Authorizer(this).authorize.selector);
-        _authorize(admin, Authorizer(this).unauthorize.selector);
+        _authorize(admin, Authorizer.authorize.selector);
+        _authorize(admin, Authorizer.unauthorize.selector);
     }
 
     function isAuthorized(address who, bytes4 what) public view returns (bool) {
