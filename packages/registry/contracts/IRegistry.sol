@@ -15,8 +15,8 @@
 pragma solidity >=0.8.0;
 
 interface IRegistry {
-    event Register(bytes32 indexed namespace, address indexed implementation);
-    event Unregister(bytes32 indexed namespace, address indexed implementation);
+    event Registered(bytes32 indexed namespace, address indexed implementation);
+    event Unregistered(bytes32 indexed namespace, address indexed implementation);
 
     function register(bytes32 namespace, address implementation) external;
 

@@ -28,11 +28,11 @@ contract Registry is IRegistry, Authorizer {
 
     function register(bytes32 namespace, address implementation) external override auth {
         isRegistered[namespace][implementation] = true;
-        emit Register(namespace, implementation);
+        emit Registered(namespace, implementation);
     }
 
     function unregister(bytes32 namespace, address implementation) external override auth {
         isRegistered[namespace][implementation] = false;
-        emit Unregister(namespace, implementation);
+        emit Unregistered(namespace, implementation);
     }
 }

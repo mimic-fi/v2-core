@@ -15,10 +15,10 @@ describe('Registry', () => {
   let registry: Contract
   let admin: SignerWithAddress, other: SignerWithAddress
 
-  const namespace = ZERO_BYTES32,
-    anotherNamespace = ONES_BYTES32
-  const implementation = ZERO_ADDRESS,
-    anotherImplementation = ONES_ADDRESS
+  const namespace = ZERO_BYTES32
+  const anotherNamespace = ONES_BYTES32
+  const implementation = ZERO_ADDRESS
+  const anotherImplementation = ONES_ADDRESS
 
   before('set up signers', async () => {
     // eslint-disable-next-line prettier/prettier
@@ -59,7 +59,7 @@ describe('Registry', () => {
       it('emits an event', async () => {
         const tx = await registry.register(namespace, implementation)
 
-        await assertEvent(tx, 'Register', { namespace, implementation })
+        await assertEvent(tx, 'Registered', { namespace, implementation })
       })
     }
 
@@ -110,7 +110,7 @@ describe('Registry', () => {
       it('emits an event', async () => {
         const tx = await registry.unregister(namespace, implementation)
 
-        await assertEvent(tx, 'Unregister', { namespace, implementation })
+        await assertEvent(tx, 'Unregistered', { namespace, implementation })
       })
     }
 
