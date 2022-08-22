@@ -1,0 +1,48 @@
+{
+  "name": "@mimic-fi/v2-price-oracle",
+  "version": "0.0.1",
+  "license": "GPL-3.0",
+  "engines": {
+    "node": ">=12.0.0"
+  },
+  "files": [
+    "artifacts/contracts/**/*",
+    "!artifacts/contracts/test/*",
+    "contracts/**/*",
+    "!contracts/test/*"
+  ],
+  "scripts": {
+    "build": "yarn compile",
+    "compile": "hardhat compile",
+    "lint": "yarn lint:solidity && yarn lint:typescript",
+    "lint:solidity": "solhint 'contracts/**/*.sol' --config ../../node_modules/solhint-config-mimic/index.js",
+    "lint:typescript": "eslint . --ext .ts",
+    "test": "hardhat test",
+    "prepublish": "yarn build"
+  },
+  "dependencies": {
+    "@chainlink/contracts": "^0.2.1",
+    "@mimic-fi/v2-helpers": "0.0.1",
+    "@mimic-fi/v2-registry": "0.0.1",
+    "@openzeppelin/contracts": "4.7.0"
+  },
+  "devDependencies": {
+    "@nomiclabs/hardhat-ethers": "^2.0.2",
+    "@nomiclabs/hardhat-waffle": "^2.0.1",
+    "@types/chai": "^4.2.18",
+    "@types/mocha": "^8.2.2",
+    "chai": "^4.2.0",
+    "eslint-config-mimic": "^0.0.2",
+    "ethereum-waffle": "^3.3.0",
+    "ethers": "^5.0.8",
+    "hardhat": "^2.4.1",
+    "hardhat-local-networks-config-plugin": "^0.0.6",
+    "mocha": "^6.2.3",
+    "solhint-config-mimic": "^0.0.1",
+    "ts-node": "^8.5.4",
+    "typescript": "~4.3.4"
+  },
+  "eslintConfig": {
+    "extends": "eslint-config-mimic"
+  }
+}
