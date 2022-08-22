@@ -47,7 +47,7 @@ describe('Authorizer', () => {
       it('emits an event', async () => {
         const tx = await authorizer.authorize(other.address, ROLE)
 
-        await assertEvent(tx, 'Authorize', { who: other, what: ROLE })
+        await assertEvent(tx, 'Authorized', { who: other, what: ROLE })
       })
     }
 
@@ -95,7 +95,7 @@ describe('Authorizer', () => {
       it('emits an event', async () => {
         const tx = await authorizer.unauthorize(other.address, ROLE)
 
-        await assertEvent(tx, 'Unauthorize', { who: other, what: ROLE })
+        await assertEvent(tx, 'Unauthorized', { who: other, what: ROLE })
       })
     }
 

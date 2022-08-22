@@ -15,8 +15,8 @@
 pragma solidity ^0.8.0;
 
 contract Authorizer {
-    event Authorize(address indexed who, bytes4 what);
-    event Unauthorize(address indexed who, bytes4 what);
+    event Authorized(address indexed who, bytes4 what);
+    event Unauthorized(address indexed who, bytes4 what);
 
     mapping (address => mapping (bytes4 => bool)) private authorized;
 
@@ -48,11 +48,11 @@ contract Authorizer {
 
     function _authorize(address who, bytes4 what) internal {
         authorized[who][what] = true;
-        emit Authorize(who, what);
+        emit Authorized(who, what);
     }
 
     function _unauthorize(address who, bytes4 what) internal {
         authorized[who][what] = false;
-        emit Unauthorize(who, what);
+        emit Unauthorized(who, what);
     }
 }
