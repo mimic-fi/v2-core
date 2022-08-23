@@ -1,12 +1,19 @@
 import { expect } from 'chai'
 import { BigNumber, ContractTransaction } from 'ethers'
 import { Interface, LogDescription } from 'ethers/lib/utils'
+import {pct} from './numbers'
 
 // Ported from @openzeppelin/test-helpers to use with Ethers. The Test Helpers don't
 // yet have Typescript typings, so we're being lax about them here.
 // See https://github.com/OpenZeppelin/openzeppelin-test-helpers/issues/122
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
+
+export function assertAlmostEqual(actual: BigNumber, expected: BigNumber, error: number): void {
+  const abs = pct(expected, error)
+  expect(actual).to.be.at.least(expected.sub(abs))
+  expect(actual).to.be.at.most(expected.add(abs))
+}
 
 export async function assertEvent(tx: ContractTransaction, eventName: string, eventArgs = {}): Promise<any> {
   const receipt = await tx.wait()

@@ -9,6 +9,8 @@ export const decimal = (x: BigNumberish | Decimal): Decimal => new Decimal(x.toS
 
 export const fp = (x: number | Decimal): BigNumber => bn(decimal(x).mul(SCALING_FACTOR))
 
+export const pct = (x: BigNumber, p: number): BigNumber => x.mul(fp(p)).div(fp(1))
+
 export const bn = (x: BigNumberish | Decimal): BigNumber => {
   if (BigNumber.isBigNumber(x)) return x
   const stringified = parseScientific(x.toString())
