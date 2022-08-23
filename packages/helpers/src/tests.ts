@@ -1,41 +1,57 @@
-import { TASK_TEST_RUN_MOCHA_TESTS } from 'hardhat/builtin-tasks/task-names'
+import { TASK_TEST_GET_TEST_FILES, TASK_TEST_RUN_MOCHA_TESTS } from 'hardhat/builtin-tasks/task-names'
 import { HardhatNetworkConfig, HardhatRuntimeEnvironment, HttpNetworkConfig, RunSuperFunction } from 'hardhat/types'
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable @typescript-eslint/explicit-module-boundary-types */
 
-export async function overrideTestTaskForDeployments(
+export async function overrideTestTask(
   args: any,
   hre: HardhatRuntimeEnvironment,
   run: RunSuperFunction<any>
 ): Promise<void> {
-  if (hre.network.name === 'hardhat' && !args.fork) await runNormalTests(args, hre, run)
-  else if (hre.network.name === 'hardhat' && args.fork) await runForkTests(args, hre, run)
-  else await runDeployTests(args, hre, run)
+  const files = await hre.run(TASK_TEST_GET_TEST_FILES, { testFiles: args.testFiles })
+  if (hre.network.name === 'hardhat' && !args.fork) await runNormalTests(args, files, hre, run)
+  else if (hre.network.name === 'hardhat' && args.fork) await runForkTests(args, files, hre, run)
+  else await runDeployTests(args, files, hre, run)
 }
 
-async function runNormalTests(args: any, hre: HardhatRuntimeEnvironment, run: RunSuperFunction<any>): Promise<void> {
+async function runNormalTests(
+  args: any,
+  files: string[],
+  hre: HardhatRuntimeEnvironment,
+  run: RunSuperFunction<any>
+): Promise<void> {
   console.log('Running normal tests...')
   if (args.fork) throw Error('Cannot run normal tests with a forked network')
-  args.testFiles = args.testFiles.filter((file: string) => file.endsWith('.test.ts'))
+  args.testFiles = files.filter((file: string) => file.endsWith('.test.ts'))
   if (args.testFiles.length == 0) return hre.run(TASK_TEST_RUN_MOCHA_TESTS, { testFiles: [] })
 
   await run(args)
 }
 
-async function runDeployTests(args: any, hre: HardhatRuntimeEnvironment, run: RunSuperFunction<any>): Promise<void> {
+async function runDeployTests(
+  args: any,
+  files: string[],
+  hre: HardhatRuntimeEnvironment,
+  run: RunSuperFunction<any>
+): Promise<void> {
   console.log('Running deployment tests...')
   if (args.fork) throw Error("The 'fork' option is invalid when testing deployments on livenetwork")
-  args.testFiles = args.testFiles.filter((file: string) => file.endsWith('.deploy.ts'))
+  args.testFiles = files.filter((file: string) => file.endsWith('.deploy.ts'))
   if (args.testFiles.length == 0) return hre.run(TASK_TEST_RUN_MOCHA_TESTS, { testFiles: [] })
 
   await run(args)
 }
 
-async function runForkTests(args: any, hre: HardhatRuntimeEnvironment, run: RunSuperFunction<any>): Promise<void> {
+async function runForkTests(
+  args: any,
+  files: string[],
+  hre: HardhatRuntimeEnvironment,
+  run: RunSuperFunction<any>
+): Promise<void> {
   console.log(`Running fork tests on ${args.fork}...`)
   if (args.fork === 'hardhat') throw Error('Cannot fork local networks')
-  args.testFiles = args.testFiles.filter((file: string) => file.endsWith(`.${args.fork}.ts`))
+  args.testFiles = files.filter((file: string) => file.endsWith(`.${args.fork}.ts`))
   if (args.testFiles.length == 0) return hre.run(TASK_TEST_RUN_MOCHA_TESTS, { testFiles: [] })
 
   const forkingNetworkName = Object.keys(hre.config.networks).find((networkName) => networkName === args.fork)
