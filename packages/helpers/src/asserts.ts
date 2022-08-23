@@ -1,7 +1,8 @@
 import { expect } from 'chai'
 import { BigNumber, ContractTransaction } from 'ethers'
 import { Interface, LogDescription } from 'ethers/lib/utils'
-import {pct} from './numbers'
+
+import { pct } from './numbers'
 
 // Ported from @openzeppelin/test-helpers to use with Ethers. The Test Helpers don't
 // yet have Typescript typings, so we're being lax about them here.
