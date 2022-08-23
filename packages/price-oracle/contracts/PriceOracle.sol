@@ -18,7 +18,6 @@ import '@mimic-fi/v2-helpers/contracts/auth/Authorizer.sol';
 import '@mimic-fi/v2-helpers/contracts/math/FixedPoint.sol';
 import '@mimic-fi/v2-registry/contracts/IRegistry.sol';
 
-import '@chainlink/contracts/src/v0.8/Denominations.sol';
 import '@chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol';
 
 import '@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol';
@@ -85,7 +84,7 @@ contract PriceOracle is IPriceOracle, Authorizer {
     }
 
     function _setFeed(address base, address quote, address feed, bool validate) internal {
-        require(!validate || feed == address(0) || registry.isRegistered(FEEDS_NAMESPACE, feed), 'FEED_NOT_REGISTERED');
+        require(!validate || registry.isRegistered(FEEDS_NAMESPACE, feed), 'FEED_NOT_REGISTERED');
         feeds[base][quote] = feed;
         emit FeedSet(base, quote, feed);
     }

@@ -144,56 +144,55 @@ describe('PriceOracle', () => {
             await registry.connect(admin).register(await oracle.FEEDS_NAMESPACE(), feed.address)
           })
 
-          const itCanBeUpdated = () => {
+          const itCanBeSet = () => {
             it('can be set', async () => {
               const tx = await oracle.setRegisteredFeeds([base.address], [quote.address], [feed.address])
 
               expect(await oracle.hasFeed(base.address, quote.address)).to.be.true
               expect(await oracle.getFeed(base.address, quote.address)).to.be.equal(feed.address)
 
-              await assertEvent(tx, 'FeedSet', { base, quote, feed })
+              await assertEvent(tx, 'FeedSet', {base, quote, feed})
             })
+          }
 
-            it('can be unset', async () => {
-              const tx = await oracle.setRegisteredFeeds([base.address], [quote.address], [ZERO_ADDRESS])
-
-              expect(await oracle.hasFeed(base.address, quote.address)).to.be.false
-              expect(await oracle.getFeed(base.address, quote.address)).to.be.equal(ZERO_ADDRESS)
-
-              await assertEvent(tx, 'FeedSet', { base, quote, feed: ZERO_ADDRESS })
+          const itCannotBeUnset = () => {
+            it('cannot be unset', async () => {
+              await expect(
+                oracle.setRegisteredFeeds([base.address], [quote.address], [ZERO_ADDRESS])
+              ).to.be.revertedWith('FEED_NOT_REGISTERED')
             })
           }
 
           context('when the feed is set', () => {
             beforeEach('set feed', async () => {
-              await oracle.setRegisteredFeeds([base.address], [quote.address], [feed.address])
+              await oracle.connect(admin).setFeeds([base.address], [quote.address], [feed.address])
               expect(await oracle.getFeed(base.address, quote.address)).to.be.equal(feed.address)
             })
 
-            itCanBeUpdated()
+            itCanBeSet()
+            itCannotBeUnset()
           })
 
           context('when the feed is not set', () => {
             beforeEach('unset feed', async () => {
-              await oracle.setRegisteredFeeds([base.address], [quote.address], [ZERO_ADDRESS])
+              await oracle.connect(admin).setFeeds([base.address], [quote.address], [ZERO_ADDRESS])
               expect(await oracle.getFeed(base.address, quote.address)).to.be.equal(ZERO_ADDRESS)
             })
 
-            itCanBeUpdated()
+            itCanBeSet()
+            itCannotBeUnset()
           })
         })
 
         context('when the feed is not in the registry', () => {
-          beforeEach('register feed in registry', async () => {
+          beforeEach('unregister feed in registry', async () => {
             await registry.connect(admin).unregister(await oracle.FEEDS_NAMESPACE(), feed.address)
           })
 
           context('when the feed is set', () => {
             beforeEach('set feed', async () => {
-              await registry.connect(admin).register(await oracle.FEEDS_NAMESPACE(), feed.address)
-              await oracle.setRegisteredFeeds([base.address], [quote.address], [feed.address])
+              await oracle.connect(admin).setFeeds([base.address], [quote.address], [feed.address])
               expect(await oracle.getFeed(base.address, quote.address)).to.be.equal(feed.address)
-              await registry.connect(admin).unregister(await oracle.FEEDS_NAMESPACE(), feed.address)
             })
 
             it('reverts', async () => {
@@ -205,17 +204,14 @@ describe('PriceOracle', () => {
 
           context('when the feed is not set', () => {
             beforeEach('unset feed', async () => {
-              await oracle.setRegisteredFeeds([base.address], [quote.address], [ZERO_ADDRESS])
+              await oracle.connect(admin).setFeeds([base.address], [quote.address], [ZERO_ADDRESS])
               expect(await oracle.getFeed(base.address, quote.address)).to.be.equal(ZERO_ADDRESS)
             })
 
-            it('can be unset', async () => {
-              const tx = await oracle.setRegisteredFeeds([base.address], [quote.address], [ZERO_ADDRESS])
-
-              expect(await oracle.hasFeed(base.address, quote.address)).to.be.false
-              expect(await oracle.getFeed(base.address, quote.address)).to.be.equal(ZERO_ADDRESS)
-
-              await assertEvent(tx, 'FeedSet', { base, quote, feed: ZERO_ADDRESS })
+            it('reverts', async () => {
+              await expect(
+                oracle.setRegisteredFeeds([base.address], [quote.address], [feed.address])
+              ).to.be.revertedWith('FEED_NOT_REGISTERED')
             })
           })
         })
