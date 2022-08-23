@@ -151,7 +151,7 @@ describe('PriceOracle', () => {
               expect(await oracle.hasFeed(base.address, quote.address)).to.be.true
               expect(await oracle.getFeed(base.address, quote.address)).to.be.equal(feed.address)
 
-              await assertEvent(tx, 'FeedSet', {base, quote, feed})
+              await assertEvent(tx, 'FeedSet', { base, quote, feed })
             })
           }
 
@@ -829,8 +829,8 @@ describe('PriceOracle', () => {
     })
 
     context('when there are pivot feeds', () => {
-      const BASE_ETH_PRICE = bn(2)
-      const QUOTE_ETH_PRICE = bn(6)
+      const BASE_ETH_PRICE = bn(6)
+      const QUOTE_ETH_PRICE = bn(2)
 
       const itReverts = (baseDecimals: number, quoteDecimals: number) => {
         beforeEach('deploy tokens', async () => {
@@ -852,7 +852,7 @@ describe('PriceOracle', () => {
         const reportedBasePrice = BASE_ETH_PRICE.mul(bn(10).pow(baseFeedDecimals))
         const reportedQuotePrice = QUOTE_ETH_PRICE.mul(bn(10).pow(quoteFeedDecimals))
         const resultDecimals = quoteDecimals + 18 - baseDecimals
-        const expectedPrice = QUOTE_ETH_PRICE.div(BASE_ETH_PRICE).mul(bn(10).pow(resultDecimals))
+        const expectedPrice = BASE_ETH_PRICE.div(QUOTE_ETH_PRICE).mul(bn(10).pow(resultDecimals))
 
         beforeEach('deploy tokens', async () => {
           base = await deploy('TokenMock', ['BASE', baseDecimals])

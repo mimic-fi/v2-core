@@ -105,6 +105,7 @@ contract PriceOracle is IPriceOracle, Authorizer {
         (uint256 inversePrice, uint256 feedDecimals) = _getFeedData(feed);
         require(feedDecimals <= INVERSE_FEED_MAX_DECIMALS, 'FEED_DECIMALS_TOO_BIG');
 
+        // TODO: review rounding
         price = FixedPoint.ONE.divDown(inversePrice);
         decimals = INVERSE_FEED_MAX_DECIMALS - feedDecimals;
     }
@@ -118,11 +119,12 @@ contract PriceOracle is IPriceOracle, Authorizer {
 
         (uint256 basePrice, uint256 baseFeedDecimals) = _getFeedData(baseFeed);
         (uint256 quotePrice, uint256 quoteFeedDecimals) = _getFeedData(quoteFeed);
-        require(baseFeedDecimals <= quoteFeedDecimals + FP_DECIMALS, 'BASE_FEED_DECIMALS_TOO_BIG');
+        require(quoteFeedDecimals <= baseFeedDecimals + FP_DECIMALS, 'QUOTE_FEED_DECIMALS_TOO_BIG');
 
-        // Price is base/quote = (pivot/quote) / (pivot/base)
-        price = quotePrice.divDown(basePrice);
-        decimals = quoteFeedDecimals + FP_DECIMALS - baseFeedDecimals;
+        // TODO: review rounding
+        // Price is base/quote = (base/pivot) / (quote/pivot)
+        price = basePrice.divDown(quotePrice);
+        decimals = baseFeedDecimals + FP_DECIMALS - quoteFeedDecimals;
     }
 
     function _getFeedData(address feed) internal view returns (uint256 price, uint256 decimals) {
