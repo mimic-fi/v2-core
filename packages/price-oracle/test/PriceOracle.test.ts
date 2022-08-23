@@ -7,6 +7,8 @@ describe('PriceOracle', () => {
   let admin: SignerWithAddress, other: SignerWithAddress
   let oracle: Contract, registry: Contract, base: Contract, quote: Contract, feed: Contract
 
+  const PIVOT = '0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee' // ETH
+
   before('set up signers', async () => {
     // eslint-disable-next-line prettier/prettier
     [, admin, other] = await getSigners()
@@ -14,7 +16,7 @@ describe('PriceOracle', () => {
 
   beforeEach('create oracle', async () => {
     registry = await deploy('@mimic-fi/v2-registry/artifacts/contracts/Registry.sol/Registry', [admin.address])
-    oracle = await deploy('PriceOracle', [admin.address, registry.address])
+    oracle = await deploy('PriceOracle', [PIVOT, admin.address, registry.address])
   })
 
   describe('setFeeds', () => {
@@ -248,7 +250,7 @@ describe('PriceOracle', () => {
       })
 
       it('reverts', async () => {
-        await expect(oracle.getPrice(base.address, quote.address)).to.be.revertedWith('MISSING_BASE_ETH_FEED')
+        await expect(oracle.getPrice(base.address, quote.address)).to.be.revertedWith('MISSING_BASE_PIVOT_FEED')
       })
     })
 
@@ -822,10 +824,9 @@ describe('PriceOracle', () => {
       })
     })
 
-    context('when there are ETH feeds', () => {
+    context('when there are pivot feeds', () => {
       const BASE_ETH_PRICE = bn(2)
       const QUOTE_ETH_PRICE = bn(6)
-      const ETH_DENOMINATION = '0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee'
 
       const itReverts = (baseDecimals: number, quoteDecimals: number) => {
         beforeEach('deploy tokens', async () => {
@@ -859,11 +860,7 @@ describe('PriceOracle', () => {
           const quoteFeed = await deploy('FeedMock', [reportedQuotePrice, quoteFeedDecimals])
           await oracle
             .connect(admin)
-            .setFeeds(
-              [base.address, quote.address],
-              [ETH_DENOMINATION, ETH_DENOMINATION],
-              [baseFeed.address, quoteFeed.address]
-            )
+            .setFeeds([base.address, quote.address], [PIVOT, PIVOT], [baseFeed.address, quoteFeed.address])
         })
 
         it(`expresses the price with ${resultDecimals} decimals`, async () => {

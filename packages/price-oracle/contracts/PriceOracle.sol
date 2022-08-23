@@ -33,15 +33,16 @@ contract PriceOracle is IPriceOracle, Authorizer {
     bytes32 public constant FEEDS_NAMESPACE = keccak256('PRICE_ORACLE_FEEDS');
 
     uint256 private constant FP_DECIMALS = 18;
-    uint256 private constant ETH_DECIMALS = 18;
     uint256 private constant INVERSE_FEED_MAX_DECIMALS = 36;
 
+    address public immutable pivot;
     IRegistry public immutable registry;
     mapping (address => mapping (address => address)) public feeds;
 
-    constructor(address admin, IRegistry _registry) Authorizer(admin) {
+    constructor(address _pivot, address _admin, IRegistry _registry) Authorizer(_admin) {
+        pivot = _pivot;
         registry = _registry;
-        _authorize(admin, PriceOracle.setFeeds.selector);
+        _authorize(_admin, PriceOracle.setFeeds.selector);
     }
 
     function getFeed(address base, address quote) public view override returns (address) {
@@ -54,8 +55,8 @@ contract PriceOracle is IPriceOracle, Authorizer {
 
     function getPrice(address base, address quote) external view override returns (uint256) {
         // If `quote * result / 1e18` must be expressed in `base` decimals, then
-        uint256 baseDecimals = _decimals(base);
-        uint256 quoteDecimals = _decimals(quote);
+        uint256 baseDecimals = IERC20Metadata(base).decimals();
+        uint256 quoteDecimals = IERC20Metadata(quote).decimals();
         require(baseDecimals + FP_DECIMALS >= quoteDecimals, 'QUOTE_DECIMALS_TOO_BIG');
 
         uint256 resultDecimals = baseDecimals + FP_DECIMALS - quoteDecimals;
@@ -92,7 +93,7 @@ contract PriceOracle is IPriceOracle, Authorizer {
     function _getPrice(address base, address quote) internal view returns (uint256 price, uint256 decimals) {
         if (hasFeed(base, quote)) return _getDirectPrice(base, quote);
         else if (hasFeed(quote, base)) return _getInversePrice(base, quote);
-        else return _getPriceFromEth(base, quote);
+        else return _getPivotPrice(base, quote);
     }
 
     function _getDirectPrice(address base, address quote) internal view returns (uint256 price, uint256 decimals) {
@@ -109,18 +110,18 @@ contract PriceOracle is IPriceOracle, Authorizer {
         decimals = INVERSE_FEED_MAX_DECIMALS - feedDecimals;
     }
 
-    function _getPriceFromEth(address base, address quote) internal view returns (uint256 price, uint256 decimals) {
-        address baseFeed = getFeed(base, Denominations.ETH);
-        require(baseFeed != address(0), 'MISSING_BASE_ETH_FEED');
+    function _getPivotPrice(address base, address quote) internal view returns (uint256 price, uint256 decimals) {
+        address baseFeed = getFeed(base, pivot);
+        require(baseFeed != address(0), 'MISSING_BASE_PIVOT_FEED');
 
-        address quoteFeed = getFeed(quote, Denominations.ETH);
-        require(quoteFeed != address(0), 'MISSING_QUOTE_ETH_FEED');
+        address quoteFeed = getFeed(quote, pivot);
+        require(quoteFeed != address(0), 'MISSING_QUOTE_PIVOT_FEED');
 
         (uint256 basePrice, uint256 baseFeedDecimals) = _getFeedData(baseFeed);
         (uint256 quotePrice, uint256 quoteFeedDecimals) = _getFeedData(quoteFeed);
         require(quoteFeedDecimals + FP_DECIMALS >= baseFeedDecimals, 'BASE_FEED_DECIMALS_TOO_BIG');
 
-        // Price is base/quote = (ETH/quote) / (ETH/base)
+        // Price is base/quote = (pivot/quote) / (pivot/base)
         price = quotePrice.divDown(basePrice);
         decimals = (FP_DECIMALS + quoteFeedDecimals - baseFeedDecimals);
     }
@@ -136,9 +137,5 @@ contract PriceOracle is IPriceOracle, Authorizer {
             resultDecimals >= priceDecimals
                 ? (price * 10**(resultDecimals - priceDecimals))
                 : (price / 10**(priceDecimals - resultDecimals));
-    }
-
-    function _decimals(address token) internal view returns (uint256) {
-        return token == Denominations.ETH ? ETH_DECIMALS : IERC20Metadata(token).decimals();
     }
 }
