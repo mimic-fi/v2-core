@@ -264,13 +264,13 @@ describe('PriceOracle', () => {
         })
 
         it('reverts', async () => {
-          await expect(oracle.getPrice(base.address, quote.address)).to.be.revertedWith('QUOTE_DECIMALS_TOO_BIG')
+          await expect(oracle.getPrice(base.address, quote.address)).to.be.revertedWith('BASE_DECIMALS_TOO_BIG')
         })
       }
 
       const itQuotesThePriceCorrectly = (baseDecimals: number, quoteDecimals: number, feedDecimals: number) => {
         const reportedPrice = PRICE.mul(bn(10).pow(feedDecimals))
-        const resultDecimals = baseDecimals + 18 - quoteDecimals
+        const resultDecimals = quoteDecimals + 18 - baseDecimals
         const expectedPrice = PRICE.mul(bn(10).pow(resultDecimals))
 
         beforeEach('deploy tokens', async () => {
@@ -356,12 +356,6 @@ describe('PriceOracle', () => {
             itQuotesThePriceCorrectly(baseDecimals, quoteDecimals, feedDecimals)
           })
         })
-
-        context('when the quote has 38 decimals', () => {
-          const quoteDecimals = 38
-
-          itReverts(baseDecimals, quoteDecimals)
-        })
       })
 
       context('when the base has 18 decimals', () => {
@@ -431,12 +425,6 @@ describe('PriceOracle', () => {
 
             itQuotesThePriceCorrectly(baseDecimals, quoteDecimals, feedDecimals)
           })
-        })
-
-        context('when the quote has 38 decimals', () => {
-          const quoteDecimals = 38
-
-          itReverts(baseDecimals, quoteDecimals)
         })
       })
 
@@ -508,9 +496,25 @@ describe('PriceOracle', () => {
             itQuotesThePriceCorrectly(baseDecimals, quoteDecimals, feedDecimals)
           })
         })
+      })
 
-        context('when the quote has 38 decimals', () => {
-          const quoteDecimals = 38
+      context('when the base has 38 decimals', () => {
+        const baseDecimals = 38
+
+        context('when the quote has 6 decimals', () => {
+          const quoteDecimals = 6
+
+          itReverts(baseDecimals, quoteDecimals)
+        })
+
+        context('when the quote has 18 decimals', () => {
+          const quoteDecimals = 18
+
+          itReverts(baseDecimals, quoteDecimals)
+        })
+
+        context('when the quote has 20 decimals', () => {
+          const quoteDecimals = 20
 
           context('when the feed has 6 decimals', () => {
             const feedDecimals = 6
@@ -543,13 +547,13 @@ describe('PriceOracle', () => {
         })
 
         it('reverts', async () => {
-          await expect(oracle.getPrice(base.address, quote.address)).to.be.revertedWith('QUOTE_DECIMALS_TOO_BIG')
+          await expect(oracle.getPrice(base.address, quote.address)).to.be.revertedWith('BASE_DECIMALS_TOO_BIG')
         })
       }
 
       const itQuotesThePriceCorrectly = (baseDecimals: number, quoteDecimals: number, feedDecimals: number) => {
         const reportedInversePrice = bn(10).pow(feedDecimals).div(PRICE)
-        const resultDecimals = baseDecimals + 18 - quoteDecimals
+        const resultDecimals = quoteDecimals + 18 - baseDecimals
         const expectedPrice = PRICE.mul(bn(10).pow(resultDecimals))
 
         beforeEach('deploy tokens', async () => {
@@ -647,12 +651,6 @@ describe('PriceOracle', () => {
             itQuotesThePriceCorrectly(baseDecimals, quoteDecimals, feedDecimals)
           })
         })
-
-        context('when the quote has 38 decimals', () => {
-          const quoteDecimals = 38
-
-          itReverts(baseDecimals, quoteDecimals)
-        })
       })
 
       context('when the base has 18 decimals', () => {
@@ -722,12 +720,6 @@ describe('PriceOracle', () => {
 
             itQuotesThePriceCorrectly(baseDecimals, quoteDecimals, feedDecimals)
           })
-        })
-
-        context('when the quote has 38 decimals', () => {
-          const quoteDecimals = 38
-
-          itReverts(baseDecimals, quoteDecimals)
         })
       })
 
@@ -799,9 +791,25 @@ describe('PriceOracle', () => {
             itQuotesThePriceCorrectly(baseDecimals, quoteDecimals, feedDecimals)
           })
         })
+      })
 
-        context('when the quote has 38 decimals', () => {
-          const quoteDecimals = 38
+      context('when the base has 38 decimals', () => {
+        const baseDecimals = 38
+
+        context('when the quote has 6 decimals', () => {
+          const quoteDecimals = 6
+
+          itReverts(baseDecimals, quoteDecimals)
+        })
+
+        context('when the quote has 18 decimals', () => {
+          const quoteDecimals = 18
+
+          itReverts(baseDecimals, quoteDecimals)
+        })
+
+        context('when the quote has 20 decimals', () => {
+          const quoteDecimals = 20
 
           context('when the feed has 6 decimals', () => {
             const feedDecimals = 6
@@ -835,7 +843,7 @@ describe('PriceOracle', () => {
         })
 
         it('reverts', async () => {
-          await expect(oracle.getPrice(base.address, quote.address)).to.be.revertedWith('QUOTE_DECIMALS_TOO_BIG')
+          await expect(oracle.getPrice(base.address, quote.address)).to.be.revertedWith('BASE_DECIMALS_TOO_BIG')
         })
       }
 
@@ -847,7 +855,7 @@ describe('PriceOracle', () => {
       ) => {
         const reportedBasePrice = BASE_ETH_PRICE.mul(bn(10).pow(baseFeedDecimals))
         const reportedQuotePrice = QUOTE_ETH_PRICE.mul(bn(10).pow(quoteFeedDecimals))
-        const resultDecimals = baseDecimals + 18 - quoteDecimals
+        const resultDecimals = quoteDecimals + 18 - baseDecimals
         const expectedPrice = QUOTE_ETH_PRICE.div(BASE_ETH_PRICE).mul(bn(10).pow(resultDecimals))
 
         beforeEach('deploy tokens', async () => {
@@ -1080,12 +1088,6 @@ describe('PriceOracle', () => {
             })
           })
         })
-
-        context('when the quote has 38 decimals', () => {
-          const quoteDecimals = 38
-
-          itReverts(baseDecimals, quoteDecimals)
-        })
       })
 
       context('when the base has 18 decimals', () => {
@@ -1299,12 +1301,6 @@ describe('PriceOracle', () => {
               itQuotesThePriceCorrectly(baseDecimals, quoteDecimals, baseFeedDecimals, quoteFeedDecimals)
             })
           })
-        })
-
-        context('when the quote has 38 decimals', () => {
-          const quoteDecimals = 38
-
-          itReverts(baseDecimals, quoteDecimals)
         })
       })
 
@@ -1520,9 +1516,25 @@ describe('PriceOracle', () => {
             })
           })
         })
+      })
 
-        context('when the quote has 38 decimals', () => {
-          const quoteDecimals = 38
+      context('when the base has 38 decimals', () => {
+        const baseDecimals = 38
+
+        context('when the quote has 6 decimals', () => {
+          const quoteDecimals = 6
+
+          itReverts(baseDecimals, quoteDecimals)
+        })
+
+        context('when the quote has 18 decimals', () => {
+          const quoteDecimals = 18
+
+          itReverts(baseDecimals, quoteDecimals)
+        })
+
+        context('when the quote has 20 decimals', () => {
+          const quoteDecimals = 20
 
           context('when the base feed has 6 decimals', () => {
             const baseFeedDecimals = 6

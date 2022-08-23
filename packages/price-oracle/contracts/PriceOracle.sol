@@ -54,12 +54,12 @@ contract PriceOracle is IPriceOracle, Authorizer {
     }
 
     function getPrice(address base, address quote) external view override returns (uint256) {
-        // If `quote * result / 1e18` must be expressed in `base` decimals, then
+        // If `base * result / 1e18` must be expressed in `quote` decimals, then
         uint256 baseDecimals = IERC20Metadata(base).decimals();
         uint256 quoteDecimals = IERC20Metadata(quote).decimals();
-        require(baseDecimals + FP_DECIMALS >= quoteDecimals, 'QUOTE_DECIMALS_TOO_BIG');
+        require(baseDecimals <= quoteDecimals + FP_DECIMALS, 'BASE_DECIMALS_TOO_BIG');
 
-        uint256 resultDecimals = baseDecimals + FP_DECIMALS - quoteDecimals;
+        uint256 resultDecimals = quoteDecimals + FP_DECIMALS - baseDecimals;
         (uint256 price, uint256 decimals) = _getPrice(base, quote);
         return _scalePrice(price, decimals, resultDecimals);
     }
@@ -119,11 +119,11 @@ contract PriceOracle is IPriceOracle, Authorizer {
 
         (uint256 basePrice, uint256 baseFeedDecimals) = _getFeedData(baseFeed);
         (uint256 quotePrice, uint256 quoteFeedDecimals) = _getFeedData(quoteFeed);
-        require(quoteFeedDecimals + FP_DECIMALS >= baseFeedDecimals, 'BASE_FEED_DECIMALS_TOO_BIG');
+        require(baseFeedDecimals <= quoteFeedDecimals + FP_DECIMALS, 'BASE_FEED_DECIMALS_TOO_BIG');
 
         // Price is base/quote = (pivot/quote) / (pivot/base)
         price = quotePrice.divDown(basePrice);
-        decimals = (FP_DECIMALS + quoteFeedDecimals - baseFeedDecimals);
+        decimals = quoteFeedDecimals + FP_DECIMALS - baseFeedDecimals;
     }
 
     function _getFeedData(address feed) internal view returns (uint256 price, uint256 decimals) {

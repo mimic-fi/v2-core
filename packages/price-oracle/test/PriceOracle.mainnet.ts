@@ -57,13 +57,13 @@ describe('PriceOracle', () => {
     })
 
     it('quotes WETH/USDC correctly', async () => {
-      const expectedPrice = fp(ETH_USD).mul(1e12) // 30 decimals => USDC * price / 1e18 = WETH
+      const expectedPrice = fp(ETH_USD).div(1e12) // 6 decimals => WETH * price / 1e18 = USDC
       const price = await oracle.getPrice(WETH, USDC)
       assertAlmostEqual(price, expectedPrice, ERROR)
     })
 
     it('quotes USDC/WETH correctly', async () => {
-      const expectedPrice = fp(1/ETH_USD).div(1e12) // 6 decimals => WETH * price / 1e18 = USDC
+      const expectedPrice = fp(1/ETH_USD).mul(1e12) // 30 decimals => USDC * price / 1e18 = WETH
       const price = await oracle.getPrice(USDC, WETH)
       assertAlmostEqual(price, expectedPrice, ERROR)
     })
@@ -75,13 +75,13 @@ describe('PriceOracle', () => {
     })
 
     it('quotes WETH/WBTC correctly', async () => {
-      const expectedPrice = fp(ETH_BTC).mul(1e10) // 28 decimals => WBTC * price / 1e18 = WETH
+      const expectedPrice = fp(ETH_BTC).div(1e10) // 8 decimals => WETH * price / 1e18 = WBTC
       const price = await oracle.getPrice(WETH, WBTC)
       assertAlmostEqual(price, expectedPrice, ERROR)
     })
 
     it('quotes WBTC/WETH correctly', async () => {
-      const expectedPrice = fp(1/ETH_BTC).div(1e10) // 8 decimals => WETH * price / 1e18 = WBTC
+      const expectedPrice = fp(1/ETH_BTC).mul(1e10) // 28 decimals => WBTC * price / 1e18 = WETH
       const price = await oracle.getPrice(WBTC, WETH)
       assertAlmostEqual(price, expectedPrice, ERROR)
     })
@@ -89,13 +89,13 @@ describe('PriceOracle', () => {
 
   context('WBTC - USDC', () => {
     it('quotes USDC/WBTC correctly', async () => {
-      const expectedPrice = fp(BTC_USD).div(1e2) // 16 decimals => WBTC * price / 1e18 = USDC
+      const expectedPrice = fp(BTC_USD).mul(1e2) // 20 decimals => USDC * price / 1e18 = WBTC
       const price = await oracle.getPrice(USDC, WBTC)
       assertAlmostEqual(price, expectedPrice, ERROR)
     })
 
     it('quotes WBTC/USDC correctly', async () => {
-      const expectedPrice = fp(1/(BTC_USD)).mul(1e2) // 20 decimals => USDC * price / 1e18 = WBTC
+      const expectedPrice = fp(1/(BTC_USD)).div(1e2) // 16 decimals => WBTC * price / 1e18 = USDC
       const price = await oracle.getPrice(WBTC, USDC)
       assertAlmostEqual(price, expectedPrice, ERROR)
     })
@@ -103,13 +103,13 @@ describe('PriceOracle', () => {
 
   context('WBTC - DAI', () => {
     it('quotes DAI/WBTC correctly', async () => {
-      const expectedPrice = fp(BTC_USD).mul(1e10) // 28 decimals => WBTC * price / 1e18 = DAI
+      const expectedPrice = fp(BTC_USD).div(1e10) // 8 decimals => DAI * price / 1e18 = WBTC
       const price = await oracle.getPrice(DAI, WBTC)
       assertAlmostEqual(price, expectedPrice, ERROR)
     })
 
     it('quotes WBTC/DAI correctly', async () => {
-      const expectedPrice = fp(1/(BTC_USD)).div(1e10) // 8 decimals => DAI * price / 1e18 = WBTC
+      const expectedPrice = fp(1/(BTC_USD)).mul(1e10) // 28 decimals => WBTC * price / 1e18 = DAI
       const price = await oracle.getPrice(WBTC, DAI)
       assertAlmostEqual(price, expectedPrice, ERROR)
     })
@@ -117,13 +117,13 @@ describe('PriceOracle', () => {
 
   context('DAI - USDC', () => {
     it('quotes DAI/USDC correctly', async () => {
-      const expectedPrice = fp(1).mul(1e12) // 30 decimals => USDC * price / 1e18 = DAI
+      const expectedPrice = fp(1).div(1e12) // 6 decimals => DAI * price / 1e18 = USDC
       const price = await oracle.getPrice(DAI, USDC)
       assertAlmostEqual(price, expectedPrice, ERROR)
     })
 
     it('quotes USDC/DAI correctly', async () => {
-      const expectedPrice = fp(1).div(1e12) // 6 decimals => DAI * price / 1e18 = USDC
+      const expectedPrice = fp(1).mul(1e12) // 30 decimals => USDC * price / 1e18 = DAI
       const price = await oracle.getPrice(USDC, DAI)
       assertAlmostEqual(price, expectedPrice, ERROR)
     })

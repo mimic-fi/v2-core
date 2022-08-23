@@ -24,11 +24,10 @@ interface IPriceOracle {
     /**
      * @dev Tells the price of a token (base) in a given quote. The response is expressed using the corresponding
      *      number of decimals so that when performing a fixed point product of it by a `quote` amount it results in
-     *      a value expressed in `base` decimals. For example, if `base` is USDC and `quote` is ETH, then the
-     *      returned value is expected to be expressed using 6 decimals.
-     *      Note that custom feeds are used if set, otherwise it fallbacks to ChainLink feeds registry.
+     *      a value expressed in `base` decimals. For example, if `base` is ETH and `quote` is USDC, then the
+     *      returned value is expected to be expressed using 6 decimals:
      *
-     *      FixedPoint.mul(X[ETH], price[USDC/ETH]) =  FixedPoint.mul(X[18], price[6]) = X * price [6]
+     *      FixedPoint.mul(X[ETH], price[ETH/USDC]) = FixedPoint.mul(X[18], price[6]) = X * price [6]
      *
      * @param base Token to rate
      * @param quote Token used for the price rate
