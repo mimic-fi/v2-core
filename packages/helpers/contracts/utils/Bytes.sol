@@ -41,4 +41,18 @@ library Bytes {
             result := self
         }
     }
+
+    /**
+     * @dev Concatenates an address to a bytes array
+     */
+    function concat(bytes memory self, address value) internal pure returns (bytes memory) {
+        return abi.encodePacked(self, value);
+    }
+
+    /**
+     * @dev Concatenates an uint24 to a bytes array
+     */
+    function concat(bytes memory self, uint24 value) internal pure returns (bytes memory) {
+        return abi.encodePacked(self, value);
+    }
 }

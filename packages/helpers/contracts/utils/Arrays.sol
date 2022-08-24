@@ -28,4 +28,36 @@ library Arrays {
             array[i] = true;
         }
     }
+
+    /**
+     * @dev Tells if an array of addresses includes the given ones
+     */
+    function includes(address[] memory arr, address a, address b) internal pure returns (bool) {
+        bool containsA;
+        bool containsB;
+        for (uint256 i = 0; i < arr.length; i++) {
+            if (arr[i] == a) containsA = true;
+            if (arr[i] == b) containsB = true;
+        }
+        return containsA && containsB;
+    }
+
+    /**
+     * @dev Builds an array of addresses based on the given ones
+     */
+    function from(address a, address b) internal pure returns (address[] memory result) {
+        result = new address[](2);
+        result[0] = a;
+        result[1] = b;
+    }
+
+    /**
+     * @dev Builds an array of addresses based on the given ones
+     */
+    function from(address a, address[] memory b, address c) internal pure returns (address[] memory result) {
+        result = new address[](b.length + 2);
+        result[0] = a;
+        for (uint256 i = 0; i < b.length; i++) result[i + 1] = b[i];
+        result[b.length + 1] = c;
+    }
 }

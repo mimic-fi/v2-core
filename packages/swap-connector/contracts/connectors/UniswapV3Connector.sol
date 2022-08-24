@@ -14,6 +14,9 @@
 
 pragma solidity ^0.8.0;
 
+import '@mimic-fi/v2-helpers/contracts/utils/Arrays.sol';
+import '@mimic-fi/v2-helpers/contracts/utils/Bytes.sol';
+
 import '@openzeppelin/contracts/token/ERC20/IERC20.sol';
 import '@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol';
 
@@ -21,17 +24,12 @@ import '@uniswap/v3-core/contracts/interfaces/IUniswapV3Factory.sol';
 import '@uniswap/v3-periphery/contracts/interfaces/ISwapRouter.sol';
 import '@uniswap/v3-periphery/contracts/interfaces/IPeripheryImmutableState.sol';
 
-import '../utils/Arrays.sol';
-import '../utils/Bytes.sol';
-
 /**
  * @title UniswapV3Connector
  * @dev Interfaces with Uniswap V3 to swap tokens
  */
 contract UniswapV3Connector {
     using Bytes for bytes;
-    using Arrays for uint24[];
-    using Arrays for address[];
     using SafeERC20 for IERC20;
 
     // Expected data length for Uniswap V3 single swaps: only for the fee + enum (uint24 + uint8)

@@ -14,6 +14,8 @@
 
 pragma solidity ^0.8.0;
 
+import '@mimic-fi/v2-helpers/contracts/utils/Arrays.sol';
+
 import '@openzeppelin/contracts/token/ERC20/IERC20.sol';
 import '@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol';
 import '@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol';
@@ -21,14 +23,11 @@ import '@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol';
 import '@uniswap/v2-core/contracts/interfaces/IUniswapV2Factory.sol';
 import '@uniswap/v2-periphery/contracts/interfaces/IUniswapV2Router02.sol';
 
-import '../utils/Arrays.sol';
-
 /**
  * @title UniswapV2Connector
  * @dev Interfaces with Uniswap V2 to swap tokens
  */
 contract UniswapV2Connector {
-    using Arrays for address[];
     using SafeERC20 for IERC20;
 
     // Expected data length for Uniswap V2 single swaps: only for the enum option (uint8)

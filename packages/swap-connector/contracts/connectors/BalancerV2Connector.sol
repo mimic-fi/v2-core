@@ -14,14 +14,13 @@
 
 pragma solidity ^0.8.0;
 
+import '@mimic-fi/v2-helpers/contracts/utils/Arrays.sol';
+
 import '@openzeppelin/contracts/token/ERC20/IERC20.sol';
 import '@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol';
 import '@openzeppelin/contracts/utils/math/SafeCast.sol';
 
 import '../interfaces/IBalancerV2Vault.sol';
-
-import '../utils/Arrays.sol';
-import '../utils/Bytes.sol';
 
 /**
  * @title BalancerV2Connector
@@ -29,7 +28,6 @@ import '../utils/Bytes.sol';
  */
 contract BalancerV2Connector {
     using Arrays for address[];
-    using Arrays for bytes32[];
     using SafeERC20 for IERC20;
 
     // Expected data length for Balancer V2 single swaps: only for the pool ID + enum (bytes32 + uint8)
