@@ -14,25 +14,48 @@
 
 pragma solidity ^0.8.0;
 
+import '@openzeppelin/contracts/proxy/Clones.sol';
+
 import '@mimic-fi/v2-helpers/contracts/auth/Authorizer.sol';
 
 import './IRegistry.sol';
 
 contract Registry is IRegistry, Authorizer {
-    mapping (bytes32 => mapping (address => bool)) public override isRegistered;
+    mapping (address => bool) internal activeImplementations;
+    mapping (address => bytes32) public override getNamespace;
 
-    constructor(address admin) Authorizer(admin) {
+    constructor(address admin) {
         _authorize(admin, Registry.register.selector);
         _authorize(admin, Registry.unregister.selector);
+        _authorize(admin, Authorizer.authorize.selector);
+        _authorize(admin, Authorizer.unauthorize.selector);
     }
 
     function register(bytes32 namespace, address implementation) external override auth {
-        isRegistered[namespace][implementation] = true;
+        require(namespace != bytes32(0), 'INVALID_NAMESPACE');
+        require(!activeImplementations[implementation], 'IMPLEMENTATION_REGISTERED');
+
+        bytes32 currentNamespace = getNamespace[implementation];
+        require(currentNamespace == bytes32(0) || currentNamespace == namespace, 'IMPLEMENTATION_NAMESPACE_USED');
+
+        getNamespace[implementation] = namespace;
+        activeImplementations[implementation] = true;
         emit Registered(namespace, implementation);
     }
 
     function unregister(bytes32 namespace, address implementation) external override auth {
-        isRegistered[namespace][implementation] = false;
+        require(activeImplementations[implementation], 'IMPLEMENTATION_NOT_REGISTERED');
+        activeImplementations[implementation] = false;
         emit Unregistered(namespace, implementation);
+    }
+
+    function clone(bytes32 namespace, address implementation) external override returns (address instance) {
+        require(isRegistered(namespace, implementation), 'IMPLEMENTATION_NOT_REGISTERED');
+        instance = Clones.clone(address(implementation));
+        emit Cloned(namespace, implementation, instance);
+    }
+
+    function isRegistered(bytes32 namespace, address implementation) public view override returns (bool) {
+        return activeImplementations[implementation] && getNamespace[implementation] == namespace;
     }
 }

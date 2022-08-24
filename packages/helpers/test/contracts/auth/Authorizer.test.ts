@@ -17,7 +17,7 @@ describe('Authorizer', () => {
   })
 
   beforeEach('create authorizer', async () => {
-    authorizer = await deploy('Authorizer', [admin.address])
+    authorizer = await deploy('AuthorizerMock', [admin.address])
   })
 
   describe('initialization', () => {

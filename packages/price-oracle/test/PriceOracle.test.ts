@@ -7,7 +7,7 @@ describe('PriceOracle', () => {
   let admin: SignerWithAddress, other: SignerWithAddress
   let oracle: Contract, registry: Contract, base: Contract, quote: Contract, feed: Contract
 
-  const PIVOT = '0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee' // ETH
+  const PIVOT = '0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE' // ETH
 
   before('set up signers', async () => {
     // eslint-disable-next-line prettier/prettier
@@ -16,7 +16,36 @@ describe('PriceOracle', () => {
 
   beforeEach('create oracle', async () => {
     registry = await deploy('@mimic-fi/v2-registry/artifacts/contracts/Registry.sol/Registry', [admin.address])
-    oracle = await deploy('PriceOracle', [PIVOT, admin.address, registry.address])
+    oracle = await deploy('PriceOracle', [PIVOT, registry.address])
+    await oracle.initialize(admin.address)
+  })
+
+  describe('initialize', async () => {
+    it('has registry and pivot references', async () => {
+      expect(await oracle.pivot()).to.be.equal(PIVOT)
+      expect(await oracle.registry()).to.be.equal(registry.address)
+    })
+
+    it('authorizes the admin to authorize', async () => {
+      const authorizeRole = oracle.interface.getSighash('authorize')
+      expect(await oracle.isAuthorized(admin.address, authorizeRole)).to.be.true
+    })
+
+    it('authorizes the admin to unauthorize', async () => {
+      const unauthorizeRole = oracle.interface.getSighash('unauthorize')
+      expect(await oracle.isAuthorized(admin.address, unauthorizeRole)).to.be.true
+    })
+
+    it('authorizes the admin to set feeds', async () => {
+      const setFeedsRole = oracle.interface.getSighash('setFeeds')
+      expect(await oracle.isAuthorized(admin.address, setFeedsRole)).to.be.true
+    })
+
+    it('cannot be initialize twice', async () => {
+      await expect(oracle.initialize(admin.address)).to.be.revertedWith(
+        'Initializable: contract is already initialized'
+      )
+    })
   })
 
   describe('setFeeds', () => {
@@ -95,10 +124,6 @@ describe('PriceOracle', () => {
         })
 
         context('when the feed is not in the registry', () => {
-          beforeEach('register feed in registry', async () => {
-            await registry.connect(admin).unregister(await oracle.FEEDS_NAMESPACE(), feed.address)
-          })
-
           itCanBeUpdated()
         })
       })
@@ -185,10 +210,6 @@ describe('PriceOracle', () => {
         })
 
         context('when the feed is not in the registry', () => {
-          beforeEach('unregister feed in registry', async () => {
-            await registry.connect(admin).unregister(await oracle.FEEDS_NAMESPACE(), feed.address)
-          })
-
           context('when the feed is set', () => {
             beforeEach('set feed', async () => {
               await oracle.connect(admin).setFeeds([base.address], [quote.address], [feed.address])

@@ -14,34 +14,35 @@
 
 pragma solidity ^0.8.0;
 
-import '@mimic-fi/v2-helpers/contracts/auth/Authorizer.sol';
-import '@mimic-fi/v2-helpers/contracts/math/FixedPoint.sol';
-import '@mimic-fi/v2-registry/contracts/IRegistry.sol';
-
 import '@chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol';
-
 import '@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol';
 import '@openzeppelin/contracts/utils/math/SafeCast.sol';
 
+import '@mimic-fi/v2-helpers/contracts/auth/Authorizer.sol';
+import '@mimic-fi/v2-helpers/contracts/math/FixedPoint.sol';
+import '@mimic-fi/v2-registry/contracts/Implementation.sol';
+import '@mimic-fi/v2-registry/contracts/IRegistry.sol';
+
 import './IPriceOracle.sol';
 
-contract PriceOracle is IPriceOracle, Authorizer {
+contract PriceOracle is IPriceOracle, Implementation {
     using FixedPoint for uint256;
 
-    bytes32 public constant NAMESPACE = keccak256('PRICE_ORACLE');
     bytes32 public constant FEEDS_NAMESPACE = keccak256('PRICE_ORACLE_FEEDS');
 
     uint256 private constant FP_DECIMALS = 18;
     uint256 private constant INVERSE_FEED_MAX_DECIMALS = 36;
 
     address public immutable pivot;
-    IRegistry public immutable registry;
     mapping (address => mapping (address => address)) public feeds;
 
-    constructor(address _pivot, address _admin, IRegistry _registry) Authorizer(_admin) {
+    constructor(address _pivot, IRegistry _registry) Implementation(_registry) {
         pivot = _pivot;
-        registry = _registry;
-        _authorize(_admin, PriceOracle.setFeeds.selector);
+    }
+
+    function initialize(address admin) external initializer {
+        _initialize(admin);
+        _authorize(admin, PriceOracle.setFeeds.selector);
     }
 
     function getFeed(address base, address quote) public view override returns (address) {
