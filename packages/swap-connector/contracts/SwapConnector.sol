@@ -14,8 +14,6 @@
 
 pragma solidity ^0.8.0;
 
-import '@mimic-fi/v2-helpers/contracts/math/FixedPoint.sol';
-
 import './ISwapConnector.sol';
 import './connectors/UniswapV3Connector.sol';
 import './connectors/UniswapV2Connector.sol';
@@ -28,7 +26,7 @@ import './connectors/BalancerV2Connector.sol';
  *      at any time, and Uniswap V2 is being used by default.
  */
 contract SwapConnector is ISwapConnector, UniswapV3Connector, UniswapV2Connector, BalancerV2Connector {
-    using FixedPoint for uint256;
+    bytes32 public constant NAMESPACE = keccak256('SWAP_CONNECTOR');
 
     /**
      * @dev Initializes the SwapConnector contract
