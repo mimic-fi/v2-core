@@ -42,6 +42,10 @@ contract Registry is IRegistry, Authorizer {
         _authorize(admin, Authorizer.unauthorize.selector);
     }
 
+    function isRegistered(bytes32 namespace, address implementation) public view override returns (bool) {
+        return isActive[implementation] && getNamespace[implementation] == namespace;
+    }
+
     function register(bytes32 namespace, address implementation) external override auth {
         require(namespace != bytes32(0), 'INVALID_NAMESPACE');
         require(implementation != address(0), 'INVALID_IMPLEMENTATION');
@@ -71,9 +75,5 @@ contract Registry is IRegistry, Authorizer {
             ? new bytes(0)
             : instance.functionCall(initializeData, 'CLONE_INIT_FAILED');
         emit Cloned(getNamespace[implementation], implementation, instance, result);
-    }
-
-    function isRegistered(bytes32 namespace, address implementation) public view override returns (bool) {
-        return isActive[implementation] && getNamespace[implementation] == namespace;
     }
 }

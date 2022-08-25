@@ -19,17 +19,17 @@ interface IRegistry {
     event Deprecated(bytes32 indexed namespace, address indexed implementation);
     event Cloned(bytes32 indexed namespace, address indexed implementation, address instance, bytes initResult);
 
-    function register(bytes32 namespace, address implementation) external;
-
-    function deprecate(address implementation) external;
-
-    function clone(address implementation, bytes memory initializeData) external returns (address);
+    function isActive(address implementation) external view returns (bool);
 
     function getNamespace(address implementation) external view returns (bytes32);
 
     function getImplementation(address cloned) external view returns (address);
 
-    function isActive(address implementation) external view returns (bool);
-
     function isRegistered(bytes32 namespace, address implementation) external view returns (bool);
+
+    function register(bytes32 namespace, address implementation) external;
+
+    function deprecate(address implementation) external;
+
+    function clone(address implementation, bytes memory initializeData) external returns (address);
 }
