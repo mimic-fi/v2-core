@@ -18,11 +18,22 @@ import '@mimic-fi/v2-helpers/contracts/auth/Authorizer.sol';
 
 import './BaseImplementation.sol';
 
+/**
+ * @dev BaseImplementation using the Authorizer mixin. Implementations that want to use the Authorizer permissions
+ * mechanism should inherit from this contract instead.
+ */
 abstract contract AuthorizedImplementation is BaseImplementation, Authorizer {
+    /**
+     * @dev Creates a new AuthorizedImplementation
+     */
     constructor(IRegistry registry) BaseImplementation(registry) {
         // solhint-disable-previous-line no-empty-blocks
     }
 
+    /**
+     * @dev Initialization function that authorizes an admin account to authorize and unauthorize accounts.
+     * Note this function can only be called from a function marked with the `initializer` modifier.
+     */
     function _initialize(address admin) internal onlyInitializing {
         _initialize();
         _authorize(admin, Authorizer.authorize.selector);

@@ -19,16 +19,30 @@ import '@openzeppelin/contracts/proxy/utils/Initializable.sol';
 import './IImplementation.sol';
 import '../registry/IRegistry.sol';
 
+/**
+ * @dev Implementation contract to be used through proxies. Inheriting contracts are meant to be initialized through
+ * initialization functions instead of constructor functions. It allows re-using the same logic contract while making
+ * deployments cheaper.
+ *
+ * This implementation contract comes with an immutable reference to an implementations registry where it should be
+ * registered as well (checked during initialization). It allows requesting new instances of other registered
+ * implementations to as another safety check to make sure valid instances are referenced in case it's needed.
+ */
 abstract contract BaseImplementation is IImplementation, Initializable {
+    // Immutable implementations registry reference
     IRegistry public immutable registry;
 
+    /**
+     * @dev Creates a new BaseImplementation. Note that initializers are disabled at creation time.
+     */
     constructor(IRegistry _registry) {
         registry = _registry;
         _disableInitializers();
     }
 
     /**
-     * @dev Internal function to check a new instance is properly set up in the registry
+     * @dev Initialization function to check a new instance is properly set up in the registry.
+     * Note this function can only be called from a function marked with the `initializer` modifier.
      */
     function _initialize() internal view onlyInitializing {
         address implementation = registry.getImplementation(address(this));
@@ -37,6 +51,11 @@ abstract contract BaseImplementation is IImplementation, Initializable {
         require(registry.getNamespace(implementation) == this.NAMESPACE(), 'INVALID_REGISTERED_NAMESPACE');
     }
 
+    /**
+     * @dev Internal function to create a new instance of a registered implementation
+     *      It checks the requested implementation is registered in the same registry under the same namespace
+     *      In case the current instance was not set, it simply creates a new instance for the requested implementation
+     */
     function _createInstanceFor(address currentInstance, address newImplementation, bytes memory initializeData)
         internal
         returns (address)
