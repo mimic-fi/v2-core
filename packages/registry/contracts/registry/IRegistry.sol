@@ -16,16 +16,20 @@ pragma solidity >=0.8.0;
 
 interface IRegistry {
     event Registered(bytes32 indexed namespace, address indexed implementation);
-    event Unregistered(bytes32 indexed namespace, address indexed implementation);
-    event Cloned(bytes32 indexed namespace, address indexed implementation, address instance);
-
-    function clone(bytes32 namespace, address implementation) external returns (address);
+    event Deprecated(bytes32 indexed namespace, address indexed implementation);
+    event Cloned(bytes32 indexed namespace, address indexed implementation, address instance, bytes initResult);
 
     function register(bytes32 namespace, address implementation) external;
 
-    function unregister(bytes32 namespace, address implementation) external;
+    function deprecate(address implementation) external;
+
+    function clone(address implementation, bytes memory initializeData) external returns (address);
 
     function getNamespace(address implementation) external view returns (bytes32);
+
+    function getImplementation(address cloned) external view returns (address);
+
+    function isActive(address implementation) external view returns (bool);
 
     function isRegistered(bytes32 namespace, address implementation) external view returns (bool);
 }

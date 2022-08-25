@@ -9,7 +9,9 @@
   },
   "files": [
     "artifacts/contracts/**/*",
-    "contracts",
+    "!artifacts/contracts/test/*",
+    "contracts/**/*",
+    "!contracts/test/*",
     "dist"
   ],
   "scripts": {

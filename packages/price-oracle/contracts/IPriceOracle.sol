@@ -35,6 +35,4 @@ interface IPriceOracle {
     function getPrice(address base, address quote) external view returns (uint256);
 
     function setFeeds(address[] memory bases, address[] memory quotes, address[] memory feeds) external;
-
-    function setRegisteredFeeds(address[] memory bases, address[] memory quotes, address[] memory feeds) external;
 }

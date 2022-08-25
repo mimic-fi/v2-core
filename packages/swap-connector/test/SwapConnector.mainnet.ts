@@ -1,5 +1,6 @@
 import { defaultAbiCoder } from '@ethersproject/abi'
 import { deploy, fp, getSigners, impersonate, instanceAt, pct } from '@mimic-fi/v2-helpers'
+import { createClone } from '@mimic-fi/v2-registry'
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/dist/src/signer-with-address'
 import { expect } from 'chai'
 import { BigNumber, Contract } from 'ethers'
@@ -44,14 +45,19 @@ describe('SwapConnector', () => {
   })
 
   before('create price oracle', async () => {
-    const registry = await deploy('@mimic-fi/v2-registry/artifacts/contracts/Registry.sol/Registry', [admin.address])
-
-    oracle = await deploy('@mimic-fi/v2-price-oracle/artifacts/contracts/PriceOracle.sol/PriceOracle', [
-      WETH,
+    const registry = await deploy('@mimic-fi/v2-registry/artifacts/contracts/registry/Registry.sol/Registry', [
       admin.address,
-      registry.address,
     ])
+    oracle = await createClone(
+      registry,
+      admin,
+      '@mimic-fi/v2-price-oracle/artifacts/contracts/PriceOracle.sol/PriceOracle',
+      [WETH, registry.address],
+      [admin.address]
+    )
 
+    await registry.connect(admin).register(await oracle.FEEDS_NAMESPACE(), CHAINLINK_ORACLE_USDC_ETH)
+    await registry.connect(admin).register(await oracle.FEEDS_NAMESPACE(), CHAINLINK_ORACLE_WBTC_ETH)
     await oracle
       .connect(admin)
       .setFeeds([USDC, WBTC], [WETH, WETH], [CHAINLINK_ORACLE_USDC_ETH, CHAINLINK_ORACLE_WBTC_ETH])

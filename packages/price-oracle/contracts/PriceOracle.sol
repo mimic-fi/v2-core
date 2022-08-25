@@ -18,17 +18,16 @@ import '@chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol';
 import '@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol';
 import '@openzeppelin/contracts/utils/math/SafeCast.sol';
 
-import '@mimic-fi/v2-helpers/contracts/auth/Authorizer.sol';
 import '@mimic-fi/v2-helpers/contracts/math/FixedPoint.sol';
-import '@mimic-fi/v2-registry/contracts/Implementation.sol';
-import '@mimic-fi/v2-registry/contracts/IRegistry.sol';
+import '@mimic-fi/v2-registry/contracts/implementations/AuthorizedImplementation.sol';
 
 import './IPriceOracle.sol';
 
-contract PriceOracle is IPriceOracle, Implementation {
+contract PriceOracle is IPriceOracle, AuthorizedImplementation {
     using FixedPoint for uint256;
 
     bytes32 public constant FEEDS_NAMESPACE = keccak256('PRICE_ORACLE_FEEDS');
+    bytes32 public constant override NAMESPACE = keccak256('PRICE_ORACLE}');
 
     uint256 private constant FP_DECIMALS = 18;
     uint256 private constant INVERSE_FEED_MAX_DECIMALS = 36;
@@ -36,7 +35,7 @@ contract PriceOracle is IPriceOracle, Implementation {
     address public immutable pivot;
     mapping (address => mapping (address => address)) public feeds;
 
-    constructor(address _pivot, IRegistry _registry) Implementation(_registry) {
+    constructor(address _pivot, IRegistry _registry) AuthorizedImplementation(_registry) {
         pivot = _pivot;
     }
 
@@ -71,23 +70,12 @@ contract PriceOracle is IPriceOracle, Implementation {
     {
         require(bases.length == quotes.length, 'SET_FEEDS_INVALID_QUOTES_LENGTH');
         require(bases.length == priceFeeds.length, 'SET_FEEDS_INVALID_FEEDS_LENGTH');
-        for (uint256 i = 0; i < bases.length; i++) _setFeed(bases[i], quotes[i], priceFeeds[i], false);
-    }
-
-    function setRegisteredFeeds(address[] memory bases, address[] memory quotes, address[] memory priceFeeds)
-        external
-        override
-        auth
-    {
-        require(bases.length == quotes.length, 'SET_FEEDS_INVALID_QUOTES_LENGTH');
-        require(bases.length == priceFeeds.length, 'SET_FEEDS_INVALID_FEEDS_LENGTH');
-        for (uint256 i = 0; i < bases.length; i++) _setFeed(bases[i], quotes[i], priceFeeds[i], true);
-    }
-
-    function _setFeed(address base, address quote, address feed, bool validate) internal {
-        require(!validate || registry.isRegistered(FEEDS_NAMESPACE, feed), 'FEED_NOT_REGISTERED');
-        feeds[base][quote] = feed;
-        emit FeedSet(base, quote, feed);
+        for (uint256 i = 0; i < bases.length; i++) {
+            address feed = priceFeeds[i];
+            require(feed == address(0) || registry.isRegistered(FEEDS_NAMESPACE, feed), 'FEED_NOT_REGISTERED');
+            feeds[bases[i]][quotes[i]] = feed;
+            emit FeedSet(bases[i], quotes[i], feed);
+        }
     }
 
     function _getPrice(address base, address quote) internal view returns (uint256 price, uint256 decimals) {

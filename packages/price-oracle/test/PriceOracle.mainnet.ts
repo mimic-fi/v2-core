@@ -1,4 +1,5 @@
 import { assertAlmostEqual, deploy, fp, getSigners } from '@mimic-fi/v2-helpers'
+import { createClone } from '@mimic-fi/v2-registry'
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/dist/src/signer-with-address'
 import { Contract } from 'ethers'
 
@@ -14,7 +15,7 @@ const CHAINLINK_ORACLE_USDC_ETH = '0x986b5E1e1755e3C2440e960477f25201B0a8bbD4'
 const CHAINLINK_ORACLE_WBTC_ETH = '0xdeb288F737066589598e9214E782fa5A8eD689e8'
 
 describe('PriceOracle', () => {
-  let oracle: Contract, admin: SignerWithAddress
+  let oracle: Contract, registry: Contract, admin: SignerWithAddress
 
   const ERROR = 0.01
   const ETH_USD = 1610
@@ -27,16 +28,13 @@ describe('PriceOracle', () => {
   })
 
   before('create price oracle', async () => {
-    const registry = await deploy('@mimic-fi/v2-registry/artifacts/contracts/Registry.sol/Registry', [admin.address])
-    oracle = await deploy('@mimic-fi/v2-price-oracle/artifacts/contracts/PriceOracle.sol/PriceOracle', [
-      WETH,
-      admin.address,
-      registry.address,
-    ])
+    registry = await deploy('@mimic-fi/v2-registry/artifacts/contracts/registry/Registry.sol/Registry', [admin.address])
+    oracle = await createClone(registry, admin, 'PriceOracle', [WETH, registry.address], [admin.address])
   })
 
   context('WETH - DAI', () => {
     before('set feed', async () => {
+      await registry.connect(admin).register(await oracle.FEEDS_NAMESPACE(), CHAINLINK_ORACLE_DAI_ETH)
       await oracle.connect(admin).setFeeds([DAI], [WETH], [CHAINLINK_ORACLE_DAI_ETH])
     })
 
@@ -55,6 +53,7 @@ describe('PriceOracle', () => {
 
   context('WETH - USDC', () => {
     before('set feed', async () => {
+      await registry.connect(admin).register(await oracle.FEEDS_NAMESPACE(), CHAINLINK_ORACLE_USDC_ETH)
       await oracle.connect(admin).setFeeds([USDC], [WETH], [CHAINLINK_ORACLE_USDC_ETH])
     })
 
@@ -73,6 +72,7 @@ describe('PriceOracle', () => {
 
   context('WETH - WBTC', () => {
     before('set feed', async () => {
+      await registry.connect(admin).register(await oracle.FEEDS_NAMESPACE(), CHAINLINK_ORACLE_WBTC_ETH)
       await oracle.connect(admin).setFeeds([WBTC], [WETH], [CHAINLINK_ORACLE_WBTC_ETH])
     })
 

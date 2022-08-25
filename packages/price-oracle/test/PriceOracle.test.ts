@@ -1,4 +1,5 @@
 import { assertEvent, bn, deploy, getSigners, ZERO_ADDRESS } from '@mimic-fi/v2-helpers'
+import { createClone } from '@mimic-fi/v2-registry'
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/dist/src/signer-with-address'
 import { expect } from 'chai'
 import { Contract } from 'ethers'
@@ -15,9 +16,8 @@ describe('PriceOracle', () => {
   })
 
   beforeEach('create oracle', async () => {
-    registry = await deploy('@mimic-fi/v2-registry/artifacts/contracts/Registry.sol/Registry', [admin.address])
-    oracle = await deploy('PriceOracle', [PIVOT, registry.address])
-    await oracle.initialize(admin.address)
+    registry = await deploy('@mimic-fi/v2-registry/artifacts/contracts/registry/Registry.sol/Registry', [admin.address])
+    oracle = await createClone(registry, admin, 'PriceOracle', [PIVOT, registry.address], [admin.address])
   })
 
   describe('initialize', async () => {
@@ -63,68 +63,60 @@ describe('PriceOracle', () => {
       })
 
       context('when the input length is valid', () => {
-        const itCanBeUpdated = () => {
-          context('when the feed is set', () => {
-            beforeEach('set feed', async () => {
-              await oracle.setFeeds([base.address], [quote.address], [feed.address])
-              expect(await oracle.getFeed(base.address, quote.address)).to.be.equal(feed.address)
-            })
-
-            it('can be set', async () => {
-              const tx = await oracle.setFeeds([base.address], [quote.address], [feed.address])
-
-              expect(await oracle.hasFeed(base.address, quote.address)).to.be.true
-              expect(await oracle.getFeed(base.address, quote.address)).to.be.equal(feed.address)
-
-              await assertEvent(tx, 'FeedSet', { base, quote, feed })
-            })
-
-            it('can be unset', async () => {
-              const tx = await oracle.setFeeds([base.address], [quote.address], [ZERO_ADDRESS])
-
-              expect(await oracle.hasFeed(base.address, quote.address)).to.be.false
-              expect(await oracle.getFeed(base.address, quote.address)).to.be.equal(ZERO_ADDRESS)
-
-              await assertEvent(tx, 'FeedSet', { base, quote, feed: ZERO_ADDRESS })
-            })
-          })
-
-          context('when the feed is not set', () => {
-            beforeEach('unset feed', async () => {
-              await oracle.setFeeds([base.address], [quote.address], [ZERO_ADDRESS])
-              expect(await oracle.getFeed(base.address, quote.address)).to.be.equal(ZERO_ADDRESS)
-            })
-
-            it('can be set', async () => {
-              const tx = await oracle.setFeeds([base.address], [quote.address], [feed.address])
-
-              expect(await oracle.hasFeed(base.address, quote.address)).to.be.true
-              expect(await oracle.getFeed(base.address, quote.address)).to.be.equal(feed.address)
-
-              await assertEvent(tx, 'FeedSet', { base, quote, feed })
-            })
-
-            it('can be unset', async () => {
-              const tx = await oracle.setFeeds([base.address], [quote.address], [ZERO_ADDRESS])
-
-              expect(await oracle.hasFeed(base.address, quote.address)).to.be.false
-              expect(await oracle.getFeed(base.address, quote.address)).to.be.equal(ZERO_ADDRESS)
-
-              await assertEvent(tx, 'FeedSet', { base, quote, feed: ZERO_ADDRESS })
-            })
-          })
-        }
-
         context('when the feed is in the registry', () => {
           beforeEach('register feed in registry', async () => {
             await registry.connect(admin).register(await oracle.FEEDS_NAMESPACE(), feed.address)
           })
 
-          itCanBeUpdated()
+          const itCanBeSet = () => {
+            it('can be set', async () => {
+              const tx = await oracle.setFeeds([base.address], [quote.address], [feed.address])
+
+              expect(await oracle.hasFeed(base.address, quote.address)).to.be.true
+              expect(await oracle.getFeed(base.address, quote.address)).to.be.equal(feed.address)
+
+              await assertEvent(tx, 'FeedSet', { base, quote, feed })
+            })
+          }
+
+          const itCanBeUnset = () => {
+            it('can be unset', async () => {
+              const tx = await oracle.setFeeds([base.address], [quote.address], [ZERO_ADDRESS])
+
+              expect(await oracle.hasFeed(base.address, quote.address)).to.be.false
+              expect(await oracle.getFeed(base.address, quote.address)).to.be.equal(ZERO_ADDRESS)
+
+              await assertEvent(tx, 'FeedSet', { base, quote, feed: ZERO_ADDRESS })
+            })
+          }
+
+          context('when the feed is set', () => {
+            beforeEach('set feed', async () => {
+              await oracle.connect(admin).setFeeds([base.address], [quote.address], [feed.address])
+              expect(await oracle.getFeed(base.address, quote.address)).to.be.equal(feed.address)
+            })
+
+            itCanBeSet()
+            itCanBeUnset()
+          })
+
+          context('when the feed is not set', () => {
+            beforeEach('unset feed', async () => {
+              await oracle.connect(admin).setFeeds([base.address], [quote.address], [ZERO_ADDRESS])
+              expect(await oracle.getFeed(base.address, quote.address)).to.be.equal(ZERO_ADDRESS)
+            })
+
+            itCanBeSet()
+            itCanBeUnset()
+          })
         })
 
         context('when the feed is not in the registry', () => {
-          itCanBeUpdated()
+          it('reverts', async () => {
+            await expect(oracle.setFeeds([base.address], [quote.address], [feed.address])).to.be.revertedWith(
+              'FEED_NOT_REGISTERED'
+            )
+          })
         })
       })
 
@@ -143,116 +135,6 @@ describe('PriceOracle', () => {
     context('when the sender is not authorized', () => {
       it('reverts', async () => {
         await expect(oracle.setFeeds([base.address], [quote.address], [ZERO_ADDRESS])).to.be.revertedWith(
-          'AUTH_SENDER_NOT_ALLOWED'
-        )
-      })
-    })
-  })
-
-  describe('setRegisteredFeeds', () => {
-    beforeEach('deploy feed and tokens', async () => {
-      feed = await deploy('FeedMock', [0, 0])
-      base = await deploy('TokenMock', ['BASE', 18])
-      quote = await deploy('TokenMock', ['QUOTE', 18])
-    })
-
-    context('when the sender is authorized', () => {
-      beforeEach('authorize', async () => {
-        const setRegisteredFeedsRole = oracle.interface.getSighash('setRegisteredFeeds')
-        await oracle.connect(admin).authorize(other.address, setRegisteredFeedsRole)
-        oracle = oracle.connect(other)
-      })
-
-      context('when the input length is valid', () => {
-        context('when the feed is in the registry', () => {
-          beforeEach('register feed in registry', async () => {
-            await registry.connect(admin).register(await oracle.FEEDS_NAMESPACE(), feed.address)
-          })
-
-          const itCanBeSet = () => {
-            it('can be set', async () => {
-              const tx = await oracle.setRegisteredFeeds([base.address], [quote.address], [feed.address])
-
-              expect(await oracle.hasFeed(base.address, quote.address)).to.be.true
-              expect(await oracle.getFeed(base.address, quote.address)).to.be.equal(feed.address)
-
-              await assertEvent(tx, 'FeedSet', { base, quote, feed })
-            })
-          }
-
-          const itCannotBeUnset = () => {
-            it('cannot be unset', async () => {
-              await expect(
-                oracle.setRegisteredFeeds([base.address], [quote.address], [ZERO_ADDRESS])
-              ).to.be.revertedWith('FEED_NOT_REGISTERED')
-            })
-          }
-
-          context('when the feed is set', () => {
-            beforeEach('set feed', async () => {
-              await oracle.connect(admin).setFeeds([base.address], [quote.address], [feed.address])
-              expect(await oracle.getFeed(base.address, quote.address)).to.be.equal(feed.address)
-            })
-
-            itCanBeSet()
-            itCannotBeUnset()
-          })
-
-          context('when the feed is not set', () => {
-            beforeEach('unset feed', async () => {
-              await oracle.connect(admin).setFeeds([base.address], [quote.address], [ZERO_ADDRESS])
-              expect(await oracle.getFeed(base.address, quote.address)).to.be.equal(ZERO_ADDRESS)
-            })
-
-            itCanBeSet()
-            itCannotBeUnset()
-          })
-        })
-
-        context('when the feed is not in the registry', () => {
-          context('when the feed is set', () => {
-            beforeEach('set feed', async () => {
-              await oracle.connect(admin).setFeeds([base.address], [quote.address], [feed.address])
-              expect(await oracle.getFeed(base.address, quote.address)).to.be.equal(feed.address)
-            })
-
-            it('reverts', async () => {
-              await expect(
-                oracle.setRegisteredFeeds([base.address], [quote.address], [feed.address])
-              ).to.be.revertedWith('FEED_NOT_REGISTERED')
-            })
-          })
-
-          context('when the feed is not set', () => {
-            beforeEach('unset feed', async () => {
-              await oracle.connect(admin).setFeeds([base.address], [quote.address], [ZERO_ADDRESS])
-              expect(await oracle.getFeed(base.address, quote.address)).to.be.equal(ZERO_ADDRESS)
-            })
-
-            it('reverts', async () => {
-              await expect(
-                oracle.setRegisteredFeeds([base.address], [quote.address], [feed.address])
-              ).to.be.revertedWith('FEED_NOT_REGISTERED')
-            })
-          })
-        })
-      })
-
-      context('when the input is invalid', () => {
-        it('reverts', async () => {
-          await expect(
-            oracle.setRegisteredFeeds([base.address], [quote.address, ZERO_ADDRESS], [ZERO_ADDRESS])
-          ).to.be.revertedWith('SET_FEEDS_INVALID_QUOTES_LENGTH')
-          await expect(
-            oracle.setRegisteredFeeds([base.address], [quote.address], [ZERO_ADDRESS, ZERO_ADDRESS])
-          ).to.be.revertedWith('SET_FEEDS_INVALID_FEEDS_LENGTH')
-        })
-      })
-    })
-
-    context('when the sender is not authorized', () => {
-      it('reverts', async () => {
-        await expect(oracle.setRegisteredFeeds([base.address], [quote.address], [ZERO_ADDRESS])).to.be.revertedWith(
           'AUTH_SENDER_NOT_ALLOWED'
         )
       })
@@ -297,6 +179,7 @@ describe('PriceOracle', () => {
 
         beforeEach('set feed', async () => {
           const feed = await deploy('FeedMock', [reportedPrice, feedDecimals])
+          await registry.connect(admin).register(await oracle.FEEDS_NAMESPACE(), feed.address)
           await oracle.connect(admin).setFeeds([base.address], [quote.address], [feed.address])
         })
 
@@ -580,6 +463,7 @@ describe('PriceOracle', () => {
 
         beforeEach('set inverse feed', async () => {
           const feed = await deploy('FeedMock', [reportedInversePrice, feedDecimals])
+          await registry.connect(admin).register(await oracle.FEEDS_NAMESPACE(), feed.address)
           await oracle.connect(admin).setFeeds([quote.address], [base.address], [feed.address])
         })
 
@@ -883,6 +767,8 @@ describe('PriceOracle', () => {
         beforeEach('set feed', async () => {
           const baseFeed = await deploy('FeedMock', [reportedBasePrice, baseFeedDecimals])
           const quoteFeed = await deploy('FeedMock', [reportedQuotePrice, quoteFeedDecimals])
+          await registry.connect(admin).register(await oracle.FEEDS_NAMESPACE(), baseFeed.address)
+          await registry.connect(admin).register(await oracle.FEEDS_NAMESPACE(), quoteFeed.address)
           await oracle
             .connect(admin)
             .setFeeds([base.address, quote.address], [PIVOT, PIVOT], [baseFeed.address, quoteFeed.address])
