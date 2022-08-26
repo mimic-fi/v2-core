@@ -111,5 +111,45 @@ jobs:
           details: Test cancelled!
           webhookUrl: ${{ secrets.DISCORD_WEBHOOK }}
 
+  integration:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Install node
+        uses: actions/setup-node@v1
+        with:
+          node-version: 14
+      - name: Cache
+        uses: actions/cache@v2
+        id: cache
+        with:
+          path: "**/node_modules"
+          key: yarn-v1-${{ hashFiles('**/yarn.lock') }}
+      - name: Install
+        run: yarn --immutable
+        if: steps.cache.outputs.cache-hit != 'true'
+      - name: Setup hardhat config
+        run: .github/scripts/setup-hardhat-config.sh ${{secrets.MAINNET_RPC}} ${{secrets.POLYGON_RPC}}
+      - name: Build
+        run: yarn build
+      - name: Test price oracle mainnet
+        run: yarn workspace @mimic-fi/v2-price-oracle test:mainnet
+      - name: Test swap connector mainnet
+        run: yarn workspace @mimic-fi/v2-swap-connector test:mainnet
+      - name: Test failure
+        uses: rjstone/discord-webhook-notify@v1
+        if: failure()
+        with:
+          severity: error
+          details: Test failed!
+          webhookUrl: ${{ secrets.DISCORD_WEBHOOK }}
+      - name: Test cancelled
+        uses: rjstone/discord-webhook-notify@v1
+        if: cancelled()
+        with:
+          severity: warn
+          details: Test cancelled!
+          webhookUrl: ${{ secrets.DISCORD_WEBHOOK }}
+
 env:
   CI: true
