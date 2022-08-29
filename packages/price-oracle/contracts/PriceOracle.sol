@@ -27,7 +27,7 @@ contract PriceOracle is IPriceOracle, AuthorizedImplementation {
     using FixedPoint for uint256;
 
     bytes32 public constant FEEDS_NAMESPACE = keccak256('PRICE_ORACLE_FEEDS');
-    bytes32 public constant override NAMESPACE = keccak256('PRICE_ORACLE}');
+    bytes32 public constant override NAMESPACE = keccak256('PRICE_ORACLE');
 
     uint256 private constant FP_DECIMALS = 18;
     uint256 private constant INVERSE_FEED_MAX_DECIMALS = 36;
