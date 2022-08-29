@@ -48,7 +48,6 @@ abstract contract BaseImplementation is IImplementation, Initializable {
         address implementation = registry.getImplementation(address(this));
         require(implementation != address(0), 'IMPLEMENTATION_NOT_REGISTERED');
         require(registry.isRegistered(this.NAMESPACE(), implementation), 'INVALID_NEW_IMPL_NAMESPACE');
-        require(registry.getNamespace(implementation) == this.NAMESPACE(), 'INVALID_REGISTERED_NAMESPACE');
     }
 
     /**
@@ -65,9 +64,13 @@ abstract contract BaseImplementation is IImplementation, Initializable {
             address currentImplementation = registry.getImplementation(currentInstance);
             require(currentImplementation != address(0), 'CURRENT_IMPL_NOT_REGISTERED');
 
-            // Make sure namespaces match for current and new implementations
+            // Make sure new implementation is registered
+            bytes32 newNamespace = registry.getNamespace(newImplementation);
+            require(newNamespace != bytes32(0), 'NEW_IMPL_NOT_REGISTERED');
+
+            // Make sure namespaces match
             bytes32 currentNamespace = registry.getNamespace(currentImplementation);
-            require(registry.isRegistered(currentNamespace, newImplementation), 'INVALID_NEW_IMPL_NAMESPACE');
+            require(currentNamespace == newNamespace, 'INVALID_NEW_IMPL_NAMESPACE');
         }
 
         // The registry checks the requested implementation is registered and active

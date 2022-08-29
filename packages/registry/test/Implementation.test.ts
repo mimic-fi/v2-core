@@ -65,38 +65,54 @@ describe('BaseImplementation', () => {
           await implementation.setDependency(dependency.address, dependencyInitializeData)
         })
 
-        context('when the requested dependency implementation is registered with the same namespace', async () => {
-          it('can be set', async () => {
-            const previousDependency = await instance.dependency()
+        context('when the requested dependency implementation is registered', async () => {
+          context('when the requested implementation is registered with the same namespace', async () => {
+            it('can be set', async () => {
+              const previousDependency = await instance.dependency()
 
-            const tx = await instance.setDependency(dependency.address, dependencyInitializeData)
-            const event = await assertIndirectEvent(tx, registry.interface, 'Cloned', { implementation: dependency })
+              const tx = await instance.setDependency(dependency.address, dependencyInitializeData)
+              const event = await assertIndirectEvent(tx, registry.interface, 'Cloned', { implementation: dependency })
 
-            const dependencyInstance = await instanceAt('AuthorizedImplementation', event.args.instance)
-            expect(dependencyInstance.address).not.to.be.equal(previousDependency)
-            expect(await instance.dependency()).to.be.equal(dependencyInstance.address)
-            expect(await registry.getImplementation(dependencyInstance.address)).to.be.equal(dependency.address)
+              const dependencyInstance = await instanceAt('AuthorizedImplementation', event.args.instance)
+              expect(dependencyInstance.address).not.to.be.equal(previousDependency)
+              expect(await instance.dependency()).to.be.equal(dependencyInstance.address)
+              expect(await registry.getImplementation(dependencyInstance.address)).to.be.equal(dependency.address)
 
-            const authorizeRole = dependencyInstance.interface.getSighash('authorize')
-            expect(await dependencyInstance.isAuthorized(admin.address, authorizeRole)).to.be.true
+              const authorizeRole = dependencyInstance.interface.getSighash('authorize')
+              expect(await dependencyInstance.isAuthorized(admin.address, authorizeRole)).to.be.true
 
-            const unauthorizeRole = dependencyInstance.interface.getSighash('unauthorize')
-            expect(await dependencyInstance.isAuthorized(admin.address, unauthorizeRole)).to.be.true
+              const unauthorizeRole = dependencyInstance.interface.getSighash('unauthorize')
+              expect(await dependencyInstance.isAuthorized(admin.address, unauthorizeRole)).to.be.true
+            })
+          })
+
+          context('when the requested implementation is registered with another namespace', async () => {
+            let anotherDependency: Contract
+
+            beforeEach('register another implementation', async () => {
+              anotherDependency = await deploy('AuthorizedImplementationMock', [registry.address])
+              await registry.connect(admin).register(ONES_BYTES32, anotherDependency.address)
+            })
+
+            it('reverts', async () => {
+              await expect(
+                implementation.setDependency(anotherDependency.address, dependencyInitializeData)
+              ).to.be.revertedWith('INVALID_NEW_IMPL_NAMESPACE')
+            })
           })
         })
 
-        context('when the requested dependency implementation is registered with another namespace', async () => {
+        context('when the requested implementation is not registered', async () => {
           let anotherDependency: Contract
 
           beforeEach('register another implementation', async () => {
             anotherDependency = await deploy('AuthorizedImplementationMock', [registry.address])
-            await registry.connect(admin).register(ONES_BYTES32, anotherDependency.address)
           })
 
           it('reverts', async () => {
             await expect(
               implementation.setDependency(anotherDependency.address, dependencyInitializeData)
-            ).to.be.revertedWith('INVALID_NEW_IMPL_NAMESPACE')
+            ).to.be.revertedWith('NEW_IMPL_NOT_REGISTERED')
           })
         })
       })
