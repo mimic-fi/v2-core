@@ -43,16 +43,18 @@ contract Wallet is AuthorizedImplementation {
     address public swapConnector;
     address public feeCollector;
     uint256 public withdrawFee;
+    uint256 public swapFee;
 
     event StrategySet(address strategy);
     event PriceOracleSet(address priceOracle);
     event SwapConnectorSet(address swapConnector);
     event FeeCollectorSet(address feeCollector);
     event WithdrawFeeSet(uint256 withdrawFee);
+    event SwapFeeSet(uint256 swapFee);
     event Collect(address indexed token, address indexed from, uint256 amount, bytes data);
     event Withdraw(address indexed token, address indexed recipient, uint256 amount, uint256 fee, bytes data);
-    event Join(uint256 amount, uint256 slippage, bytes data);
     event Claim(bytes data);
+    event Join(uint256 amount, uint256 slippage, bytes data);
     event Exit(uint256 amount, uint256 slippage, bytes data);
     event Swap(
         address indexed tokenIn,
@@ -60,6 +62,7 @@ contract Wallet is AuthorizedImplementation {
         uint256 amountIn,
         uint256 amountOut,
         uint256 slippage,
+        uint256 fee,
         bytes data
     );
 
@@ -84,12 +87,13 @@ contract Wallet is AuthorizedImplementation {
         _authorize(_admin, Wallet.setSwapConnector.selector);
         _authorize(_admin, Wallet.setFeeCollector.selector);
         _authorize(_admin, Wallet.setWithdrawFee.selector);
+        _authorize(_admin, Wallet.setSwapFee.selector);
         _authorize(_admin, Wallet.collect.selector);
-        _authorize(_admin, Wallet.join.selector);
+        _authorize(_admin, Wallet.withdraw.selector);
         _authorize(_admin, Wallet.claim.selector);
+        _authorize(_admin, Wallet.join.selector);
         _authorize(_admin, Wallet.exit.selector);
         _authorize(_admin, Wallet.swap.selector);
-        _authorize(_admin, Wallet.withdraw.selector);
     }
 
     function getTokenBalance(address token) public view returns (uint256) {
@@ -110,6 +114,10 @@ contract Wallet is AuthorizedImplementation {
 
     function setWithdrawFee(uint256 newWithdrawFee) external auth {
         _setWithdrawFee(newWithdrawFee);
+    }
+
+    function setSwapFee(uint256 newSwapFee) external auth {
+        _setSwapFee(newSwapFee);
     }
 
     function collect(address token, address from, uint256 amount, bytes memory data) external auth {
@@ -156,12 +164,17 @@ contract Wallet is AuthorizedImplementation {
         ISwapConnector connector = ISwapConnector(swapConnector);
         _safeTransfer(tokenIn, address(connector), amountIn);
         uint256 preBalanceOut = getTokenBalance(tokenOut);
-        amountOut = connector.swap(tokenIn, tokenOut, amountIn, minAmountOut, data);
-        uint256 postBalanceOut = getTokenBalance(tokenOut);
+        uint256 amountOutBeforeFees = connector.swap(tokenIn, tokenOut, amountIn, minAmountOut, data);
+        require(amountOutBeforeFees >= minAmountOut, 'SWAP_MIN_AMOUNT');
 
-        require(amountOut >= minAmountOut, 'SWAP_MIN_AMOUNT');
-        require(postBalanceOut >= preBalanceOut.add(amountOut), 'SWAP_INVALID_AMOUNT_OUT');
-        emit Swap(tokenIn, tokenOut, amountIn, amountOut, slippage, data);
+        uint256 postBalanceOut = getTokenBalance(tokenOut);
+        require(postBalanceOut >= preBalanceOut.add(amountOutBeforeFees), 'SWAP_INVALID_AMOUNT_OUT');
+
+        uint256 swapFeeAmount = amountOutBeforeFees.mulDown(swapFee);
+        _safeTransfer(tokenOut, feeCollector, swapFeeAmount);
+
+        amountOut = amountOutBeforeFees.sub(swapFeeAmount);
+        emit Swap(tokenIn, tokenOut, amountIn, amountOut, slippage, swapFeeAmount, data);
     }
 
     function withdraw(address token, uint256 amount, address recipient, bytes memory data) external auth {
@@ -247,5 +260,15 @@ contract Wallet is AuthorizedImplementation {
         require(newWithdrawFee <= FixedPoint.ONE, 'WITHDRAW_FEE_ABOVE_ONE');
         withdrawFee = newWithdrawFee;
         emit WithdrawFeeSet(newWithdrawFee);
+    }
+
+    /**
+     * @dev Internal method to set the swap fee
+     * @param newSwapFee New swap fee to be set
+     */
+    function _setSwapFee(uint256 newSwapFee) internal {
+        require(newSwapFee <= FixedPoint.ONE, 'SWAP_FEE_ABOVE_ONE');
+        swapFee = newSwapFee;
+        emit SwapFeeSet(newSwapFee);
     }
 }

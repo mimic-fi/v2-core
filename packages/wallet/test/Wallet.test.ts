@@ -246,6 +246,48 @@ describe('Wallet', () => {
     })
   })
 
+  describe('setSwapFee', () => {
+    context('when the sender is authorized', async () => {
+      beforeEach('set sender', () => {
+        wallet = wallet.connect(admin)
+      })
+
+      context('when the new fee is below one', async () => {
+        const newSwapFee = fp(0.01)
+
+        it('sets the swap fee', async () => {
+          await wallet.setSwapFee(newSwapFee)
+
+          const swapFee = await wallet.swapFee()
+          expect(swapFee).to.be.equal(newSwapFee)
+        })
+
+        it('emits an event', async () => {
+          const tx = await wallet.setSwapFee(newSwapFee)
+          await assertEvent(tx, 'SwapFeeSet', { swapFee: newSwapFee })
+        })
+      })
+
+      context('when the new fee is above one', async () => {
+        const newSwapFee = fp(1.01)
+
+        it('reverts', async () => {
+          await expect(wallet.setSwapFee(newSwapFee)).to.be.revertedWith('SWAP_FEE_ABOVE_ONE')
+        })
+      })
+    })
+
+    context('when the sender is not authorized', () => {
+      beforeEach('set sender', () => {
+        wallet = wallet.connect(other)
+      })
+
+      it('reverts', async () => {
+        await expect(wallet.setSwapFee(0)).to.be.revertedWith('AUTH_SENDER_NOT_ALLOWED')
+      })
+    })
+  })
+
   describe('collect', () => {
     let token: Contract
     let from: SignerWithAddress
@@ -557,55 +599,129 @@ describe('Wallet', () => {
               await tokenOut.mint(swapConnector.address, expectedAmountOut)
             })
 
-            it('transfers the token in to the swap connector', async () => {
-              const previousWalletBalance = await tokenIn.balanceOf(wallet.address)
-              const previousConnectorBalance = await tokenIn.balanceOf(swapConnector.address)
+            context('without swap fee', () => {
+              it('transfers the token in to the swap connector', async () => {
+                const previousWalletBalance = await tokenIn.balanceOf(wallet.address)
+                const previousConnectorBalance = await tokenIn.balanceOf(swapConnector.address)
 
-              await wallet.swap(tokenIn.address, tokenOut.address, amount, slippage, data)
+                await wallet.swap(tokenIn.address, tokenOut.address, amount, slippage, data)
 
-              const currentWalletBalance = await tokenIn.balanceOf(wallet.address)
-              expect(currentWalletBalance).to.be.equal(previousWalletBalance.sub(amount))
+                const currentWalletBalance = await tokenIn.balanceOf(wallet.address)
+                expect(currentWalletBalance).to.be.equal(previousWalletBalance.sub(amount))
 
-              const currentConnectorBalance = await tokenIn.balanceOf(swapConnector.address)
-              expect(currentConnectorBalance).to.be.equal(previousConnectorBalance.add(amount))
+                const currentConnectorBalance = await tokenIn.balanceOf(swapConnector.address)
+                expect(currentConnectorBalance).to.be.equal(previousConnectorBalance.add(amount))
+              })
+
+              it('transfers the token out to the wallet', async () => {
+                const previousWalletBalance = await tokenOut.balanceOf(wallet.address)
+                const previousConnectorBalance = await tokenOut.balanceOf(swapConnector.address)
+
+                await wallet.swap(tokenIn.address, tokenOut.address, amount, slippage, data)
+
+                const currentWalletBalance = await tokenOut.balanceOf(wallet.address)
+                expect(currentWalletBalance).to.be.equal(previousWalletBalance.add(expectedAmountOut))
+
+                const currentConnectorBalance = await tokenOut.balanceOf(swapConnector.address)
+                expect(currentConnectorBalance).to.be.equal(previousConnectorBalance.sub(expectedAmountOut))
+              })
+
+              it('updates the token balances in the wallet', async () => {
+                const previousTokenInBalance = await wallet.getTokenBalance(tokenIn.address)
+                const previousTokenOutBalance = await wallet.getTokenBalance(tokenOut.address)
+
+                await wallet.swap(tokenIn.address, tokenOut.address, amount, slippage, data)
+
+                const currentTokenInBalance = await wallet.getTokenBalance(tokenIn.address)
+                expect(currentTokenInBalance).to.be.equal(previousTokenInBalance.sub(amount))
+
+                const currentTokenOutBalance = await wallet.getTokenBalance(tokenOut.address)
+                expect(currentTokenOutBalance).to.be.equal(previousTokenOutBalance.add(expectedAmountOut))
+              })
+
+              it('emits an event', async () => {
+                const tx = await wallet.swap(tokenIn.address, tokenOut.address, amount, slippage, data)
+
+                await assertEvent(tx, 'Swap', {
+                  tokenIn,
+                  tokenOut,
+                  slippage,
+                  amountIn: amount,
+                  amountOut: expectedAmountOut,
+                  fee: 0,
+                  data,
+                })
+              })
             })
 
-            it('transfers the token out to the wallet', async () => {
-              const previousWalletBalance = await tokenOut.balanceOf(wallet.address)
-              const previousConnectorBalance = await tokenOut.balanceOf(swapConnector.address)
+            context('with swap fee', () => {
+              const swapFee = fp(0.03)
+              const swapFeeAmount = expectedAmountOut.mul(swapFee).div(fp(1))
+              const expectedAmountOutAfterFees = expectedAmountOut.sub(swapFeeAmount)
 
-              await wallet.swap(tokenIn.address, tokenOut.address, amount, slippage, data)
+              beforeEach('set swap fee', async () => {
+                await wallet.connect(admin).setSwapFee(swapFee)
+              })
 
-              const currentWalletBalance = await tokenOut.balanceOf(wallet.address)
-              expect(currentWalletBalance).to.be.equal(previousWalletBalance.add(expectedAmountOut))
+              it('transfers the token in to the swap connector', async () => {
+                const previousWalletBalance = await tokenIn.balanceOf(wallet.address)
+                const previousConnectorBalance = await tokenIn.balanceOf(swapConnector.address)
+                const previousFeeCollectorBalance = await tokenIn.balanceOf(feeCollector.address)
 
-              const currentConnectorBalance = await tokenOut.balanceOf(swapConnector.address)
-              expect(currentConnectorBalance).to.be.equal(previousConnectorBalance.sub(expectedAmountOut))
-            })
+                await wallet.swap(tokenIn.address, tokenOut.address, amount, slippage, data)
 
-            it('updates the token balances in the wallet', async () => {
-              const previousTokenInBalance = await wallet.getTokenBalance(tokenIn.address)
-              const previousTokenOutBalance = await wallet.getTokenBalance(tokenOut.address)
+                const currentWalletBalance = await tokenIn.balanceOf(wallet.address)
+                expect(currentWalletBalance).to.be.equal(previousWalletBalance.sub(amount))
 
-              await wallet.swap(tokenIn.address, tokenOut.address, amount, slippage, data)
+                const currentConnectorBalance = await tokenIn.balanceOf(swapConnector.address)
+                expect(currentConnectorBalance).to.be.equal(previousConnectorBalance.add(amount))
 
-              const currentTokenInBalance = await wallet.getTokenBalance(tokenIn.address)
-              expect(currentTokenInBalance).to.be.equal(previousTokenInBalance.sub(amount))
+                const currentFeeCollectorBalance = await tokenIn.balanceOf(feeCollector.address)
+                expect(currentFeeCollectorBalance).to.be.equal(previousFeeCollectorBalance)
+              })
 
-              const currentTokenOutBalance = await wallet.getTokenBalance(tokenOut.address)
-              expect(currentTokenOutBalance).to.be.equal(previousTokenOutBalance.add(expectedAmountOut))
-            })
+              it('transfers the token out to the wallet', async () => {
+                const previousWalletBalance = await tokenOut.balanceOf(wallet.address)
+                const previousConnectorBalance = await tokenOut.balanceOf(swapConnector.address)
+                const previousFeeCollectorBalance = await tokenOut.balanceOf(feeCollector.address)
 
-            it('emits an event', async () => {
-              const tx = await wallet.swap(tokenIn.address, tokenOut.address, amount, slippage, data)
+                await wallet.swap(tokenIn.address, tokenOut.address, amount, slippage, data)
 
-              await assertEvent(tx, 'Swap', {
-                tokenIn,
-                tokenOut,
-                slippage,
-                amountIn: amount,
-                amountOut: expectedAmountOut,
-                data,
+                const currentWalletBalance = await tokenOut.balanceOf(wallet.address)
+                expect(currentWalletBalance).to.be.equal(previousWalletBalance.add(expectedAmountOutAfterFees))
+
+                const currentConnectorBalance = await tokenOut.balanceOf(swapConnector.address)
+                expect(currentConnectorBalance).to.be.equal(previousConnectorBalance.sub(expectedAmountOut))
+
+                const currentFeeCollectorBalance = await tokenOut.balanceOf(feeCollector.address)
+                expect(currentFeeCollectorBalance).to.be.equal(previousFeeCollectorBalance.add(swapFeeAmount))
+              })
+
+              it('updates the token balances in the wallet', async () => {
+                const previousTokenInBalance = await wallet.getTokenBalance(tokenIn.address)
+                const previousTokenOutBalance = await wallet.getTokenBalance(tokenOut.address)
+
+                await wallet.swap(tokenIn.address, tokenOut.address, amount, slippage, data)
+
+                const currentTokenInBalance = await wallet.getTokenBalance(tokenIn.address)
+                expect(currentTokenInBalance).to.be.equal(previousTokenInBalance.sub(amount))
+
+                const currentTokenOutBalance = await wallet.getTokenBalance(tokenOut.address)
+                expect(currentTokenOutBalance).to.be.equal(previousTokenOutBalance.add(expectedAmountOutAfterFees))
+              })
+
+              it('emits an event', async () => {
+                const tx = await wallet.swap(tokenIn.address, tokenOut.address, amount, slippage, data)
+
+                await assertEvent(tx, 'Swap', {
+                  tokenIn,
+                  tokenOut,
+                  slippage,
+                  amountIn: amount,
+                  amountOut: expectedAmountOutAfterFees,
+                  fee: swapFeeAmount,
+                  data,
+                })
               })
             })
           }
@@ -759,7 +875,7 @@ describe('Wallet', () => {
           it('emits an event', async () => {
             const tx = await wallet.withdraw(token.address, amount, other.address, data)
 
-            await assertEvent(tx, 'Withdraw', { token, amount, recipient: other, data })
+            await assertEvent(tx, 'Withdraw', { token, amount, recipient: other, fee: 0, data })
           })
         })
 
