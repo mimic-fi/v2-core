@@ -23,7 +23,7 @@ import '@mimic-fi/v2-swap-connector/contracts/ISwapConnector.sol';
 import '@mimic-fi/v2-registry/contracts/implementations/AuthorizedImplementation.sol';
 
 interface IStrategy {
-    function getToken() external view returns (address);
+    function token() external view returns (address);
 
     function join(uint256 amount, uint256 slippage, bytes memory data) external;
 
@@ -101,9 +101,9 @@ contract Wallet is AuthorizedImplementation {
 
     function join(uint256 amount, uint256 slippage, bytes memory data) external auth {
         require(amount > 0, 'JOIN_AMOUNT_ZERO');
-        require(slippage <= FixedPoint.ONE, 'SWAP_SLIPPAGE_ABOVE_ONE');
+        require(slippage <= FixedPoint.ONE, 'JOIN_SLIPPAGE_ABOVE_ONE');
 
-        address token = IStrategy(strategy).getToken();
+        address token = IStrategy(strategy).token();
         _safeTransfer(token, strategy, amount);
         IStrategy(strategy).join(amount, slippage, data);
         emit Join(amount, slippage, data);
@@ -116,10 +116,10 @@ contract Wallet is AuthorizedImplementation {
 
     function exit(uint256 ratio, uint256 slippage, bytes memory data) external auth returns (uint256 received) {
         require(ratio > 0 && ratio <= FixedPoint.ONE, 'EXIT_INVALID_RATIO');
-        require(slippage <= FixedPoint.ONE, 'SWAP_SLIPPAGE_ABOVE_ONE');
+        require(slippage <= FixedPoint.ONE, 'EXIT_SLIPPAGE_ABOVE_ONE');
 
         received = IStrategy(strategy).exit(ratio, slippage, data);
-        address token = IStrategy(strategy).getToken();
+        address token = IStrategy(strategy).token();
         _safeTransferFrom(token, strategy, address(this), received);
         emit Exit(received, slippage, data);
     }

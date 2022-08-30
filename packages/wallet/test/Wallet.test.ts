@@ -16,7 +16,7 @@ describe('Wallet', () => {
 
   beforeEach('deploy wallet', async () => {
     registry = await deploy('@mimic-fi/v2-registry/artifacts/contracts/registry/Registry.sol/Registry', [admin.address])
-    strategy = await createClone(registry, admin, 'StrategyMock', [])
+    strategy = await createClone(registry, admin, 'StrategyMock', [registry.address], [])
     priceOracle = await createClone(registry, admin, 'PriceOracleMock', [])
     swapConnector = await createClone(registry, admin, 'SwapConnectorMock', [])
     wallet = await createClone(
@@ -146,20 +146,277 @@ describe('Wallet', () => {
     })
   })
 
-  describe('setStrategy', () => {
-    // TODO: implement
-  })
-
   describe('collect', () => {
-    // TODO: implement
+    let token: Contract
+    let from: SignerWithAddress
+
+    const amount = fp(10)
+    const data = '0xabcdef'
+
+    before('deploy token', async () => {
+      from = admin
+      token = await deploy('TokenMock', ['USDC'])
+    })
+
+    context('when the sender is authorized', () => {
+      beforeEach('set sender', async () => {
+        wallet = wallet.connect(admin)
+      })
+
+      context('when the wallet has enough allowance', () => {
+        beforeEach('allow tokens', async () => {
+          await token.mint(from.address, amount)
+          await token.connect(from).approve(wallet.address, amount)
+        })
+
+        it('transfers the tokens to the wallet', async () => {
+          const previousHolderBalance = await token.balanceOf(from.address)
+          const previousWalletBalance = await token.balanceOf(wallet.address)
+
+          await wallet.collect(token.address, from.address, amount, data)
+
+          const currentHolderBalance = await token.balanceOf(from.address)
+          expect(currentHolderBalance).to.be.equal(previousHolderBalance.sub(amount))
+
+          const currentWalletBalance = await token.balanceOf(wallet.address)
+          expect(currentWalletBalance).to.be.equal(previousWalletBalance.add(amount))
+        })
+
+        it('increases the token balance in the wallet', async () => {
+          const previousBalance = await wallet.getTokenBalance(token.address)
+
+          await wallet.collect(token.address, from.address, amount, data)
+
+          const currentBalance = await wallet.getTokenBalance(token.address)
+          expect(currentBalance).to.be.equal(previousBalance.add(amount))
+        })
+
+        it('emits an event', async () => {
+          const tx = await wallet.collect(token.address, from.address, amount, data)
+
+          await assertEvent(tx, 'Collect', { token, from, amount, data })
+        })
+      })
+
+      context('when the wallet does not have enough allowance', () => {
+        beforeEach('allow tokens', async () => {
+          await token.mint(admin.address, amount)
+          await token.connect(admin).approve(wallet.address, amount.sub(1))
+        })
+
+        it('reverts', async () => {
+          await expect(wallet.collect(token.address, from.address, amount, data)).to.be.revertedWith(
+            'ERC20: insufficient allowance'
+          )
+        })
+      })
+    })
+
+    context('when the sender is not authorized', () => {
+      beforeEach('set sender', async () => {
+        wallet = wallet.connect(other)
+      })
+
+      it('reverts', async () => {
+        await expect(wallet.collect(token.address, from.address, amount, data)).to.be.revertedWith(
+          'AUTH_SENDER_NOT_ALLOWED'
+        )
+      })
+    })
   })
 
   describe('join', () => {
-    // TODO: implement
+    let token: Contract
+
+    const data = '0xabcdef'
+
+    beforeEach('set token', async () => {
+      token = await instanceAt('TokenMock', await strategy.token())
+    })
+
+    context('when the sender is authorized', () => {
+      beforeEach('set sender', async () => {
+        wallet = wallet.connect(admin)
+      })
+
+      context('when the amount is greater than zero', () => {
+        const amount = fp(200)
+
+        context('when the slippage is valid', async () => {
+          const slippage = fp(0.01)
+
+          context('when the wallet has enough balance', async () => {
+            beforeEach('mint tokens', async () => {
+              await token.mint(wallet.address, amount)
+            })
+
+            it('transfers the tokens to the recipient', async () => {
+              const previousWalletBalance = await token.balanceOf(wallet.address)
+              const previousStrategyBalance = await token.balanceOf(strategy.address)
+
+              await wallet.join(amount, slippage, data)
+
+              const currentWalletBalance = await token.balanceOf(wallet.address)
+              expect(currentWalletBalance).to.be.equal(previousWalletBalance.sub(amount))
+
+              const currentStrategyBalance = await token.balanceOf(strategy.address)
+              expect(currentStrategyBalance).to.be.equal(previousStrategyBalance.add(amount))
+            })
+
+            it('decreases the token balance in the wallet', async () => {
+              const previousBalance = await wallet.getTokenBalance(token.address)
+
+              await wallet.join(amount, slippage, data)
+
+              const currentBalance = await wallet.getTokenBalance(token.address)
+              expect(currentBalance).to.be.equal(previousBalance.sub(amount))
+            })
+
+            it('emits an event', async () => {
+              const tx = await wallet.join(amount, slippage, data)
+
+              await assertEvent(tx, 'Join', { amount, slippage, data })
+            })
+          })
+
+          context('when the wallet does not have enough tokens', async () => {
+            it('reverts', async () => {
+              await expect(wallet.join(amount, slippage, data)).to.be.revertedWith(
+                'ERC20: transfer amount exceeds balance'
+              )
+            })
+          })
+        })
+
+        context('when the slippage is invalid', async () => {
+          const slippage = fp(1.01)
+
+          it('reverts', async () => {
+            await expect(wallet.join(amount, slippage, data)).to.be.revertedWith('JOIN_SLIPPAGE_ABOVE_ONE')
+          })
+        })
+      })
+
+      context('when the amount is zero', async () => {
+        const amount = 0
+
+        it('reverts', async () => {
+          await expect(wallet.join(amount, 0, data)).to.be.revertedWith('JOIN_AMOUNT_ZERO')
+        })
+      })
+    })
+
+    context('when the sender is not authorized', () => {
+      beforeEach('set sender', async () => {
+        wallet = wallet.connect(other)
+      })
+
+      it('reverts', async () => {
+        await expect(wallet.join(0, 0, data)).to.be.revertedWith('AUTH_SENDER_NOT_ALLOWED')
+      })
+    })
   })
 
   describe('exit', () => {
-    // TODO: implement
+    let token: Contract
+
+    const data = '0xabcdef'
+
+    beforeEach('set token', async () => {
+      token = await instanceAt('TokenMock', await strategy.token())
+    })
+
+    context('when the sender is authorized', () => {
+      beforeEach('set sender', async () => {
+        wallet = wallet.connect(admin)
+      })
+
+      context('when the ratio is valid', () => {
+        const ratio = fp(1)
+
+        context('when the slippage is valid', async () => {
+          const slippage = fp(0.01)
+
+          context('when the wallet has joined before', async () => {
+            beforeEach('mint tokens', async () => {
+              await token.mint(wallet.address, fp(100))
+              await wallet.join(fp(100), slippage, data)
+            })
+
+            it('transfers the tokens to the wallet', async () => {
+              const previousWalletBalance = await token.balanceOf(wallet.address)
+              const previousStrategyBalance = await token.balanceOf(strategy.address)
+
+              await wallet.exit(ratio, slippage, data)
+
+              const currentWalletBalance = await token.balanceOf(wallet.address)
+              expect(currentWalletBalance).to.be.gt(previousWalletBalance)
+
+              const currentStrategyBalance = await token.balanceOf(strategy.address)
+              expect(currentStrategyBalance).to.be.lt(previousStrategyBalance)
+            })
+
+            it('decreases the token balance in the wallet', async () => {
+              const previousBalance = await wallet.getTokenBalance(token.address)
+
+              await wallet.exit(ratio, slippage, data)
+
+              const currentBalance = await wallet.getTokenBalance(token.address)
+              expect(currentBalance).to.be.gt(previousBalance)
+            })
+
+            it('emits an event', async () => {
+              const tx = await wallet.exit(ratio, slippage, data)
+
+              await assertEvent(tx, 'Exit', { slippage, data })
+            })
+          })
+
+          context('when the wallet has not joined', async () => {
+            it('exits with zero', async () => {
+              const tx = await wallet.exit(ratio, slippage, data)
+              await assertEvent(tx, 'Exit', { slippage, data, amount: 0 })
+            })
+          })
+        })
+
+        context('when the slippage is invalid', async () => {
+          const slippage = fp(1.01)
+
+          it('reverts', async () => {
+            await expect(wallet.exit(ratio, slippage, data)).to.be.revertedWith('EXIT_SLIPPAGE_ABOVE_ONE')
+          })
+        })
+      })
+
+      context('when the ratio is invalid', async () => {
+        context('when the ratio is zero', async () => {
+          const ratio = 0
+
+          it('reverts', async () => {
+            await expect(wallet.exit(ratio, 0, data)).to.be.revertedWith('EXIT_INVALID_RATIO')
+          })
+        })
+
+        context('when the ratio is above one', async () => {
+          const ratio = fp(1.01)
+
+          it('reverts', async () => {
+            await expect(wallet.exit(ratio, 0, data)).to.be.revertedWith('EXIT_INVALID_RATIO')
+          })
+        })
+      })
+    })
+
+    context('when the sender is not authorized', () => {
+      beforeEach('set sender', async () => {
+        wallet = wallet.connect(other)
+      })
+
+      it('reverts', async () => {
+        await expect(wallet.exit(0, 0, data)).to.be.revertedWith('AUTH_SENDER_NOT_ALLOWED')
+      })
+    })
   })
 
   describe('claim', () => {
