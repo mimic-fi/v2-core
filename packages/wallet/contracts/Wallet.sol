@@ -41,12 +41,16 @@ contract Wallet is AuthorizedImplementation {
     address public strategy;
     address public priceOracle;
     address public swapConnector;
+    address public feeCollector;
+    uint256 public withdrawFee;
 
     event StrategySet(address strategy);
     event PriceOracleSet(address priceOracle);
     event SwapConnectorSet(address swapConnector);
+    event FeeCollectorSet(address feeCollector);
+    event WithdrawFeeSet(uint256 withdrawFee);
     event Collect(address indexed token, address indexed from, uint256 amount, bytes data);
-    event Withdraw(address indexed token, address indexed recipient, uint256 amount, bytes data);
+    event Withdraw(address indexed token, address indexed recipient, uint256 amount, uint256 fee, bytes data);
     event Join(uint256 amount, uint256 slippage, bytes data);
     event Claim(bytes data);
     event Exit(uint256 amount, uint256 slippage, bytes data);
@@ -63,17 +67,23 @@ contract Wallet is AuthorizedImplementation {
         // solhint-disable-previous-line no-empty-blocks
     }
 
-    function initialize(address _admin, address _strategy, address _priceOracle, address _swapConnector)
-        external
-        initializer
-    {
+    function initialize(
+        address _admin,
+        address _strategy,
+        address _priceOracle,
+        address _swapConnector,
+        address _feeCollector
+    ) external initializer {
         _initialize(_admin);
         _setStrategy(_strategy);
         _setPriceOracle(_priceOracle);
         _setSwapConnector(_swapConnector);
+        _setFeeCollector(_feeCollector);
 
         _authorize(_admin, Wallet.setPriceOracle.selector);
         _authorize(_admin, Wallet.setSwapConnector.selector);
+        _authorize(_admin, Wallet.setFeeCollector.selector);
+        _authorize(_admin, Wallet.setWithdrawFee.selector);
         _authorize(_admin, Wallet.collect.selector);
         _authorize(_admin, Wallet.join.selector);
         _authorize(_admin, Wallet.claim.selector);
@@ -92,6 +102,14 @@ contract Wallet is AuthorizedImplementation {
 
     function setSwapConnector(address newSwapConnector) external auth {
         _setSwapConnector(newSwapConnector);
+    }
+
+    function setFeeCollector(address newFeeCollector) external auth {
+        _setFeeCollector(newFeeCollector);
+    }
+
+    function setWithdrawFee(uint256 newWithdrawFee) external auth {
+        _setWithdrawFee(newWithdrawFee);
     }
 
     function collect(address token, address from, uint256 amount, bytes memory data) external auth {
@@ -149,8 +167,11 @@ contract Wallet is AuthorizedImplementation {
     function withdraw(address token, uint256 amount, address recipient, bytes memory data) external auth {
         require(amount > 0, 'WITHDRAW_AMOUNT_ZERO');
         require(recipient != address(0), 'RECIPIENT_ZERO');
-        _safeTransfer(token, recipient, amount);
-        emit Withdraw(token, recipient, amount, data);
+
+        uint256 withdrawFeeAmount = amount.mulDown(withdrawFee);
+        _safeTransfer(token, feeCollector, withdrawFeeAmount);
+        _safeTransfer(token, recipient, amount.sub(withdrawFeeAmount));
+        emit Withdraw(token, recipient, amount, withdrawFeeAmount, data);
     }
 
     /**
@@ -206,5 +227,25 @@ contract Wallet is AuthorizedImplementation {
         _validateDependency(swapConnector, newSwapConnector);
         swapConnector = newSwapConnector;
         emit SwapConnectorSet(newSwapConnector);
+    }
+
+    /**
+     * @dev Internal method to set the fee collector
+     * @param newFeeCollector New fee collector to be set
+     */
+    function _setFeeCollector(address newFeeCollector) internal {
+        require(newFeeCollector != address(0), 'FEE_COLLECTOR_ZERO');
+        feeCollector = newFeeCollector;
+        emit FeeCollectorSet(newFeeCollector);
+    }
+
+    /**
+     * @dev Internal method to set the withdraw fee
+     * @param newWithdrawFee New withdraw fee to be set
+     */
+    function _setWithdrawFee(uint256 newWithdrawFee) internal {
+        require(newWithdrawFee <= FixedPoint.ONE, 'WITHDRAW_FEE_ABOVE_ONE');
+        withdrawFee = newWithdrawFee;
+        emit WithdrawFeeSet(newWithdrawFee);
     }
 }
