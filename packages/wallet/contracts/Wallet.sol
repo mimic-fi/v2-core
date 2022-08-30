@@ -63,9 +63,15 @@ contract Wallet is AuthorizedImplementation {
         // solhint-disable-previous-line no-empty-blocks
     }
 
-    function initialize(address _admin) external initializer {
+    function initialize(address _admin, address _strategy, address _priceOracle, address _swapConnector)
+        external
+        initializer
+    {
         _initialize(_admin);
-        _authorize(_admin, Wallet.setStrategy.selector);
+        _setStrategy(_strategy);
+        _setPriceOracle(_priceOracle);
+        _setSwapConnector(_swapConnector);
+
         _authorize(_admin, Wallet.setPriceOracle.selector);
         _authorize(_admin, Wallet.setSwapConnector.selector);
         _authorize(_admin, Wallet.collect.selector);
@@ -80,22 +86,12 @@ contract Wallet is AuthorizedImplementation {
         return IERC20(token).balanceOf(address(this));
     }
 
-    function setStrategy(address implementation, bytes memory initializeData) external auth {
-        address newStrategy = _createInstanceFor(strategy, implementation, initializeData);
-        strategy = newStrategy;
-        emit StrategySet(newStrategy);
+    function setPriceOracle(address newPriceOracle) external auth {
+        _setPriceOracle(newPriceOracle);
     }
 
-    function setPriceOracle(address implementation, bytes memory initializeData) external auth {
-        address newPriceOracle = _createInstanceFor(priceOracle, implementation, initializeData);
-        priceOracle = newPriceOracle;
-        emit PriceOracleSet(newPriceOracle);
-    }
-
-    function setSwapConnector(address implementation, bytes memory initializeData) external auth {
-        address newSwapConnector = _createInstanceFor(swapConnector, implementation, initializeData);
-        swapConnector = newSwapConnector;
-        emit SwapConnectorSet(newSwapConnector);
+    function setSwapConnector(address newSwapConnector) external auth {
+        _setSwapConnector(newSwapConnector);
     }
 
     function collect(address token, address from, uint256 amount, bytes memory data) external auth {
@@ -180,5 +176,35 @@ contract Wallet is AuthorizedImplementation {
         if (amount > 0) {
             IERC20(token).safeTransfer(to, amount);
         }
+    }
+
+    /**
+     * @dev Sets a new strategy. Only used in the constructor.
+     * @param newStrategy New strategy to be set
+     */
+    function _setStrategy(address newStrategy) internal {
+        _validateDependency(strategy, newStrategy);
+        strategy = newStrategy;
+        emit StrategySet(newStrategy);
+    }
+
+    /**
+     * @dev Sets a new price oracle
+     * @param newPriceOracle New price oracle to be set
+     */
+    function _setPriceOracle(address newPriceOracle) internal {
+        _validateDependency(priceOracle, newPriceOracle);
+        priceOracle = newPriceOracle;
+        emit PriceOracleSet(newPriceOracle);
+    }
+
+    /**
+     * @dev Sets a new swap connector
+     * @param newSwapConnector New swap connector to be set
+     */
+    function _setSwapConnector(address newSwapConnector) internal {
+        _validateDependency(swapConnector, newSwapConnector);
+        swapConnector = newSwapConnector;
+        emit SwapConnectorSet(newSwapConnector);
     }
 }

@@ -9,12 +9,12 @@ export async function createClone(
   admin: SignerWithAddress,
   contractName: string,
   args: Array<any> = [],
-  initializeArgs: Array<any> = []
+  initArgs?: Array<any>
 ): Promise<Contract> {
   const implementation = await deploy(contractName, args)
   await registry.connect(admin).register(await implementation.NAMESPACE(), implementation.address)
 
-  const initializeData = implementation.interface.encodeFunctionData('initialize', initializeArgs)
+  const initializeData = initArgs ? implementation.interface.encodeFunctionData('initialize', initArgs) : '0x'
   const tx = await registry.clone(implementation.address, initializeData)
   const event = await assertEvent(tx, 'Cloned', { implementation })
   return instanceAt(contractName, event.args.instance)

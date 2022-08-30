@@ -47,33 +47,53 @@ abstract contract BaseImplementation is IImplementation, Initializable {
     function _initialize() internal view onlyInitializing {
         address implementation = registry.getImplementation(address(this));
         require(implementation != address(0), 'IMPLEMENTATION_NOT_REGISTERED');
-        require(registry.isRegistered(this.NAMESPACE(), implementation), 'INVALID_NEW_IMPL_NAMESPACE');
+        require(registry.isRegistered(this.NAMESPACE(), implementation), 'INVALID_IMPLEMENTATION_NAMESPACE');
     }
 
     /**
-     * @dev Internal function to create a new instance of a registered implementation
-     *      It checks the requested implementation is registered in the same registry under the same namespace
-     *      In case the current instance was not set, it simply creates a new instance for the requested implementation
+     * @dev Internal function to validate a new dependency
+     *      It checks the new dependency is registered in the same registry under the same namespace
      */
-    function _createInstanceFor(address currentInstance, address newImplementation, bytes memory initializeData)
-        internal
-        returns (address)
-    {
-        if (currentInstance != address(0)) {
-            // Make sure the current implementation is registered
-            address currentImplementation = registry.getImplementation(currentInstance);
-            require(currentImplementation != address(0), 'CURRENT_IMPL_NOT_REGISTERED');
+    function _validateDependency(address currentDependency, address newDependency) internal view {
+        address newImplementation = registry.getImplementation(newDependency);
+        if (newImplementation != address(0)) {
+            // If there is an implementation registered for the new dependency, it means it's a new instance
+            _validateDependencyInstance(currentDependency, newImplementation);
+        } else {
+            // Otherwise, check if the new dependency is actually an implementation
+            // If that's the case there must be a namespace registered for it
+            bytes32 newDependencyNamespace = registry.getNamespace(newDependency);
+            require(newDependencyNamespace != bytes32(0), 'NEW_DEPENDENCY_NOT_REGISTERED');
+            _validateDependencyImplementation(currentDependency, newDependency);
+        }
+    }
 
-            // Make sure new implementation is registered
-            bytes32 newNamespace = registry.getNamespace(newImplementation);
-            require(newNamespace != bytes32(0), 'NEW_IMPL_NOT_REGISTERED');
+    /**
+     * @dev Internal function to validate a new dependency instance
+     */
+    function _validateDependencyInstance(address currentDependency, address newImplementation) private view {
+        if (currentDependency != address(0)) {
+            // Make sure the current dependency is an instance too
+            address currentImplementation = registry.getImplementation(currentDependency);
+            require(currentImplementation != address(0), 'NEW_DEPENDENCY_MUST_BE_IMPL');
 
             // Make sure namespaces match
             bytes32 currentNamespace = registry.getNamespace(currentImplementation);
-            require(currentNamespace == newNamespace, 'INVALID_NEW_IMPL_NAMESPACE');
+            require(registry.isRegistered(currentNamespace, newImplementation), 'INVALID_NEW_DEPENDENCY_NAMESPACE');
         }
+    }
 
-        // The registry checks the requested implementation is registered and active
-        return registry.clone(newImplementation, initializeData);
+    /**
+     * @dev Internal function to validate a new dependency implementation
+     */
+    function _validateDependencyImplementation(address currentDependency, address newImplementation) private view {
+        if (currentDependency != address(0)) {
+            // Make sure the current dependency is an implementation too
+            bytes32 currentNamespace = registry.getNamespace(currentDependency);
+            require(currentNamespace != bytes32(0), 'NEW_DEPENDENCY_MUST_BE_INSTANCE');
+
+            // Make sure namespaces match
+            require(registry.isRegistered(currentNamespace, newImplementation), 'INVALID_NEW_DEPENDENCY_NAMESPACE');
+        }
     }
 }

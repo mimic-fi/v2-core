@@ -114,7 +114,7 @@ describe('PriceOracle', () => {
         context('when the feed is not in the registry', () => {
           it('reverts', async () => {
             await expect(oracle.setFeeds([base.address], [quote.address], [feed.address])).to.be.revertedWith(
-              'FEED_NOT_REGISTERED'
+              'NEW_DEPENDENCY_NOT_REGISTERED'
             )
           })
         })

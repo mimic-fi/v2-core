@@ -1,4 +1,4 @@
-import { assertEvent, deploy, getSigners, instanceAt } from '@mimic-fi/v2-helpers'
+import { assertEvent, deploy, getSigners, instanceAt, ZERO_ADDRESS } from '@mimic-fi/v2-helpers'
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/dist/src/signer-with-address'
 import { expect } from 'chai'
 import { Contract } from 'ethers'
@@ -63,7 +63,7 @@ describe('Registry', () => {
           await registry.register(NAMESPACE, implementation.address)
 
           expect(await registry.getNamespace(implementation.address)).to.be.equal(NAMESPACE)
-          expect(await registry.getImplementation(implementation.address)).to.be.equal(implementation.address)
+          expect(await registry.getImplementation(implementation.address)).to.be.equal(ZERO_ADDRESS)
 
           expect(await registry.isActive(implementation.address)).to.be.true
           expect(await registry.isRegistered(NAMESPACE, implementation.address)).to.be.true
@@ -133,7 +133,7 @@ describe('Registry', () => {
             await registry.deprecate(implementation.address)
 
             expect(await registry.getNamespace(implementation.address)).to.be.equal(NAMESPACE)
-            expect(await registry.getImplementation(implementation.address)).to.be.equal(implementation.address)
+            expect(await registry.getImplementation(implementation.address)).to.be.equal(ZERO_ADDRESS)
             expect(await registry.isRegistered(NAMESPACE, implementation.address)).to.be.false
 
             expect(await registry.isRegistered(ANOTHER_NAMESPACE, implementation.address)).to.be.false
@@ -192,7 +192,7 @@ describe('Registry', () => {
         context('when the implementation is not deprecated', () => {
           it('cannot be cloned', async () => {
             await expect(registry.clone(implementation.address, initializeData)).to.be.revertedWith(
-              'INVALID_NEW_IMPL_NAMESPACE'
+              'INVALID_IMPLEMENTATION_NAMESPACE'
             )
           })
         })

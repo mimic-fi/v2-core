@@ -70,12 +70,7 @@ contract PriceOracle is IPriceOracle, AuthorizedImplementation {
     {
         require(bases.length == quotes.length, 'SET_FEEDS_INVALID_QUOTES_LENGTH');
         require(bases.length == priceFeeds.length, 'SET_FEEDS_INVALID_FEEDS_LENGTH');
-        for (uint256 i = 0; i < bases.length; i++) {
-            address feed = priceFeeds[i];
-            require(feed == address(0) || registry.isRegistered(FEEDS_NAMESPACE, feed), 'FEED_NOT_REGISTERED');
-            feeds[bases[i]][quotes[i]] = feed;
-            emit FeedSet(bases[i], quotes[i], feed);
-        }
+        for (uint256 i = 0; i < bases.length; i++) _setFeed(bases[i], quotes[i], priceFeeds[i]);
     }
 
     function _getPrice(address base, address quote) internal view returns (uint256 price, uint256 decimals) {
@@ -127,5 +122,11 @@ contract PriceOracle is IPriceOracle, AuthorizedImplementation {
             resultDecimals >= priceDecimals
                 ? (price * 10**(resultDecimals - priceDecimals))
                 : (price / 10**(priceDecimals - resultDecimals));
+    }
+
+    function _setFeed(address base, address quote, address feed) internal {
+        if (feed != address(0)) _validateDependency(feeds[base][quote], feed);
+        feeds[base][quote] = feed;
+        emit FeedSet(base, quote, feed);
     }
 }

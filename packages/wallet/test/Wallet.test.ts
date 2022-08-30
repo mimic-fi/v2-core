@@ -1,4 +1,4 @@
-import { assertEvent, BigNumberish, deploy, fp, getSigners, instanceAt } from '@mimic-fi/v2-helpers'
+import { assertEvent, BigNumberish, deploy, fp, getSigners, instanceAt, ZERO_ADDRESS } from '@mimic-fi/v2-helpers'
 import { createClone } from '@mimic-fi/v2-registry'
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/dist/src/signer-with-address'
 import { expect } from 'chai'
@@ -6,7 +6,7 @@ import { Contract } from 'ethers'
 
 describe('Wallet', () => {
   let wallet: Contract, registry: Contract
-  let swapConnector: Contract, priceOracle: Contract
+  let strategy: Contract, priceOracle: Contract, swapConnector: Contract
   let admin: SignerWithAddress, other: SignerWithAddress
 
   before('set up signers', async () => {
@@ -16,37 +16,30 @@ describe('Wallet', () => {
 
   beforeEach('deploy wallet', async () => {
     registry = await deploy('@mimic-fi/v2-registry/artifacts/contracts/registry/Registry.sol/Registry', [admin.address])
-    wallet = await createClone(registry, admin, 'Wallet', [registry.address], [admin.address])
-  })
-
-  beforeEach('set swap connector', async () => {
-    const swapConnectorImpl = await deploy('SwapConnectorMock')
-    await registry.connect(admin).register(await swapConnectorImpl.NAMESPACE(), swapConnectorImpl.address)
-    const tx = await wallet.connect(admin).setSwapConnector(swapConnectorImpl.address, '0x')
-    const event = await assertEvent(tx, 'SwapConnectorSet')
-    swapConnector = await instanceAt('SwapConnectorMock', event.args.swapConnector)
-  })
-
-  beforeEach('set price oracle', async () => {
-    const oracleImpl = await deploy('PriceOracleMock')
-    await registry.connect(admin).register(await oracleImpl.NAMESPACE(), oracleImpl.address)
-    const tx = await wallet.connect(admin).setPriceOracle(oracleImpl.address, '0x')
-    const event = await assertEvent(tx, 'PriceOracleSet')
-    priceOracle = await instanceAt('PriceOracleMock', event.args.priceOracle)
+    strategy = await createClone(registry, admin, 'StrategyMock', [])
+    priceOracle = await createClone(registry, admin, 'PriceOracleMock', [])
+    swapConnector = await createClone(registry, admin, 'SwapConnectorMock', [])
+    wallet = await createClone(
+      registry,
+      admin,
+      'Wallet',
+      [registry.address],
+      [admin.address, strategy.address, priceOracle.address, swapConnector.address]
+    )
   })
 
   describe('initialize', async () => {
     it('cannot be initialized twice', async () => {
-      await expect(wallet.initialize(admin.address)).to.be.revertedWith(
-        'Initializable: contract is already initialized'
-      )
+      await expect(
+        wallet.initialize(admin.address, strategy.address, priceOracle.address, swapConnector.address)
+      ).to.be.revertedWith('Initializable: contract is already initialized')
     })
 
     it('its implementation is already initialized', async () => {
       const implementation = await instanceAt('Wallet', await registry.getImplementation(wallet.address))
-      await expect(implementation.initialize(admin.address)).to.be.revertedWith(
-        'Initializable: contract is already initialized'
-      )
+      await expect(
+        implementation.initialize(admin.address, strategy.address, priceOracle.address, swapConnector.address)
+      ).to.be.revertedWith('Initializable: contract is already initialized')
     })
 
     it('is properly registered in the registry', async () => {
@@ -56,11 +49,7 @@ describe('Wallet', () => {
   })
 
   describe('setPriceOracle', () => {
-    let oracleImplementation: Contract
-
-    before('deploy oracle implementation', async () => {
-      oracleImplementation = await deploy('PriceOracleMock')
-    })
+    let newOracle: Contract
 
     context('when the sender is authorized', async () => {
       beforeEach('set sender', () => {
@@ -68,25 +57,30 @@ describe('Wallet', () => {
       })
 
       context('when the implementation is registered', async () => {
-        beforeEach('register implementation', async () => {
-          await registry.connect(admin).register(await oracleImplementation.NAMESPACE(), oracleImplementation.address)
+        beforeEach('deploy implementation', async () => {
+          newOracle = await createClone(registry, admin, 'PriceOracleMock', [])
         })
 
         it('sets the implementation', async () => {
-          const tx = await wallet.setPriceOracle(oracleImplementation.address, '0x')
-          const event = await assertEvent(tx, 'PriceOracleSet')
+          await wallet.setPriceOracle(newOracle.address)
 
           const oracle = await wallet.priceOracle()
-          expect(oracle).to.be.equal(event.args.priceOracle)
-          expect(await registry.getImplementation(oracle)).to.be.equal(oracleImplementation.address)
+          expect(oracle).to.be.equal(newOracle.address)
+        })
+
+        it('emits an event', async () => {
+          const tx = await wallet.setPriceOracle(newOracle.address)
+          await assertEvent(tx, 'PriceOracleSet', { priceOracle: newOracle })
         })
       })
 
       context('when the implementation is not registered', async () => {
+        beforeEach('deploy implementation', async () => {
+          newOracle = await deploy('PriceOracleMock')
+        })
+
         it('reverts', async () => {
-          await expect(wallet.setPriceOracle(oracleImplementation.address, '0x')).to.be.revertedWith(
-            'NEW_IMPL_NOT_REGISTERED'
-          )
+          await expect(wallet.setPriceOracle(newOracle.address)).to.be.revertedWith('NEW_DEPENDENCY_NOT_REGISTERED')
         })
       })
     })
@@ -97,19 +91,13 @@ describe('Wallet', () => {
       })
 
       it('reverts', async () => {
-        await expect(wallet.setPriceOracle(oracleImplementation.address, '0x')).to.be.revertedWith(
-          'AUTH_SENDER_NOT_ALLOWED'
-        )
+        await expect(wallet.setPriceOracle(ZERO_ADDRESS)).to.be.revertedWith('AUTH_SENDER_NOT_ALLOWED')
       })
     })
   })
 
   describe('setSwapConnector', () => {
-    let swapConnectorImpl: Contract
-
-    before('deploy oracle implementation', async () => {
-      swapConnectorImpl = await deploy('SwapConnectorMock')
-    })
+    let newSwapConnector: Contract
 
     context('when the sender is authorized', async () => {
       beforeEach('set sender', () => {
@@ -117,24 +105,31 @@ describe('Wallet', () => {
       })
 
       context('when the implementation is registered', async () => {
-        beforeEach('register implementation', async () => {
-          await registry.connect(admin).register(await swapConnectorImpl.NAMESPACE(), swapConnectorImpl.address)
+        beforeEach('deploy implementation', async () => {
+          newSwapConnector = await createClone(registry, admin, 'SwapConnectorMock', [])
         })
 
         it('sets the implementation', async () => {
-          const tx = await wallet.setSwapConnector(swapConnectorImpl.address, '0x')
-          const event = await assertEvent(tx, 'SwapConnectorSet')
+          await wallet.setSwapConnector(newSwapConnector.address)
 
           const swapConnector = await wallet.swapConnector()
-          expect(swapConnector).to.be.equal(event.args.swapConnector)
-          expect(await registry.getImplementation(swapConnector)).to.be.equal(swapConnectorImpl.address)
+          expect(swapConnector).to.be.equal(newSwapConnector.address)
+        })
+
+        it('emits an event', async () => {
+          const tx = await wallet.setSwapConnector(newSwapConnector.address)
+          await assertEvent(tx, 'SwapConnectorSet', { swapConnector: newSwapConnector })
         })
       })
 
       context('when the implementation is not registered', async () => {
+        beforeEach('deploy implementation', async () => {
+          newSwapConnector = await deploy('SwapConnectorMock')
+        })
+
         it('reverts', async () => {
-          await expect(wallet.setSwapConnector(swapConnectorImpl.address, '0x')).to.be.revertedWith(
-            'NEW_IMPL_NOT_REGISTERED'
+          await expect(wallet.setSwapConnector(newSwapConnector.address)).to.be.revertedWith(
+            'NEW_DEPENDENCY_NOT_REGISTERED'
           )
         })
       })
@@ -146,9 +141,7 @@ describe('Wallet', () => {
       })
 
       it('reverts', async () => {
-        await expect(wallet.setSwapConnector(swapConnectorImpl.address, '0x')).to.be.revertedWith(
-          'AUTH_SENDER_NOT_ALLOWED'
-        )
+        await expect(wallet.setSwapConnector(ZERO_ADDRESS)).to.be.revertedWith('AUTH_SENDER_NOT_ALLOWED')
       })
     })
   })

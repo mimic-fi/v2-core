@@ -54,7 +54,6 @@ contract Registry is IRegistry, Authorizer {
 
         isActive[implementation] = true;
         getNamespace[implementation] = namespace;
-        getImplementation[implementation] = implementation;
         emit Registered(namespace, implementation);
     }
 

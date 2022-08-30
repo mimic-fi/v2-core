@@ -17,7 +17,8 @@ contract AuthorizedImplementationMock is AuthorizedImplementation {
         _initialize(admin);
     }
 
-    function setDependency(address implementation, bytes memory initializeData) external {
-        dependency = _createInstanceFor(dependency, implementation, initializeData);
+    function setDependency(address newInstance) external {
+        _validateDependency(dependency, newInstance);
+        dependency = newInstance;
     }
 }
