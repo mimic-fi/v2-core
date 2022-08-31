@@ -125,6 +125,17 @@ contract Wallet is AuthorizedImplementation {
         emit Collect(token, from, amount, data);
     }
 
+    function withdraw(address token, uint256 amount, address recipient, bytes memory data) external auth {
+        require(amount > 0, 'WITHDRAW_AMOUNT_ZERO');
+        require(recipient != address(0), 'RECIPIENT_ZERO');
+
+        uint256 withdrawFeeAmount = amount.mulDown(withdrawFee);
+        _safeTransfer(token, feeCollector, withdrawFeeAmount);
+        uint256 amountAfterFees = amount.sub(withdrawFeeAmount);
+        _safeTransfer(token, recipient, amountAfterFees);
+        emit Withdraw(token, recipient, amountAfterFees, withdrawFeeAmount, data);
+    }
+
     function join(uint256 amount, uint256 slippage, bytes memory data) external auth {
         require(amount > 0, 'JOIN_AMOUNT_ZERO');
         require(slippage <= FixedPoint.ONE, 'JOIN_SLIPPAGE_ABOVE_ONE');
@@ -175,16 +186,6 @@ contract Wallet is AuthorizedImplementation {
 
         amountOut = amountOutBeforeFees.sub(swapFeeAmount);
         emit Swap(tokenIn, tokenOut, amountIn, amountOut, slippage, swapFeeAmount, data);
-    }
-
-    function withdraw(address token, uint256 amount, address recipient, bytes memory data) external auth {
-        require(amount > 0, 'WITHDRAW_AMOUNT_ZERO');
-        require(recipient != address(0), 'RECIPIENT_ZERO');
-
-        uint256 withdrawFeeAmount = amount.mulDown(withdrawFee);
-        _safeTransfer(token, feeCollector, withdrawFeeAmount);
-        _safeTransfer(token, recipient, amount.sub(withdrawFeeAmount));
-        emit Withdraw(token, recipient, amount, withdrawFeeAmount, data);
     }
 
     /**
