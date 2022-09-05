@@ -956,15 +956,12 @@ describe('Wallet', () => {
     const source = 0
     const amount = fp(500)
     const data = '0xabcdef'
-    const ORACLE_RATE = fp(0.98)
+
+    const SWAP_LIMIT = { SLIPPAGE: 0, MIN_AMOUNT_OUT: 1 }
 
     before('deploy tokens', async () => {
       tokenIn = await deploy('TokenMock', ['USDC'])
       tokenOut = await deploy('TokenMock', ['USDT'])
-    })
-
-    beforeEach('mock price oracle rate', async () => {
-      await priceOracle.mockRate(ORACLE_RATE)
     })
 
     context('when the sender is authorized', () => {
@@ -972,206 +969,301 @@ describe('Wallet', () => {
         wallet = wallet.connect(admin)
       })
 
-      context('when the given slippage is valid', () => {
+      const itSwapsAsExpected = (
+        limitType: number,
+        limitAmount: BigNumberish,
+        expectedAmountOut: BigNumber,
+        expectedMinAmountOut: BigNumber
+      ) => {
+        beforeEach('fund swap connector', async () => {
+          await tokenOut.mint(swapConnector.address, expectedAmountOut)
+        })
+
+        context('without swap fee', () => {
+          it('transfers the token in to the swap connector', async () => {
+            const previousWalletBalance = await tokenIn.balanceOf(wallet.address)
+            const previousConnectorBalance = await tokenIn.balanceOf(swapConnector.address)
+
+            await wallet.swap(source, tokenIn.address, tokenOut.address, amount, limitType, limitAmount, data)
+
+            const currentWalletBalance = await tokenIn.balanceOf(wallet.address)
+            expect(currentWalletBalance).to.be.equal(previousWalletBalance.sub(amount))
+
+            const currentConnectorBalance = await tokenIn.balanceOf(swapConnector.address)
+            expect(currentConnectorBalance).to.be.equal(previousConnectorBalance.add(amount))
+          })
+
+          it('transfers the token out to the wallet', async () => {
+            const previousWalletBalance = await tokenOut.balanceOf(wallet.address)
+            const previousConnectorBalance = await tokenOut.balanceOf(swapConnector.address)
+
+            await wallet.swap(source, tokenIn.address, tokenOut.address, amount, limitType, limitAmount, data)
+
+            const currentWalletBalance = await tokenOut.balanceOf(wallet.address)
+            expect(currentWalletBalance).to.be.equal(previousWalletBalance.add(expectedAmountOut))
+
+            const currentConnectorBalance = await tokenOut.balanceOf(swapConnector.address)
+            expect(currentConnectorBalance).to.be.equal(previousConnectorBalance.sub(expectedAmountOut))
+          })
+
+          it('emits an event', async () => {
+            const tx = await wallet.swap(
+              source,
+              tokenIn.address,
+              tokenOut.address,
+              amount,
+              limitType,
+              limitAmount,
+              data
+            )
+
+            await assertEvent(tx, 'Swap', {
+              tokenIn,
+              tokenOut,
+              amountIn: amount,
+              amountOut: expectedAmountOut,
+              minAmountOut: expectedMinAmountOut,
+              fee: 0,
+              data,
+            })
+          })
+        })
+
+        context('with swap fee', () => {
+          const swapFee = fp(0.03)
+          const swapFeeAmount = expectedAmountOut.mul(swapFee).div(fp(1))
+          const expectedAmountOutAfterFees = expectedAmountOut.sub(swapFeeAmount)
+
+          beforeEach('set swap fee', async () => {
+            await wallet.connect(admin).setSwapFee(swapFee)
+          })
+
+          it('transfers the token in to the swap connector', async () => {
+            const previousWalletBalance = await tokenIn.balanceOf(wallet.address)
+            const previousConnectorBalance = await tokenIn.balanceOf(swapConnector.address)
+            const previousFeeCollectorBalance = await tokenIn.balanceOf(feeCollector.address)
+
+            await wallet.swap(source, tokenIn.address, tokenOut.address, amount, limitType, limitAmount, data)
+
+            const currentWalletBalance = await tokenIn.balanceOf(wallet.address)
+            expect(currentWalletBalance).to.be.equal(previousWalletBalance.sub(amount))
+
+            const currentConnectorBalance = await tokenIn.balanceOf(swapConnector.address)
+            expect(currentConnectorBalance).to.be.equal(previousConnectorBalance.add(amount))
+
+            const currentFeeCollectorBalance = await tokenIn.balanceOf(feeCollector.address)
+            expect(currentFeeCollectorBalance).to.be.equal(previousFeeCollectorBalance)
+          })
+
+          it('transfers the token out to the wallet', async () => {
+            const previousWalletBalance = await tokenOut.balanceOf(wallet.address)
+            const previousConnectorBalance = await tokenOut.balanceOf(swapConnector.address)
+            const previousFeeCollectorBalance = await tokenOut.balanceOf(feeCollector.address)
+
+            await wallet.swap(source, tokenIn.address, tokenOut.address, amount, limitType, limitAmount, data)
+
+            const currentWalletBalance = await tokenOut.balanceOf(wallet.address)
+            expect(currentWalletBalance).to.be.equal(previousWalletBalance.add(expectedAmountOutAfterFees))
+
+            const currentConnectorBalance = await tokenOut.balanceOf(swapConnector.address)
+            expect(currentConnectorBalance).to.be.equal(previousConnectorBalance.sub(expectedAmountOut))
+
+            const currentFeeCollectorBalance = await tokenOut.balanceOf(feeCollector.address)
+            expect(currentFeeCollectorBalance).to.be.equal(previousFeeCollectorBalance.add(swapFeeAmount))
+          })
+
+          it('emits an event', async () => {
+            const tx = await wallet.swap(
+              source,
+              tokenIn.address,
+              tokenOut.address,
+              amount,
+              limitType,
+              limitAmount,
+              data
+            )
+
+            await assertEvent(tx, 'Swap', {
+              tokenIn,
+              tokenOut,
+              amountIn: amount,
+              amountOut: expectedAmountOutAfterFees,
+              minAmountOut: expectedMinAmountOut,
+              fee: swapFeeAmount,
+              data,
+            })
+          })
+        })
+      }
+
+      context('when using a slippage limit', () => {
+        const limitType = SWAP_LIMIT.SLIPPAGE
+
+        context('when the given slippage is valid', () => {
+          const ORACLE_RATE = fp(0.98)
+          const oracleAmountOut = amount.mul(ORACLE_RATE).div(fp(1))
+
+          beforeEach('mock price oracle rate', async () => {
+            await priceOracle.mockRate(ORACLE_RATE)
+          })
+
+          context('when the wallet has enough balance', async () => {
+            beforeEach('mint tokens', async () => {
+              await tokenIn.mint(wallet.address, amount)
+            })
+
+            context('when the swap connector provides a worse rate', () => {
+              const SWAP_CONNECTOR_SLIPPAGE = fp(0.01)
+              const SWAP_CONNECTOR_RATE = ORACLE_RATE.mul(fp(1).sub(SWAP_CONNECTOR_SLIPPAGE)).div(fp(1))
+              const expectedAmountOut = amount.mul(SWAP_CONNECTOR_RATE).div(fp(1))
+
+              beforeEach('mock swap connector rate', async () => {
+                await swapConnector.mockRate(SWAP_CONNECTOR_RATE)
+              })
+
+              context('when the user accepts that slippage', () => {
+                const slippage = SWAP_CONNECTOR_SLIPPAGE
+                const expectedMinAmountOut = oracleAmountOut.mul(fp(1).sub(slippage)).div(fp(1))
+
+                itSwapsAsExpected(limitType, slippage, expectedAmountOut, expectedMinAmountOut)
+              })
+
+              context('when the user does not accept that slippage', () => {
+                const slippage = SWAP_CONNECTOR_SLIPPAGE.sub(1)
+
+                beforeEach('fund swap connector', async () => {
+                  await tokenOut.mint(swapConnector.address, amount.mul(SWAP_CONNECTOR_RATE).div(fp(1)))
+                })
+
+                it('reverts', async () => {
+                  await expect(
+                    wallet.swap(source, tokenIn.address, tokenOut.address, amount, limitType, slippage, data)
+                  ).to.be.revertedWith('SWAP_MIN_AMOUNT')
+                })
+              })
+            })
+
+            context('when the swap connector provides the same rate', () => {
+              const SWAP_CONNECTOR_RATE = ORACLE_RATE
+              const expectedAmountOut = amount.mul(SWAP_CONNECTOR_RATE).div(fp(1))
+
+              beforeEach('mock swap connector rate', async () => {
+                await swapConnector.mockRate(SWAP_CONNECTOR_RATE)
+              })
+
+              context('when the user accepts no slippage', () => {
+                const slippage = 0
+                const expectedMinAmountOut = oracleAmountOut.mul(fp(1).sub(slippage)).div(fp(1))
+
+                itSwapsAsExpected(limitType, slippage, expectedAmountOut, expectedMinAmountOut)
+              })
+
+              context('when the user accepts a higher slippage', () => {
+                const slippage = fp(0.2)
+                const expectedMinAmountOut = oracleAmountOut.mul(fp(1).sub(slippage)).div(fp(1))
+
+                itSwapsAsExpected(limitType, slippage, expectedAmountOut, expectedMinAmountOut)
+              })
+            })
+
+            context('when the swap connector provides a better rate', () => {
+              const SWAP_CONNECTOR_RATE = ORACLE_RATE.add(fp(0.01))
+              const expectedAmountOut = amount.mul(SWAP_CONNECTOR_RATE).div(fp(1))
+
+              beforeEach('mock swap connector rate', async () => {
+                await swapConnector.mockRate(SWAP_CONNECTOR_RATE)
+              })
+
+              context('when the user accepts no slippage', () => {
+                const slippage = 0
+                const expectedMinAmountOut = oracleAmountOut.mul(fp(1).sub(slippage)).div(fp(1))
+
+                itSwapsAsExpected(limitType, slippage, expectedAmountOut, expectedMinAmountOut)
+              })
+
+              context('when the user accepts a higher slippage', () => {
+                const slippage = fp(0.2)
+                const expectedMinAmountOut = oracleAmountOut.mul(fp(1).sub(slippage)).div(fp(1))
+
+                itSwapsAsExpected(limitType, slippage, expectedAmountOut, expectedMinAmountOut)
+              })
+            })
+          })
+
+          context('when the wallet does not have enough balance', () => {
+            it('reverts', async () => {
+              await expect(
+                wallet.swap(source, tokenIn.address, tokenOut.address, amount, limitType, 0, data)
+              ).to.be.revertedWith('ERC20: transfer amount exceeds balance')
+            })
+          })
+        })
+
+        context('when the given slippage is not valid', () => {
+          const slippage = fp(1.01)
+
+          it('reverts', async () => {
+            await expect(
+              wallet.swap(source, tokenIn.address, tokenOut.address, amount, limitType, slippage, data)
+            ).to.be.revertedWith('SLIPPAGE_ABOVE_ONE')
+          })
+        })
+      })
+
+      context('when using a min amount out limit', () => {
+        const PRETENDED_RATE = fp(2)
+        const limitType = SWAP_LIMIT.MIN_AMOUNT_OUT
+        const minAmountOut = amount.mul(PRETENDED_RATE).div(fp(1))
+
         context('when the wallet has enough balance', async () => {
           beforeEach('mint tokens', async () => {
             await tokenIn.mint(wallet.address, amount)
           })
 
-          const itSwapsAsExpected = (rate: BigNumberish, slippage: BigNumberish) => {
-            const expectedAmountOut = amount.mul(rate).div(fp(1))
-
-            beforeEach('fund swap connector', async () => {
-              await tokenOut.mint(swapConnector.address, expectedAmountOut)
-            })
-
-            context('without swap fee', () => {
-              it('transfers the token in to the swap connector', async () => {
-                const previousWalletBalance = await tokenIn.balanceOf(wallet.address)
-                const previousConnectorBalance = await tokenIn.balanceOf(swapConnector.address)
-
-                await wallet.swap(source, tokenIn.address, tokenOut.address, amount, slippage, data)
-
-                const currentWalletBalance = await tokenIn.balanceOf(wallet.address)
-                expect(currentWalletBalance).to.be.equal(previousWalletBalance.sub(amount))
-
-                const currentConnectorBalance = await tokenIn.balanceOf(swapConnector.address)
-                expect(currentConnectorBalance).to.be.equal(previousConnectorBalance.add(amount))
-              })
-
-              it('transfers the token out to the wallet', async () => {
-                const previousWalletBalance = await tokenOut.balanceOf(wallet.address)
-                const previousConnectorBalance = await tokenOut.balanceOf(swapConnector.address)
-
-                await wallet.swap(source, tokenIn.address, tokenOut.address, amount, slippage, data)
-
-                const currentWalletBalance = await tokenOut.balanceOf(wallet.address)
-                expect(currentWalletBalance).to.be.equal(previousWalletBalance.add(expectedAmountOut))
-
-                const currentConnectorBalance = await tokenOut.balanceOf(swapConnector.address)
-                expect(currentConnectorBalance).to.be.equal(previousConnectorBalance.sub(expectedAmountOut))
-              })
-
-              it('emits an event', async () => {
-                const tx = await wallet.swap(source, tokenIn.address, tokenOut.address, amount, slippage, data)
-
-                await assertEvent(tx, 'Swap', {
-                  tokenIn,
-                  tokenOut,
-                  slippage,
-                  amountIn: amount,
-                  amountOut: expectedAmountOut,
-                  fee: 0,
-                  data,
-                })
-              })
-            })
-
-            context('with swap fee', () => {
-              const swapFee = fp(0.03)
-              const swapFeeAmount = expectedAmountOut.mul(swapFee).div(fp(1))
-              const expectedAmountOutAfterFees = expectedAmountOut.sub(swapFeeAmount)
-
-              beforeEach('set swap fee', async () => {
-                await wallet.connect(admin).setSwapFee(swapFee)
-              })
-
-              it('transfers the token in to the swap connector', async () => {
-                const previousWalletBalance = await tokenIn.balanceOf(wallet.address)
-                const previousConnectorBalance = await tokenIn.balanceOf(swapConnector.address)
-                const previousFeeCollectorBalance = await tokenIn.balanceOf(feeCollector.address)
-
-                await wallet.swap(source, tokenIn.address, tokenOut.address, amount, slippage, data)
-
-                const currentWalletBalance = await tokenIn.balanceOf(wallet.address)
-                expect(currentWalletBalance).to.be.equal(previousWalletBalance.sub(amount))
-
-                const currentConnectorBalance = await tokenIn.balanceOf(swapConnector.address)
-                expect(currentConnectorBalance).to.be.equal(previousConnectorBalance.add(amount))
-
-                const currentFeeCollectorBalance = await tokenIn.balanceOf(feeCollector.address)
-                expect(currentFeeCollectorBalance).to.be.equal(previousFeeCollectorBalance)
-              })
-
-              it('transfers the token out to the wallet', async () => {
-                const previousWalletBalance = await tokenOut.balanceOf(wallet.address)
-                const previousConnectorBalance = await tokenOut.balanceOf(swapConnector.address)
-                const previousFeeCollectorBalance = await tokenOut.balanceOf(feeCollector.address)
-
-                await wallet.swap(source, tokenIn.address, tokenOut.address, amount, slippage, data)
-
-                const currentWalletBalance = await tokenOut.balanceOf(wallet.address)
-                expect(currentWalletBalance).to.be.equal(previousWalletBalance.add(expectedAmountOutAfterFees))
-
-                const currentConnectorBalance = await tokenOut.balanceOf(swapConnector.address)
-                expect(currentConnectorBalance).to.be.equal(previousConnectorBalance.sub(expectedAmountOut))
-
-                const currentFeeCollectorBalance = await tokenOut.balanceOf(feeCollector.address)
-                expect(currentFeeCollectorBalance).to.be.equal(previousFeeCollectorBalance.add(swapFeeAmount))
-              })
-
-              it('emits an event', async () => {
-                const tx = await wallet.swap(source, tokenIn.address, tokenOut.address, amount, slippage, data)
-
-                await assertEvent(tx, 'Swap', {
-                  tokenIn,
-                  tokenOut,
-                  slippage,
-                  amountIn: amount,
-                  amountOut: expectedAmountOutAfterFees,
-                  fee: swapFeeAmount,
-                  data,
-                })
-              })
-            })
-          }
-
           context('when the swap connector provides a worse rate', () => {
-            const connectorSlippage = fp(0.01)
-            const SWAP_RATE = ORACLE_RATE.mul(fp(1).sub(connectorSlippage)).div(fp(1))
+            const SWAP_CONNECTOR_RATE = PRETENDED_RATE.sub(fp(0.5))
 
-            beforeEach('mock swap connector rate', async () => {
-              await swapConnector.mockRate(SWAP_RATE)
+            beforeEach('mock rate and fund swap connector', async () => {
+              await swapConnector.mockRate(SWAP_CONNECTOR_RATE)
+              await tokenOut.mint(swapConnector.address, amount.mul(SWAP_CONNECTOR_RATE).div(fp(1)))
             })
 
-            context('when the user accepts that slippage', () => {
-              const slippage = connectorSlippage
-
-              itSwapsAsExpected(SWAP_RATE, slippage)
-            })
-
-            context('when the user does not accept that slippage', () => {
-              const slippage = connectorSlippage.sub(1)
-
-              beforeEach('fund swap connector', async () => {
-                await tokenOut.mint(swapConnector.address, amount.mul(SWAP_RATE).div(fp(1)))
-              })
-
-              it('reverts', async () => {
-                await expect(
-                  wallet.swap(source, tokenIn.address, tokenOut.address, amount, slippage, data)
-                ).to.be.revertedWith('SWAP_MIN_AMOUNT')
-              })
+            it('reverts', async () => {
+              await expect(
+                wallet.swap(source, tokenIn.address, tokenOut.address, amount, limitType, minAmountOut, data)
+              ).to.be.revertedWith('SWAP_MIN_AMOUNT')
             })
           })
 
           context('when the swap connector provides the same rate', () => {
-            const SWAP_RATE = ORACLE_RATE
+            const SWAP_CONNECTOR_RATE = PRETENDED_RATE
+            const expectedAmountOut = amount.mul(SWAP_CONNECTOR_RATE).div(fp(1))
 
-            beforeEach('mock swap connector rate', async () => {
-              await swapConnector.mockRate(SWAP_RATE)
+            beforeEach('mock rate', async () => {
+              await swapConnector.mockRate(SWAP_CONNECTOR_RATE)
             })
 
-            context('when the user accepts no slippage', () => {
-              const slippage = 0
-
-              itSwapsAsExpected(SWAP_RATE, slippage)
-            })
-
-            context('when the user accepts a higher slippage', () => {
-              const slippage = fp(0.2)
-
-              itSwapsAsExpected(SWAP_RATE, slippage)
-            })
+            itSwapsAsExpected(limitType, minAmountOut, expectedAmountOut, minAmountOut)
           })
 
           context('when the swap connector provides a better rate', () => {
-            const SWAP_RATE = ORACLE_RATE.add(fp(0.01))
+            const SWAP_CONNECTOR_RATE = PRETENDED_RATE.add(fp(0.5))
+            const expectedAmountOut = amount.mul(SWAP_CONNECTOR_RATE).div(fp(1))
 
-            beforeEach('mock swap connector rate', async () => {
-              await swapConnector.mockRate(SWAP_RATE)
+            beforeEach('mock rate', async () => {
+              await swapConnector.mockRate(SWAP_CONNECTOR_RATE)
             })
 
-            context('when the user accepts no slippage', () => {
-              const slippage = 0
-
-              itSwapsAsExpected(SWAP_RATE, slippage)
-            })
-
-            context('when the user accepts a higher slippage', () => {
-              const slippage = fp(0.2)
-
-              itSwapsAsExpected(SWAP_RATE, slippage)
-            })
+            itSwapsAsExpected(limitType, minAmountOut, expectedAmountOut, minAmountOut)
           })
         })
 
         context('when the wallet does not have enough balance', () => {
           it('reverts', async () => {
-            await expect(wallet.swap(source, tokenIn.address, tokenOut.address, amount, 0, data)).to.be.revertedWith(
-              'ERC20: transfer amount exceeds balance'
-            )
+            await expect(
+              wallet.swap(source, tokenIn.address, tokenOut.address, amount, limitType, minAmountOut, data)
+            ).to.be.revertedWith('ERC20: transfer amount exceeds balance')
           })
-        })
-      })
-
-      context('when the given slippage is not valid', () => {
-        const slippage = fp(1.01)
-
-        it('reverts', async () => {
-          await expect(
-            wallet.swap(source, tokenIn.address, tokenOut.address, amount, slippage, data)
-          ).to.be.revertedWith('SLIPPAGE_ABOVE_ONE')
         })
       })
     })
@@ -1182,7 +1274,7 @@ describe('Wallet', () => {
       })
 
       it('reverts', async () => {
-        await expect(wallet.swap(source, tokenIn.address, tokenOut.address, amount, 0, data)).to.be.revertedWith(
+        await expect(wallet.swap(source, tokenIn.address, tokenOut.address, amount, 0, 0, data)).to.be.revertedWith(
           'AUTH_SENDER_NOT_ALLOWED'
         )
       })

@@ -45,6 +45,11 @@ contract Wallet is AuthorizedImplementation {
 
     bytes32 public constant override NAMESPACE = keccak256('WALLET');
 
+    enum SwapLimit {
+        Slippage,
+        MinAmountOut
+    }
+
     address public strategy;
     address public priceOracle;
     address public swapConnector;
@@ -71,7 +76,7 @@ contract Wallet is AuthorizedImplementation {
         address indexed tokenOut,
         uint256 amountIn,
         uint256 amountOut,
-        uint256 slippage,
+        uint256 minAmountOut,
         uint256 fee,
         bytes data
     );
@@ -199,14 +204,20 @@ contract Wallet is AuthorizedImplementation {
         address tokenIn,
         address tokenOut,
         uint256 amountIn,
-        uint256 slippage,
+        SwapLimit limitType,
+        uint256 limitAmount,
         bytes memory data
     ) external auth returns (uint256 amountOut) {
         require(tokenIn != tokenOut, 'SWAP_SAME_TOKEN');
-        require(slippage <= FixedPoint.ONE, 'SWAP_SLIPPAGE_ABOVE_ONE');
 
-        uint256 price = IPriceOracle(priceOracle).getPrice(tokenOut, tokenIn);
-        uint256 minAmountOut = amountIn.mulUp(price).mulUp(FixedPoint.ONE - slippage);
+        uint256 minAmountOut;
+        if (limitType == SwapLimit.MinAmountOut) {
+            minAmountOut = limitAmount;
+        } else {
+            require(limitAmount <= FixedPoint.ONE, 'SWAP_SLIPPAGE_ABOVE_ONE');
+            uint256 price = IPriceOracle(priceOracle).getPrice(tokenOut, tokenIn);
+            minAmountOut = amountIn.mulUp(price).mulUp(FixedPoint.ONE - limitAmount);
+        }
 
         ISwapConnector connector = ISwapConnector(swapConnector);
         _safeTransfer(tokenIn, address(connector), amountIn);
@@ -221,7 +232,7 @@ contract Wallet is AuthorizedImplementation {
         _safeTransfer(tokenOut, feeCollector, swapFeeAmount);
 
         amountOut = amountOutBeforeFees.sub(swapFeeAmount);
-        emit Swap(tokenIn, tokenOut, amountIn, amountOut, slippage, swapFeeAmount, data);
+        emit Swap(tokenIn, tokenOut, amountIn, amountOut, minAmountOut, swapFeeAmount, data);
     }
 
     /**
