@@ -16,6 +16,7 @@ pragma solidity ^0.8.0;
 
 import '@openzeppelin/contracts/token/ERC20/IERC20.sol';
 import '@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol';
+import '@openzeppelin/contracts/utils/math/Math.sol';
 
 import '@mimic-fi/v2-helpers/contracts/math/FixedPoint.sol';
 import '@mimic-fi/v2-price-oracle/contracts/IPriceOracle.sol';
@@ -25,11 +26,17 @@ import '@mimic-fi/v2-registry/contracts/implementations/AuthorizedImplementation
 interface IStrategy {
     function token() external view returns (address);
 
-    function join(uint256 amount, uint256 slippage, bytes memory data) external;
+    function lastValue() external view returns (uint256);
+
+    function currentValue() external returns (uint256);
+
+    function valueRate() external view returns (uint256);
 
     function claim(bytes memory data) external;
 
-    function exit(uint256 ratio, uint256 slippage, bytes memory data) external returns (uint256);
+    function join(uint256 amount, uint256 slippage, bytes memory data) external returns (uint256 value);
+
+    function exit(uint256 ratio, uint256 slippage, bytes memory data) external returns (uint256 amount, uint256 value);
 }
 
 contract Wallet is AuthorizedImplementation {
@@ -41,8 +48,10 @@ contract Wallet is AuthorizedImplementation {
     address public strategy;
     address public priceOracle;
     address public swapConnector;
+    uint256 public investedValue;
     address public feeCollector;
     uint256 public withdrawFee;
+    uint256 public performanceFee;
     uint256 public swapFee;
 
     event StrategySet(address strategy);
@@ -50,12 +59,13 @@ contract Wallet is AuthorizedImplementation {
     event SwapConnectorSet(address swapConnector);
     event FeeCollectorSet(address feeCollector);
     event WithdrawFeeSet(uint256 withdrawFee);
+    event PerformanceFeeSet(uint256 performanceFee);
     event SwapFeeSet(uint256 swapFee);
     event Collect(address indexed token, address indexed from, uint256 amount, bytes data);
     event Withdraw(address indexed token, address indexed recipient, uint256 amount, uint256 fee, bytes data);
     event Claim(bytes data);
-    event Join(uint256 amount, uint256 slippage, bytes data);
-    event Exit(uint256 amount, uint256 slippage, bytes data);
+    event Join(uint256 amount, uint256 value, uint256 slippage, bytes data);
+    event Exit(uint256 amount, uint256 value, uint256 fee, uint256 slippage, bytes data);
     event Swap(
         address indexed tokenIn,
         address indexed tokenOut,
@@ -87,6 +97,7 @@ contract Wallet is AuthorizedImplementation {
         _authorize(_admin, Wallet.setSwapConnector.selector);
         _authorize(_admin, Wallet.setFeeCollector.selector);
         _authorize(_admin, Wallet.setWithdrawFee.selector);
+        _authorize(_admin, Wallet.setPerformanceFee.selector);
         _authorize(_admin, Wallet.setSwapFee.selector);
         _authorize(_admin, Wallet.collect.selector);
         _authorize(_admin, Wallet.withdraw.selector);
@@ -94,10 +105,6 @@ contract Wallet is AuthorizedImplementation {
         _authorize(_admin, Wallet.join.selector);
         _authorize(_admin, Wallet.exit.selector);
         _authorize(_admin, Wallet.swap.selector);
-    }
-
-    function getTokenBalance(address token) public view returns (uint256) {
-        return IERC20(token).balanceOf(address(this));
     }
 
     function setPriceOracle(address newPriceOracle) external auth {
@@ -114,6 +121,10 @@ contract Wallet is AuthorizedImplementation {
 
     function setWithdrawFee(uint256 newWithdrawFee) external auth {
         _setWithdrawFee(newWithdrawFee);
+    }
+
+    function setPerformanceFee(uint256 newPerformanceFee) external auth {
+        _setPerformanceFee(newPerformanceFee);
     }
 
     function setSwapFee(uint256 newSwapFee) external auth {
@@ -136,29 +147,51 @@ contract Wallet is AuthorizedImplementation {
         emit Withdraw(token, recipient, amountAfterFees, withdrawFeeAmount, data);
     }
 
+    function claim(bytes memory data) external auth {
+        IStrategy(strategy).claim(data);
+        emit Claim(data);
+    }
+
     function join(uint256 amount, uint256 slippage, bytes memory data) external auth {
         require(amount > 0, 'JOIN_AMOUNT_ZERO');
         require(slippage <= FixedPoint.ONE, 'JOIN_SLIPPAGE_ABOVE_ONE');
 
         address token = IStrategy(strategy).token();
         _safeTransfer(token, strategy, amount);
-        IStrategy(strategy).join(amount, slippage, data);
-        emit Join(amount, slippage, data);
-    }
-
-    function claim(bytes memory data) external auth {
-        IStrategy(strategy).claim(data);
-        emit Claim(data);
+        uint256 value = IStrategy(strategy).join(amount, slippage, data);
+        investedValue = investedValue + value;
+        emit Join(amount, value, slippage, data);
     }
 
     function exit(uint256 ratio, uint256 slippage, bytes memory data) external auth returns (uint256 received) {
+        require(investedValue > 0, 'EXIT_NO_INVESTED_VALUE');
         require(ratio > 0 && ratio <= FixedPoint.ONE, 'EXIT_INVALID_RATIO');
         require(slippage <= FixedPoint.ONE, 'EXIT_SLIPPAGE_ABOVE_ONE');
 
-        received = IStrategy(strategy).exit(ratio, slippage, data);
+        (uint256 amount, uint256 exitValue) = IStrategy(strategy).exit(ratio, slippage, data);
         address token = IStrategy(strategy).token();
-        _safeTransferFrom(token, strategy, address(this), received);
-        emit Exit(received, slippage, data);
+        _safeTransferFrom(token, strategy, address(this), amount);
+
+        uint256 performanceFeeAmount;
+        // It can rely on the last updated value since we have just exited, no need to compute current value
+        uint256 valueBeforeExit = IStrategy(strategy).lastValue() + exitValue;
+        if (valueBeforeExit <= investedValue) {
+            // There where losses, invested value is simply reduced using the exited ratio
+            investedValue = investedValue.mulUp(FixedPoint.ONE - ratio);
+        } else {
+            // If value gains are greater than the exit value, it means only gains are being withdrawn. In that case
+            // the taxable amount is the entire exited amount, otherwise it should be the equivalent gains ratio of it.
+            uint256 valueGains = valueBeforeExit - investedValue;
+            uint256 taxableAmount = valueGains > exitValue ? amount : ((amount * valueGains) / exitValue);
+            performanceFeeAmount = taxableAmount.mulDown(performanceFee);
+            _safeTransfer(token, feeCollector, performanceFeeAmount);
+            // If the exit value is greater than the value gains, the invested value should be reduced by the portion
+            // of the invested value being exited. Otherwise, it's still the same, only gains are being withdrawn.
+            investedValue = investedValue - (exitValue > valueGains ? (exitValue - valueGains) : 0);
+        }
+
+        received = amount - performanceFeeAmount;
+        emit Exit(received, exitValue, performanceFeeAmount, slippage, data);
     }
 
     function swap(address tokenIn, address tokenOut, uint256 amountIn, uint256 slippage, bytes memory data)
@@ -174,11 +207,11 @@ contract Wallet is AuthorizedImplementation {
 
         ISwapConnector connector = ISwapConnector(swapConnector);
         _safeTransfer(tokenIn, address(connector), amountIn);
-        uint256 preBalanceOut = getTokenBalance(tokenOut);
+        uint256 preBalanceOut = IERC20(tokenOut).balanceOf(address(this));
         uint256 amountOutBeforeFees = connector.swap(tokenIn, tokenOut, amountIn, minAmountOut, data);
         require(amountOutBeforeFees >= minAmountOut, 'SWAP_MIN_AMOUNT');
 
-        uint256 postBalanceOut = getTokenBalance(tokenOut);
+        uint256 postBalanceOut = IERC20(tokenOut).balanceOf(address(this));
         require(postBalanceOut >= preBalanceOut.add(amountOutBeforeFees), 'SWAP_INVALID_AMOUNT_OUT');
 
         uint256 swapFeeAmount = amountOutBeforeFees.mulDown(swapFee);
@@ -261,6 +294,16 @@ contract Wallet is AuthorizedImplementation {
         require(newWithdrawFee <= FixedPoint.ONE, 'WITHDRAW_FEE_ABOVE_ONE');
         withdrawFee = newWithdrawFee;
         emit WithdrawFeeSet(newWithdrawFee);
+    }
+
+    /**
+     * @dev Internal method to set the performance fee
+     * @param newPerformanceFee New performance fee to be set
+     */
+    function _setPerformanceFee(uint256 newPerformanceFee) internal {
+        require(newPerformanceFee <= FixedPoint.ONE, 'PERFORMANCE_FEE_ABOVE_ONE');
+        performanceFee = newPerformanceFee;
+        emit PerformanceFeeSet(newPerformanceFee);
     }
 
     /**
