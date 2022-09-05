@@ -953,6 +953,7 @@ describe('Wallet', () => {
   describe('swap', () => {
     let tokenIn: Contract, tokenOut: Contract
 
+    const source = 0
     const amount = fp(500)
     const data = '0xabcdef'
     const ORACLE_RATE = fp(0.98)
@@ -989,7 +990,7 @@ describe('Wallet', () => {
                 const previousWalletBalance = await tokenIn.balanceOf(wallet.address)
                 const previousConnectorBalance = await tokenIn.balanceOf(swapConnector.address)
 
-                await wallet.swap(tokenIn.address, tokenOut.address, amount, slippage, data)
+                await wallet.swap(source, tokenIn.address, tokenOut.address, amount, slippage, data)
 
                 const currentWalletBalance = await tokenIn.balanceOf(wallet.address)
                 expect(currentWalletBalance).to.be.equal(previousWalletBalance.sub(amount))
@@ -1002,7 +1003,7 @@ describe('Wallet', () => {
                 const previousWalletBalance = await tokenOut.balanceOf(wallet.address)
                 const previousConnectorBalance = await tokenOut.balanceOf(swapConnector.address)
 
-                await wallet.swap(tokenIn.address, tokenOut.address, amount, slippage, data)
+                await wallet.swap(source, tokenIn.address, tokenOut.address, amount, slippage, data)
 
                 const currentWalletBalance = await tokenOut.balanceOf(wallet.address)
                 expect(currentWalletBalance).to.be.equal(previousWalletBalance.add(expectedAmountOut))
@@ -1012,7 +1013,7 @@ describe('Wallet', () => {
               })
 
               it('emits an event', async () => {
-                const tx = await wallet.swap(tokenIn.address, tokenOut.address, amount, slippage, data)
+                const tx = await wallet.swap(source, tokenIn.address, tokenOut.address, amount, slippage, data)
 
                 await assertEvent(tx, 'Swap', {
                   tokenIn,
@@ -1040,7 +1041,7 @@ describe('Wallet', () => {
                 const previousConnectorBalance = await tokenIn.balanceOf(swapConnector.address)
                 const previousFeeCollectorBalance = await tokenIn.balanceOf(feeCollector.address)
 
-                await wallet.swap(tokenIn.address, tokenOut.address, amount, slippage, data)
+                await wallet.swap(source, tokenIn.address, tokenOut.address, amount, slippage, data)
 
                 const currentWalletBalance = await tokenIn.balanceOf(wallet.address)
                 expect(currentWalletBalance).to.be.equal(previousWalletBalance.sub(amount))
@@ -1057,7 +1058,7 @@ describe('Wallet', () => {
                 const previousConnectorBalance = await tokenOut.balanceOf(swapConnector.address)
                 const previousFeeCollectorBalance = await tokenOut.balanceOf(feeCollector.address)
 
-                await wallet.swap(tokenIn.address, tokenOut.address, amount, slippage, data)
+                await wallet.swap(source, tokenIn.address, tokenOut.address, amount, slippage, data)
 
                 const currentWalletBalance = await tokenOut.balanceOf(wallet.address)
                 expect(currentWalletBalance).to.be.equal(previousWalletBalance.add(expectedAmountOutAfterFees))
@@ -1070,7 +1071,7 @@ describe('Wallet', () => {
               })
 
               it('emits an event', async () => {
-                const tx = await wallet.swap(tokenIn.address, tokenOut.address, amount, slippage, data)
+                const tx = await wallet.swap(source, tokenIn.address, tokenOut.address, amount, slippage, data)
 
                 await assertEvent(tx, 'Swap', {
                   tokenIn,
@@ -1107,9 +1108,9 @@ describe('Wallet', () => {
               })
 
               it('reverts', async () => {
-                await expect(wallet.swap(tokenIn.address, tokenOut.address, amount, slippage, data)).to.be.revertedWith(
-                  'SWAP_MIN_AMOUNT'
-                )
+                await expect(
+                  wallet.swap(source, tokenIn.address, tokenOut.address, amount, slippage, data)
+                ).to.be.revertedWith('SWAP_MIN_AMOUNT')
               })
             })
           })
@@ -1157,7 +1158,7 @@ describe('Wallet', () => {
 
         context('when the wallet does not have enough balance', () => {
           it('reverts', async () => {
-            await expect(wallet.swap(tokenIn.address, tokenOut.address, amount, 0, data)).to.be.revertedWith(
+            await expect(wallet.swap(source, tokenIn.address, tokenOut.address, amount, 0, data)).to.be.revertedWith(
               'ERC20: transfer amount exceeds balance'
             )
           })
@@ -1168,9 +1169,9 @@ describe('Wallet', () => {
         const slippage = fp(1.01)
 
         it('reverts', async () => {
-          await expect(wallet.swap(tokenIn.address, tokenOut.address, amount, slippage, data)).to.be.revertedWith(
-            'SLIPPAGE_ABOVE_ONE'
-          )
+          await expect(
+            wallet.swap(source, tokenIn.address, tokenOut.address, amount, slippage, data)
+          ).to.be.revertedWith('SLIPPAGE_ABOVE_ONE')
         })
       })
     })
@@ -1181,7 +1182,7 @@ describe('Wallet', () => {
       })
 
       it('reverts', async () => {
-        await expect(wallet.swap(tokenIn.address, tokenOut.address, amount, 0, data)).to.be.revertedWith(
+        await expect(wallet.swap(source, tokenIn.address, tokenOut.address, amount, 0, data)).to.be.revertedWith(
           'AUTH_SENDER_NOT_ALLOWED'
         )
       })

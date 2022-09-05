@@ -30,8 +30,8 @@ import '@uniswap/v2-periphery/contracts/interfaces/IUniswapV2Router02.sol';
 contract UniswapV2Connector {
     using SafeERC20 for IERC20;
 
-    // Expected data length for Uniswap V2 single swaps: only for the enum option (uint8)
-    uint256 private constant ENCODED_DATA_SINGLE_SWAP_LENGTH = 32;
+    // Expected data length for Uniswap V2 single swaps: no data expected
+    uint256 private constant ENCODED_DATA_SINGLE_SWAP_LENGTH = 0;
 
     // Reference to UniswapV2 router
     IUniswapV2Router02 private immutable uniswapV2Router;
@@ -99,7 +99,7 @@ contract UniswapV2Connector {
         bytes memory data
     ) private returns (uint256[] memory) {
         address factory = uniswapV2Router.factory();
-        (, address[] memory hopTokens) = abi.decode(data, (uint8, address[]));
+        address[] memory hopTokens = abi.decode(data, (address[]));
         address[] memory tokens = Arrays.from(tokenIn, hopTokens, tokenOut);
         for (uint256 i = 0; i < tokens.length - 1; i++) _validatePool(factory, tokens[i], tokens[i + 1]);
         return uniswapV2Router.swapExactTokensForTokens(amountIn, minAmountOut, tokens, msg.sender, block.timestamp);

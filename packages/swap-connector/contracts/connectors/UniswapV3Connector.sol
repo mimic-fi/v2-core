@@ -32,8 +32,8 @@ contract UniswapV3Connector {
     using Bytes for bytes;
     using SafeERC20 for IERC20;
 
-    // Expected data length for Uniswap V3 single swaps: only for the fee + enum (uint24 + uint8)
-    uint256 private constant ENCODED_DATA_SINGLE_SWAP_LENGTH = 64;
+    // Expected data length for Uniswap V3 single swaps: fee
+    uint256 private constant ENCODED_DATA_SINGLE_SWAP_LENGTH = 32;
 
     // Reference to UniswapV3 router
     ISwapRouter private immutable uniswapV3Router;
@@ -83,7 +83,7 @@ contract UniswapV3Connector {
         uint256 minAmountOut,
         bytes memory data
     ) private returns (uint256 amountOut) {
-        (, uint24 fee) = abi.decode(data, (uint8, uint24));
+        uint24 fee = abi.decode(data, (uint24));
         _validatePool(_uniswapV3Factory(), tokenIn, tokenOut, fee);
 
         ISwapRouter.ExactInputSingleParams memory input;
@@ -113,7 +113,7 @@ contract UniswapV3Connector {
         uint256 minAmountOut,
         bytes memory data
     ) private returns (uint256 amountOut) {
-        (, address[] memory hopTokens, uint24[] memory fees) = abi.decode(data, (uint8, address[], uint24[]));
+        (address[] memory hopTokens, uint24[] memory fees) = abi.decode(data, (address[], uint24[]));
         require(fees.length == hopTokens.length + 1, 'INVALID_UNISWAP_V3_INPUT_LENGTH');
         address[] memory tokens = Arrays.from(tokenIn, hopTokens, tokenOut);
         address factory = _uniswapV3Factory();

@@ -16,11 +16,9 @@ pragma solidity >=0.8.0;
 
 interface ISwapConnector {
     /**
-     * @dev Enum identifying the DEXes supported by this implementation: Uniswap V2, Uniswap V3, and Balancer V2.
-     *      Note that Uniswap V2 will be used by default and more customization could be added in the future.
-     *      TODO: Rename source?
+     * @dev Enum identifying the sources proposed: Uniswap V2, Uniswap V3, and Balancer V2.
      */
-    enum DEX {
+    enum Source {
         UniswapV2,
         UniswapV3,
         BalancerV2
@@ -28,13 +26,19 @@ interface ISwapConnector {
 
     /**
      * @dev Swaps two tokens
+     * @param source Source to execute the requested swap
      * @param tokenIn Token being sent
      * @param tokenOut Token being received
      * @param amountIn Amount of tokenIn being swapped
      * @param minAmountOut Minimum amount of tokenOut willing to receive
-     * @param data Encoded-packed data to be decoded based on the requested DEX
+     * @param data Encoded data to specify different swap parameters depending on the source picked
      */
-    function swap(address tokenIn, address tokenOut, uint256 amountIn, uint256 minAmountOut, bytes memory data)
-        external
-        returns (uint256 amountOut);
+    function swap(
+        Source source,
+        address tokenIn,
+        address tokenOut,
+        uint256 amountIn,
+        uint256 minAmountOut,
+        bytes memory data
+    ) external returns (uint256 amountOut);
 }

@@ -7,7 +7,7 @@ import { BigNumber, Contract } from 'ethers'
 
 /* eslint-disable no-secrets/no-secrets */
 
-const DEX = {
+const SOURCE = {
   UNISWAP_V2: 0,
   UNISWAP_V3: 1,
   BALANCER_V2: 2,
@@ -76,13 +76,13 @@ describe('SwapConnector', () => {
     return expectedAmountOut.sub(pct(expectedAmountOut, SLIPPAGE))
   }
 
-  const itSingleSwapsCorrectly = (data: string) => {
+  const itSingleSwapsCorrectly = (source: number, data: string) => {
     it('swaps correctly USDC-WETH', async () => {
       const amountIn = fp(10e3).div(1e12) // USDC 6 decimals
       const previousBalance = await weth.balanceOf(WHALE)
       await usdc.connect(whale).transfer(connector.address, amountIn)
 
-      await connector.connect(whale).swap(USDC, WETH, amountIn, 0, data)
+      await connector.connect(whale).swap(source, USDC, WETH, amountIn, 0, data)
 
       const currentBalance = await weth.balanceOf(WHALE)
       const expectedMinAmountOut = await getExpectedMinAmountOut(USDC, WETH, amountIn)
@@ -94,7 +94,7 @@ describe('SwapConnector', () => {
       const previousBalance = await usdc.balanceOf(WHALE)
       await weth.connect(whale).transfer(connector.address, amountIn)
 
-      await connector.connect(whale).swap(WETH, USDC, amountIn, 0, data)
+      await connector.connect(whale).swap(source, WETH, USDC, amountIn, 0, data)
 
       const currentBalance = await usdc.balanceOf(WHALE)
       const expectedMinAmountOut = await getExpectedMinAmountOut(WETH, USDC, amountIn)
@@ -102,13 +102,13 @@ describe('SwapConnector', () => {
     })
   }
 
-  const itBatchSwapsCorrectly = (usdcWbtcData: string, wbtcUsdcData: string) => {
+  const itBatchSwapsCorrectly = (source: number, usdcWbtcData: string, wbtcUsdcData: string) => {
     it('swaps correctly USDC-WBTC', async () => {
       const amountIn = fp(10e3).div(1e12) // USDC 6 decimals
       const previousBalance = await wbtc.balanceOf(WHALE)
       await usdc.connect(whale).transfer(connector.address, amountIn)
 
-      await connector.connect(whale).swap(USDC, WBTC, amountIn, 0, usdcWbtcData)
+      await connector.connect(whale).swap(source, USDC, WBTC, amountIn, 0, usdcWbtcData)
 
       const currentBalance = await wbtc.balanceOf(WHALE)
       const expectedMinAmountOut = await getExpectedMinAmountOut(USDC, WBTC, amountIn)
@@ -120,7 +120,7 @@ describe('SwapConnector', () => {
       const previousBalance = await usdc.balanceOf(WHALE)
       await wbtc.connect(whale).transfer(connector.address, amountIn)
 
-      await connector.connect(whale).swap(WBTC, USDC, amountIn, 0, wbtcUsdcData)
+      await connector.connect(whale).swap(source, WBTC, USDC, amountIn, 0, wbtcUsdcData)
 
       const currentBalance = await usdc.balanceOf(WHALE)
       const expectedMinAmountOut = await getExpectedMinAmountOut(WBTC, USDC, amountIn)
@@ -129,61 +129,58 @@ describe('SwapConnector', () => {
   }
 
   context('Uniswap V2', () => {
-    const dex = DEX.UNISWAP_V2
+    const source = SOURCE.UNISWAP_V2
 
     context('single swap', () => {
-      const data = defaultAbiCoder.encode(['uint8'], [dex])
+      const data = '0x'
 
-      itSingleSwapsCorrectly(data)
+      itSingleSwapsCorrectly(source, data)
     })
 
     context('batch swap', () => {
-      const data = defaultAbiCoder.encode(['uint8', 'address[]'], [dex, [WETH]])
+      const data = defaultAbiCoder.encode(['address[]'], [[WETH]])
 
-      itBatchSwapsCorrectly(data, data)
+      itBatchSwapsCorrectly(source, data, data)
     })
   })
 
   context('Uniswap V3', () => {
-    const dex = DEX.UNISWAP_V3
+    const source = SOURCE.UNISWAP_V3
 
     context('single swap', () => {
-      const data = defaultAbiCoder.encode(['uint8', 'uint24'], [dex, UNISWAP_V3_FEE])
+      const data = defaultAbiCoder.encode(['uint24'], [UNISWAP_V3_FEE])
 
-      itSingleSwapsCorrectly(data)
+      itSingleSwapsCorrectly(source, data)
     })
 
     context('batch swap', () => {
-      const data = defaultAbiCoder.encode(
-        ['uint8', 'address[]', 'uint24[]'],
-        [dex, [WETH], [UNISWAP_V3_FEE, UNISWAP_V3_FEE]]
-      )
+      const data = defaultAbiCoder.encode(['address[]', 'uint24[]'], [[WETH], [UNISWAP_V3_FEE, UNISWAP_V3_FEE]])
 
-      itBatchSwapsCorrectly(data, data)
+      itBatchSwapsCorrectly(source, data, data)
     })
   })
 
   context('Balancer V2', () => {
-    const dex = DEX.BALANCER_V2
+    const source = SOURCE.BALANCER_V2
 
     context('single swap', () => {
-      const data = defaultAbiCoder.encode(['uint8', 'bytes32'], [dex, BALANCER_POOL_WETH_USDC_ID])
+      const data = defaultAbiCoder.encode(['bytes32'], [BALANCER_POOL_WETH_USDC_ID])
 
-      itSingleSwapsCorrectly(data)
+      itSingleSwapsCorrectly(source, data)
     })
 
     context('batch swap', () => {
       const usdcWbtcData = defaultAbiCoder.encode(
-        ['uint8', 'address[]', 'bytes32[]'],
-        [dex, [WETH], [BALANCER_POOL_WETH_USDC_ID, BALANCER_POOL_WETH_WBTC_ID]]
+        ['address[]', 'bytes32[]'],
+        [[WETH], [BALANCER_POOL_WETH_USDC_ID, BALANCER_POOL_WETH_WBTC_ID]]
       )
 
       const wbtcUsdcData = defaultAbiCoder.encode(
-        ['uint8', 'address[]', 'bytes32[]'],
-        [dex, [WETH], [BALANCER_POOL_WETH_WBTC_ID, BALANCER_POOL_WETH_USDC_ID]]
+        ['address[]', 'bytes32[]'],
+        [[WETH], [BALANCER_POOL_WETH_WBTC_ID, BALANCER_POOL_WETH_USDC_ID]]
       )
 
-      itBatchSwapsCorrectly(usdcWbtcData, wbtcUsdcData)
+      itBatchSwapsCorrectly(source, usdcWbtcData, wbtcUsdcData)
     })
   })
 })

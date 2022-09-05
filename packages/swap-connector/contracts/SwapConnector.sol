@@ -46,35 +46,24 @@ contract SwapConnector is ISwapConnector, IImplementation, UniswapV3Connector, U
 
     /**
      * @dev Swaps two tokens
+     * @param source Source to execute the requested swap
      * @param tokenIn Token being sent
      * @param tokenOut Token being received
      * @param amountIn Amount of tokenIn being swapped
      * @param minAmountOut Minimum amount of tokenOut willing to receive
-     * @param data Extra data to be parsed based on the DEX requested
+     * @param data Encoded data to specify different swap parameters depending on the source picked
      */
-    function swap(address tokenIn, address tokenOut, uint256 amountIn, uint256 minAmountOut, bytes memory data)
-        external
-        override
-        returns (uint256 amountOut)
-    {
-        DEX dex = abi.decode(data, (DEX));
-        amountOut = _swap(dex, tokenIn, tokenOut, amountIn, minAmountOut, data);
-    }
-
-    /**
-     * @dev Internal function to swaps two tokens. It will dispatch the request to the corresponding DEX set.
-     */
-    function _swap(
-        DEX dex,
+    function swap(
+        Source source,
         address tokenIn,
         address tokenOut,
         uint256 amountIn,
         uint256 minAmountOut,
         bytes memory data
-    ) internal returns (uint256) {
-        if (dex == DEX.UniswapV2) return _swapUniswapV2(tokenIn, tokenOut, amountIn, minAmountOut, data);
-        else if (dex == DEX.UniswapV3) return _swapUniswapV3(tokenIn, tokenOut, amountIn, minAmountOut, data);
-        else if (dex == DEX.BalancerV2) return _swapBalancerV2(tokenIn, tokenOut, amountIn, minAmountOut, data);
+    ) external override returns (uint256 amountOut) {
+        if (source == Source.UniswapV2) return _swapUniswapV2(tokenIn, tokenOut, amountIn, minAmountOut, data);
+        else if (source == Source.UniswapV3) return _swapUniswapV3(tokenIn, tokenOut, amountIn, minAmountOut, data);
+        else if (source == Source.BalancerV2) return _swapBalancerV2(tokenIn, tokenOut, amountIn, minAmountOut, data);
         else revert('INVALID_DEX_OPTION');
     }
 }

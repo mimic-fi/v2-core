@@ -194,11 +194,14 @@ contract Wallet is AuthorizedImplementation {
         emit Exit(received, exitValue, performanceFeeAmount, slippage, data);
     }
 
-    function swap(address tokenIn, address tokenOut, uint256 amountIn, uint256 slippage, bytes memory data)
-        external
-        auth
-        returns (uint256 amountOut)
-    {
+    function swap(
+        ISwapConnector.Source source,
+        address tokenIn,
+        address tokenOut,
+        uint256 amountIn,
+        uint256 slippage,
+        bytes memory data
+    ) external auth returns (uint256 amountOut) {
         require(tokenIn != tokenOut, 'SWAP_SAME_TOKEN');
         require(slippage <= FixedPoint.ONE, 'SWAP_SLIPPAGE_ABOVE_ONE');
 
@@ -208,7 +211,7 @@ contract Wallet is AuthorizedImplementation {
         ISwapConnector connector = ISwapConnector(swapConnector);
         _safeTransfer(tokenIn, address(connector), amountIn);
         uint256 preBalanceOut = IERC20(tokenOut).balanceOf(address(this));
-        uint256 amountOutBeforeFees = connector.swap(tokenIn, tokenOut, amountIn, minAmountOut, data);
+        uint256 amountOutBeforeFees = connector.swap(source, tokenIn, tokenOut, amountIn, minAmountOut, data);
         require(amountOutBeforeFees >= minAmountOut, 'SWAP_MIN_AMOUNT');
 
         uint256 postBalanceOut = IERC20(tokenOut).balanceOf(address(this));

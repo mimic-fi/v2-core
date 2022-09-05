@@ -30,8 +30,8 @@ contract BalancerV2Connector {
     using Arrays for address[];
     using SafeERC20 for IERC20;
 
-    // Expected data length for Balancer V2 single swaps: only for the pool ID + enum (bytes32 + uint8)
-    uint256 private constant ENCODED_DATA_SINGLE_SWAP_LENGTH = 64;
+    // Expected data length for Balancer V2 single swaps: pool ID
+    uint256 private constant ENCODED_DATA_SINGLE_SWAP_LENGTH = 32;
 
     // Reference to BalancerV2 vault
     IBalancerV2Vault private immutable balancerV2Vault;
@@ -81,7 +81,7 @@ contract BalancerV2Connector {
         uint256 minAmountOut,
         bytes memory data
     ) private returns (uint256 amountOut) {
-        (, bytes32 poolId) = abi.decode(data, (uint8, bytes32));
+        bytes32 poolId = abi.decode(data, (bytes32));
         _validatePool(poolId, tokenIn, tokenOut);
 
         IBalancerV2Vault.SingleSwap memory swap;
@@ -110,7 +110,7 @@ contract BalancerV2Connector {
         bytes memory data
     ) private returns (uint256 amountOut) {
         // Decode data and validate pools
-        (, address[] memory hopTokens, bytes32[] memory poolIds) = abi.decode(data, (uint8, address[], bytes32[]));
+        (address[] memory hopTokens, bytes32[] memory poolIds) = abi.decode(data, (address[], bytes32[]));
         require(poolIds.length == hopTokens.length + 1, 'INVALID_BALANCER_V2_INPUT_LENGTH');
         address[] memory tokens = Arrays.from(tokenIn, hopTokens, tokenOut);
         for (uint256 i = 0; i < poolIds.length; i++) _validatePool(poolIds[i], tokens[i], tokens[i + 1]);
