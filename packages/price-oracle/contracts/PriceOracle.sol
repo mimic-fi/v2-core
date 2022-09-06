@@ -19,12 +19,14 @@ import '@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol';
 import '@openzeppelin/contracts/utils/math/SafeCast.sol';
 
 import '@mimic-fi/v2-helpers/contracts/math/FixedPoint.sol';
+import '@mimic-fi/v2-helpers/contracts/math/UncheckedMath.sol';
 import '@mimic-fi/v2-registry/contracts/implementations/AuthorizedImplementation.sol';
 
 import './IPriceOracle.sol';
 
 contract PriceOracle is IPriceOracle, AuthorizedImplementation {
     using FixedPoint for uint256;
+    using UncheckedMath for uint256;
 
     bytes32 public constant FEEDS_NAMESPACE = keccak256('PRICE_ORACLE_FEEDS');
     bytes32 public constant override NAMESPACE = keccak256('PRICE_ORACLE');
@@ -56,9 +58,12 @@ contract PriceOracle is IPriceOracle, AuthorizedImplementation {
         // If `base * result / 1e18` must be expressed in `quote` decimals, then
         uint256 baseDecimals = IERC20Metadata(base).decimals();
         uint256 quoteDecimals = IERC20Metadata(quote).decimals();
-        require(baseDecimals <= quoteDecimals + FP_DECIMALS, 'BASE_DECIMALS_TOO_BIG');
 
-        uint256 resultDecimals = quoteDecimals + FP_DECIMALS - baseDecimals;
+        // No need for checked math as an uint8 + FP_DECIMALS (constant) will always fit in an uint256
+        require(baseDecimals <= quoteDecimals.uncheckedAdd(FP_DECIMALS), 'BASE_DECIMALS_TOO_BIG');
+
+        // No need for checked math as we are checking it manually beforehand
+        uint256 resultDecimals = quoteDecimals.uncheckedAdd(FP_DECIMALS).uncheckedSub(baseDecimals);
         (uint256 price, uint256 decimals) = _getPrice(base, quote);
         return _scalePrice(price, decimals, resultDecimals);
     }
@@ -70,7 +75,7 @@ contract PriceOracle is IPriceOracle, AuthorizedImplementation {
     {
         require(bases.length == quotes.length, 'SET_FEEDS_INVALID_QUOTES_LENGTH');
         require(bases.length == priceFeeds.length, 'SET_FEEDS_INVALID_FEEDS_LENGTH');
-        for (uint256 i = 0; i < bases.length; i++) _setFeed(bases[i], quotes[i], priceFeeds[i]);
+        for (uint256 i = 0; i < bases.length; i = i.uncheckedAdd(1)) _setFeed(bases[i], quotes[i], priceFeeds[i]);
     }
 
     function _getPrice(address base, address quote) internal view returns (uint256 price, uint256 decimals) {
@@ -91,7 +96,8 @@ contract PriceOracle is IPriceOracle, AuthorizedImplementation {
 
         // TODO: review rounding
         price = FixedPoint.ONE.divDown(inversePrice);
-        decimals = INVERSE_FEED_MAX_DECIMALS - feedDecimals;
+        // No need for checked math as we are checking it manually beforehand
+        decimals = INVERSE_FEED_MAX_DECIMALS.uncheckedSub(feedDecimals);
     }
 
     function _getPivotPrice(address base, address quote) internal view returns (uint256 price, uint256 decimals) {
@@ -103,12 +109,14 @@ contract PriceOracle is IPriceOracle, AuthorizedImplementation {
 
         (uint256 basePrice, uint256 baseFeedDecimals) = _getFeedData(baseFeed);
         (uint256 quotePrice, uint256 quoteFeedDecimals) = _getFeedData(quoteFeed);
+        // No need for checked math as an uint8 + FP_DECIMALS (constant) will always fit in an uint256
         require(quoteFeedDecimals <= baseFeedDecimals + FP_DECIMALS, 'QUOTE_FEED_DECIMALS_TOO_BIG');
 
         // TODO: review rounding
         // Price is base/quote = (base/pivot) / (quote/pivot)
         price = basePrice.divDown(quotePrice);
-        decimals = baseFeedDecimals + FP_DECIMALS - quoteFeedDecimals;
+        // No need for checked math as we are checking it manually beforehand
+        decimals = baseFeedDecimals.uncheckedAdd(FP_DECIMALS).uncheckedSub(quoteFeedDecimals);
     }
 
     function _getFeedData(address feed) internal view returns (uint256 price, uint256 decimals) {
@@ -120,8 +128,8 @@ contract PriceOracle is IPriceOracle, AuthorizedImplementation {
     function _scalePrice(uint256 price, uint256 priceDecimals, uint256 resultDecimals) internal pure returns (uint256) {
         return
             resultDecimals >= priceDecimals
-                ? (price * 10**(resultDecimals - priceDecimals))
-                : (price / 10**(priceDecimals - resultDecimals));
+                ? (price * 10**(resultDecimals.uncheckedSub(priceDecimals)))
+                : (price / 10**(priceDecimals.uncheckedSub(resultDecimals)));
     }
 
     function _setFeed(address base, address quote, address feed) internal {

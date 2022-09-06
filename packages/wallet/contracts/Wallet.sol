@@ -20,6 +20,7 @@ import '@openzeppelin/contracts/utils/Address.sol';
 import '@openzeppelin/contracts/utils/math/Math.sol';
 
 import '@mimic-fi/v2-helpers/contracts/math/FixedPoint.sol';
+import '@mimic-fi/v2-helpers/contracts/math/UncheckedMath.sol';
 import '@mimic-fi/v2-price-oracle/contracts/IPriceOracle.sol';
 import '@mimic-fi/v2-swap-connector/contracts/ISwapConnector.sol';
 import '@mimic-fi/v2-registry/contracts/implementations/AuthorizedImplementation.sol';
@@ -45,6 +46,7 @@ interface IStrategy {
 contract Wallet is AuthorizedImplementation {
     using SafeERC20 for IERC20;
     using FixedPoint for uint256;
+    using UncheckedMath for uint256;
 
     bytes32 public constant override NAMESPACE = keccak256('WALLET');
     address public constant ETH = address(0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE);
@@ -207,7 +209,8 @@ contract Wallet is AuthorizedImplementation {
         uint256 valueBeforeExit = IStrategy(strategy).lastValue() + exitValue;
         if (valueBeforeExit <= investedValue) {
             // There where losses, invested value is simply reduced using the exited ratio
-            investedValue = investedValue.mulUp(FixedPoint.ONE - ratio);
+            // No need for checked math as we are checking it manually beforehand
+            investedValue = investedValue.mulUp(FixedPoint.ONE.uncheckedSub(ratio));
         } else {
             // If value gains are greater than the exit value, it means only gains are being withdrawn. In that case
             // the taxable amount is the entire exited amount, otherwise it should be the equivalent gains ratio of it.
@@ -217,7 +220,9 @@ contract Wallet is AuthorizedImplementation {
             _safeTransfer(token, feeCollector, performanceFeeAmount);
             // If the exit value is greater than the value gains, the invested value should be reduced by the portion
             // of the invested value being exited. Otherwise, it's still the same, only gains are being withdrawn.
-            investedValue = investedValue - (exitValue > valueGains ? (exitValue - valueGains) : 0);
+            // No need for checked math as we are checking it manually beforehand
+            uint256 decrement = exitValue > valueGains ? (exitValue.uncheckedSub(valueGains)) : 0;
+            investedValue = investedValue - decrement;
         }
 
         received = amount - performanceFeeAmount;
@@ -241,7 +246,8 @@ contract Wallet is AuthorizedImplementation {
         } else {
             require(limitAmount <= FixedPoint.ONE, 'SWAP_SLIPPAGE_ABOVE_ONE');
             uint256 price = IPriceOracle(priceOracle).getPrice(tokenOut, tokenIn);
-            minAmountOut = amountIn.mulUp(price).mulUp(FixedPoint.ONE - limitAmount);
+            // No need for checked math as we are checking it manually beforehand
+            minAmountOut = amountIn.mulUp(price).mulUp(FixedPoint.ONE.uncheckedSub(limitAmount));
         }
 
         ISwapConnector connector = ISwapConnector(swapConnector);

@@ -14,15 +14,16 @@
 
 pragma solidity ^0.8.0;
 
-import '@mimic-fi/v2-helpers/contracts/utils/Arrays.sol';
-import '@mimic-fi/v2-helpers/contracts/utils/Bytes.sol';
-
 import '@openzeppelin/contracts/token/ERC20/IERC20.sol';
 import '@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol';
 
 import '@uniswap/v3-core/contracts/interfaces/IUniswapV3Factory.sol';
 import '@uniswap/v3-periphery/contracts/interfaces/ISwapRouter.sol';
 import '@uniswap/v3-periphery/contracts/interfaces/IPeripheryImmutableState.sol';
+
+import '@mimic-fi/v2-helpers/contracts/utils/Arrays.sol';
+import '@mimic-fi/v2-helpers/contracts/utils/Bytes.sol';
+import '@mimic-fi/v2-helpers/contracts/math/UncheckedMath.sol';
 
 /**
  * @title UniswapV3Connector
@@ -31,6 +32,7 @@ import '@uniswap/v3-periphery/contracts/interfaces/IPeripheryImmutableState.sol'
 contract UniswapV3Connector {
     using Bytes for bytes;
     using SafeERC20 for IERC20;
+    using UncheckedMath for uint256;
 
     // Expected data length for Uniswap V3 single swaps: fee
     uint256 private constant ENCODED_DATA_SINGLE_SWAP_LENGTH = 32;
@@ -114,10 +116,15 @@ contract UniswapV3Connector {
         bytes memory data
     ) private returns (uint256 amountOut) {
         (address[] memory hopTokens, uint24[] memory fees) = abi.decode(data, (address[], uint24[]));
-        require(fees.length == hopTokens.length + 1, 'INVALID_UNISWAP_V3_INPUT_LENGTH');
-        address[] memory tokens = Arrays.from(tokenIn, hopTokens, tokenOut);
+        // No need for checked math since we are simply adding one to a memory array's length
+        require(fees.length == hopTokens.length.uncheckedAdd(1), 'INVALID_UNISWAP_V3_INPUT_LENGTH');
+
         address factory = _uniswapV3Factory();
-        for (uint256 i = 0; i < fees.length; i++) _validatePool(factory, tokens[i], tokens[i + 1], fees[i]);
+        address[] memory tokens = Arrays.from(tokenIn, hopTokens, tokenOut);
+        // No need for checked math since we are using it to compute indexes manually, always within boundaries
+        for (uint256 i = 0; i < fees.length; i = i.uncheckedAdd(1)) {
+            _validatePool(factory, tokens[i], tokens[i.uncheckedAdd(1)], fees[i]);
+        }
 
         ISwapRouter.ExactInputParams memory input;
         input.path = _encodePoolPath(tokens, fees);
@@ -155,7 +162,7 @@ contract UniswapV3Connector {
      */
     function _encodePoolPath(address[] memory tokens, uint24[] memory fees) private pure returns (bytes memory path) {
         path = new bytes(0);
-        for (uint256 i = 0; i < fees.length; i++) path = path.concat(tokens[i]).concat(fees[i]);
+        for (uint256 i = 0; i < fees.length; i = i.uncheckedAdd(1)) path = path.concat(tokens[i]).concat(fees[i]);
         path = path.concat(tokens[fees.length]);
     }
 }

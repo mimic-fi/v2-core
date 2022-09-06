@@ -14,11 +14,12 @@
 
 pragma solidity ^0.8.0;
 
-import '@mimic-fi/v2-helpers/contracts/utils/Arrays.sol';
-
 import '@openzeppelin/contracts/token/ERC20/IERC20.sol';
 import '@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol';
 import '@openzeppelin/contracts/utils/math/SafeCast.sol';
+
+import '@mimic-fi/v2-helpers/contracts/utils/Arrays.sol';
+import '@mimic-fi/v2-helpers/contracts/math/UncheckedMath.sol';
 
 import '../interfaces/IBalancerV2Vault.sol';
 
@@ -29,6 +30,8 @@ import '../interfaces/IBalancerV2Vault.sol';
 contract BalancerV2Connector {
     using Arrays for address[];
     using SafeERC20 for IERC20;
+    using UncheckedMath for int256;
+    using UncheckedMath for uint256;
 
     // Expected data length for Balancer V2 single swaps: pool ID
     uint256 private constant ENCODED_DATA_SINGLE_SWAP_LENGTH = 32;
@@ -111,26 +114,33 @@ contract BalancerV2Connector {
     ) private returns (uint256 amountOut) {
         // Decode data and validate pools
         (address[] memory hopTokens, bytes32[] memory poolIds) = abi.decode(data, (address[], bytes32[]));
-        require(poolIds.length == hopTokens.length + 1, 'INVALID_BALANCER_V2_INPUT_LENGTH');
+        // No need for checked math since we are simply adding one to a memory array's length
+        require(poolIds.length == hopTokens.length.uncheckedAdd(1), 'INVALID_BALANCER_V2_INPUT_LENGTH');
+
         address[] memory tokens = Arrays.from(tokenIn, hopTokens, tokenOut);
-        for (uint256 i = 0; i < poolIds.length; i++) _validatePool(poolIds[i], tokens[i], tokens[i + 1]);
+        // No need for checked math since we are using it to compute indexes manually, always within boundaries
+        for (uint256 i = 0; i < poolIds.length; i = i.uncheckedAdd(1)) {
+            _validatePool(poolIds[i], tokens[i], tokens[i.uncheckedAdd(1)]);
+        }
 
         // Build list of swap steps
-        uint256 steps = tokens.length - 1;
+        // No need for checked math as we know we are operating safely within boundaries
+        uint256 steps = tokens.length.uncheckedSub(1);
         IBalancerV2Vault.BatchSwapStep[] memory swaps = new IBalancerV2Vault.BatchSwapStep[](steps);
-        for (uint256 j = 0; j < steps; j++) {
+        for (uint256 j = 0; j < steps; j = j.uncheckedAdd(1)) {
             IBalancerV2Vault.BatchSwapStep memory swap = swaps[j];
             swap.amount = j == 0 ? amountIn : 0;
             swap.poolId = poolIds[j];
             swap.assetInIndex = j;
-            swap.assetOutIndex = j + 1;
+            swap.assetOutIndex = j.uncheckedAdd(1);
             swap.userData = new bytes(0);
         }
 
         // Build limits values
         int256[] memory limits = new int256[](tokens.length);
         limits[0] = SafeCast.toInt256(amountIn);
-        limits[limits.length - 1] = -SafeCast.toInt256(minAmountOut);
+        // No need for checked math as we know we are operating safely within boundaries
+        limits[limits.length.uncheckedSub(1)] = SafeCast.toInt256(minAmountOut).uncheckedMul(-1);
 
         // Swap
         int256[] memory results = balancerV2Vault.batchSwap(
@@ -143,10 +153,12 @@ contract BalancerV2Connector {
         );
 
         // Validate output
-        int256 intAmountOut = results[results.length - 1];
+        // No need for checked math as we know we are operating safely within boundaries
+        int256 intAmountOut = results[results.length.uncheckedSub(1)];
         require(intAmountOut < 0, 'BALANCER_INVALID_BATCH_AMOUNT_OU');
         require(SafeCast.toUint256(results[0]) == amountIn, 'BALANCER_INVALID_BATCH_AMOUNT_IN');
-        return uint256(-intAmountOut);
+        // No need for checked math as we already checked it is a negative value
+        return uint256(intAmountOut.uncheckedMul(-1));
     }
 
     /**

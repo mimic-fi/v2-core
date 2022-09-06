@@ -14,17 +14,21 @@
 
 pragma solidity ^0.8.0;
 
+import '../math/UncheckedMath.sol';
+
 /**
  * @title Arrays
  * @dev Helper methods to operate arrays
  */
 library Arrays {
+    using UncheckedMath for uint256;
+
     /**
      * @dev Builds an array of true booleans
      */
     function trues(uint256 size) internal pure returns (bool[] memory array) {
         array = new bool[](size);
-        for (uint256 i = 0; i < size; i++) {
+        for (uint256 i = 0; i < size; i = i.uncheckedAdd(1)) {
             array[i] = true;
         }
     }
@@ -35,7 +39,7 @@ library Arrays {
     function includes(address[] memory arr, address a, address b) internal pure returns (bool) {
         bool containsA;
         bool containsB;
-        for (uint256 i = 0; i < arr.length; i++) {
+        for (uint256 i = 0; i < arr.length; i = i.uncheckedAdd(1)) {
             if (arr[i] == a) containsA = true;
             if (arr[i] == b) containsB = true;
         }
@@ -55,9 +59,12 @@ library Arrays {
      * @dev Builds an array of addresses based on the given ones
      */
     function from(address a, address[] memory b, address c) internal pure returns (address[] memory result) {
-        result = new address[](b.length + 2);
+        // No need for checked math since we are simply adding one to a memory array's length
+        result = new address[](b.length.uncheckedAdd(2));
         result[0] = a;
-        for (uint256 i = 0; i < b.length; i++) result[i + 1] = b[i];
-        result[b.length + 1] = c;
+
+        // No need for checked math since we are using it to compute indexes manually, always within boundaries
+        for (uint256 i = 0; i < b.length; i = i.uncheckedAdd(1)) result[i.uncheckedAdd(1)] = b[i];
+        result[b.length.uncheckedAdd(1)] = c;
     }
 }

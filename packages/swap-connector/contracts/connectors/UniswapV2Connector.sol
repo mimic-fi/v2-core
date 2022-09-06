@@ -14,8 +14,6 @@
 
 pragma solidity ^0.8.0;
 
-import '@mimic-fi/v2-helpers/contracts/utils/Arrays.sol';
-
 import '@openzeppelin/contracts/token/ERC20/IERC20.sol';
 import '@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol';
 import '@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol';
@@ -23,12 +21,16 @@ import '@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol';
 import '@uniswap/v2-core/contracts/interfaces/IUniswapV2Factory.sol';
 import '@uniswap/v2-periphery/contracts/interfaces/IUniswapV2Router02.sol';
 
+import '@mimic-fi/v2-helpers/contracts/utils/Arrays.sol';
+import '@mimic-fi/v2-helpers/contracts/math/UncheckedMath.sol';
+
 /**
  * @title UniswapV2Connector
  * @dev Interfaces with Uniswap V2 to swap tokens
  */
 contract UniswapV2Connector {
     using SafeERC20 for IERC20;
+    using UncheckedMath for uint256;
 
     // Expected data length for Uniswap V2 single swaps: no data expected
     uint256 private constant ENCODED_DATA_SINGLE_SWAP_LENGTH = 0;
@@ -101,7 +103,10 @@ contract UniswapV2Connector {
         address factory = uniswapV2Router.factory();
         address[] memory hopTokens = abi.decode(data, (address[]));
         address[] memory tokens = Arrays.from(tokenIn, hopTokens, tokenOut);
-        for (uint256 i = 0; i < tokens.length - 1; i++) _validatePool(factory, tokens[i], tokens[i + 1]);
+        // No need for checked math since we are using it to compute indexes manually, always within boundaries
+        for (uint256 i = 0; i < tokens.length.uncheckedSub(1); i = i.uncheckedAdd(1)) {
+            _validatePool(factory, tokens[i], tokens[i.uncheckedAdd(1)]);
+        }
         return uniswapV2Router.swapExactTokensForTokens(amountIn, minAmountOut, tokens, msg.sender, block.timestamp);
     }
 
