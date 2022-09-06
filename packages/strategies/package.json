@@ -1,5 +1,5 @@
 {
-  "name": "@mimic-fi/v2-wallet",
+  "name": "@mimic-fi/v2-strategies",
   "version": "0.0.1",
   "license": "GPL-3.0",
   "engines": {
@@ -22,7 +22,6 @@
   },
   "dependencies": {
     "@mimic-fi/v2-helpers": "0.0.1",
-    "@mimic-fi/v2-strategies": "0.0.1",
     "@openzeppelin/contracts": "4.7.0"
   },
   "devDependencies": {

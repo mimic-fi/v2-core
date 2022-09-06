@@ -24,24 +24,9 @@ import '@mimic-fi/v2-helpers/contracts/math/UncheckedMath.sol';
 import '@mimic-fi/v2-price-oracle/contracts/IPriceOracle.sol';
 import '@mimic-fi/v2-swap-connector/contracts/ISwapConnector.sol';
 import '@mimic-fi/v2-registry/contracts/implementations/AuthorizedImplementation.sol';
+import '@mimic-fi/v2-strategies/contracts/IStrategy.sol';
 
 import './IWrappedNativeToken.sol';
-
-interface IStrategy {
-    function token() external view returns (address);
-
-    function lastValue() external view returns (uint256);
-
-    function currentValue() external returns (uint256);
-
-    function valueRate() external view returns (uint256);
-
-    function claim(bytes memory data) external;
-
-    function join(uint256 amount, uint256 slippage, bytes memory data) external returns (uint256 value);
-
-    function exit(uint256 ratio, uint256 slippage, bytes memory data) external returns (uint256 amount, uint256 value);
-}
 
 contract Wallet is AuthorizedImplementation {
     using SafeERC20 for IERC20;
