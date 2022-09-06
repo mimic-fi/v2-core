@@ -5,8 +5,8 @@
 <h4 align="center">A DeFi automation platform</h4>
 
 <p align="center">
-  <a href="https://github.com/mimic-fi/smart-vaults/actions/workflows/ci.yml">
-    <img src="https://github.com/mimic-fi/smart-vaults/actions/workflows/ci.yml/badge.svg" alt="CI">
+  <a href="https://github.com/mimic-fi/v2-core/actions/workflows/ci.yml">
+    <img src="https://github.com/mimic-fi/v2-core/actions/workflows/ci.yml/badge.svg" alt="CI">
   </a>
   <a href="https://discord.mimic.fi">
     <img src="https://img.shields.io/discourse/status?server=https%3A%2F%2Fmeta.discourse.org" alt="Discord">
@@ -33,6 +33,7 @@ This monorepo holds the key components of the Mimic protocol:
 - [Price Oracle](./packages/price-oracle): Implementation of the on-chain price oracle used by the Mimic platform.
 - [Registry](./packages/registry): Mimic implementations on-chain registry.
 - [Swap Connector](./packages/swap-connector): On-chain dex aggregator to be used by smart vaults to swap tokens.
+- [Wallet](./packages/wallet): Mimic wallet contract in charge of connecting users with the rest of the protocol.
 
 ## Setup
 
@@ -41,10 +42,10 @@ From your command line:
 
 ```bash
 # Clone this repository
-$ git clone https://github.com/mimic-fi/smart-vaults
+$ git clone https://github.com/mimic-fi/v2-core
 
 # Go into the repository
-$ cd smart-vaults
+$ cd v2-core
 
 # Install dependencies
 $ yarn
