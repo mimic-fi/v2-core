@@ -403,91 +403,175 @@ describe('Wallet', () => {
   })
 
   describe('withdraw', () => {
-    let token: Contract
-
     const amount = fp(10)
     const data = '0xabcdef'
-
-    before('deploy token', async () => {
-      token = await deploy('TokenMock', ['USDC'])
-    })
 
     context('when the sender is authorized', () => {
       beforeEach('set sender', async () => {
         wallet = wallet.connect(admin)
       })
 
-      context('when the wallet has enough balance', async () => {
-        beforeEach('mint tokens', async () => {
-          await token.mint(wallet.address, amount)
+      context('when withdrawing erc20 tokens', async () => {
+        let token: Contract
+
+        before('deploy token', async () => {
+          token = await deploy('TokenMock', ['USDC'])
         })
 
-        context('without withdraw fees', async () => {
-          it('transfers the tokens to the recipient', async () => {
-            const previousWalletBalance = await token.balanceOf(wallet.address)
-            const previousRecipientBalance = await token.balanceOf(other.address)
-
-            await wallet.withdraw(token.address, amount, other.address, data)
-
-            const currentWalletBalance = await token.balanceOf(wallet.address)
-            expect(currentWalletBalance).to.be.equal(previousWalletBalance.sub(amount))
-
-            const currentRecipientBalance = await token.balanceOf(other.address)
-            expect(currentRecipientBalance).to.be.equal(previousRecipientBalance.add(amount))
+        context('when the wallet has enough balance', async () => {
+          beforeEach('mint tokens', async () => {
+            await token.mint(wallet.address, amount)
           })
 
-          it('emits an event', async () => {
-            const tx = await wallet.withdraw(token.address, amount, other.address, data)
+          context('without withdraw fees', async () => {
+            it('transfers the tokens to the recipient', async () => {
+              const previousWalletBalance = await token.balanceOf(wallet.address)
+              const previousRecipientBalance = await token.balanceOf(other.address)
 
-            await assertEvent(tx, 'Withdraw', { token, amount, recipient: other, fee: 0, data })
-          })
-        })
+              await wallet.withdraw(token.address, amount, other.address, data)
 
-        context('with withdraw fees', async () => {
-          const withdrawFee = fp(0.01)
-          const withdrawFeeAmount = amount.mul(withdrawFee).div(fp(1))
-          const amountAfterFees = amount.sub(withdrawFeeAmount)
+              const currentWalletBalance = await token.balanceOf(wallet.address)
+              expect(currentWalletBalance).to.be.equal(previousWalletBalance.sub(amount))
 
-          beforeEach('set withdraw fee', async () => {
-            await wallet.connect(admin).setWithdrawFee(withdrawFee)
-          })
-
-          it('transfers the tokens to the recipient', async () => {
-            const previousWalletBalance = await token.balanceOf(wallet.address)
-            const previousRecipientBalance = await token.balanceOf(other.address)
-            const previousFeeCollectorBalance = await token.balanceOf(feeCollector.address)
-
-            await wallet.withdraw(token.address, amount, other.address, data)
-
-            const currentWalletBalance = await token.balanceOf(wallet.address)
-            expect(currentWalletBalance).to.be.equal(previousWalletBalance.sub(amount))
-
-            const currentRecipientBalance = await token.balanceOf(other.address)
-            expect(currentRecipientBalance).to.be.equal(previousRecipientBalance.add(amountAfterFees))
-
-            const currentFeeCollectorBalance = await token.balanceOf(feeCollector.address)
-            expect(currentFeeCollectorBalance).to.be.equal(previousFeeCollectorBalance.add(withdrawFeeAmount))
-          })
-
-          it('emits an event', async () => {
-            const tx = await wallet.withdraw(token.address, amount, other.address, data)
-
-            await assertEvent(tx, 'Withdraw', {
-              token,
-              amount: amountAfterFees,
-              recipient: other,
-              fee: withdrawFeeAmount,
-              data,
+              const currentRecipientBalance = await token.balanceOf(other.address)
+              expect(currentRecipientBalance).to.be.equal(previousRecipientBalance.add(amount))
             })
+
+            it('emits an event', async () => {
+              const tx = await wallet.withdraw(token.address, amount, other.address, data)
+
+              await assertEvent(tx, 'Withdraw', { token, amount, recipient: other, fee: 0, data })
+            })
+          })
+
+          context('with withdraw fees', async () => {
+            const withdrawFee = fp(0.01)
+            const withdrawFeeAmount = amount.mul(withdrawFee).div(fp(1))
+            const amountAfterFees = amount.sub(withdrawFeeAmount)
+
+            beforeEach('set withdraw fee', async () => {
+              await wallet.connect(admin).setWithdrawFee(withdrawFee)
+            })
+
+            it('transfers the tokens to the recipient', async () => {
+              const previousWalletBalance = await token.balanceOf(wallet.address)
+              const previousRecipientBalance = await token.balanceOf(other.address)
+              const previousFeeCollectorBalance = await token.balanceOf(feeCollector.address)
+
+              await wallet.withdraw(token.address, amount, other.address, data)
+
+              const currentWalletBalance = await token.balanceOf(wallet.address)
+              expect(currentWalletBalance).to.be.equal(previousWalletBalance.sub(amount))
+
+              const currentRecipientBalance = await token.balanceOf(other.address)
+              expect(currentRecipientBalance).to.be.equal(previousRecipientBalance.add(amountAfterFees))
+
+              const currentFeeCollectorBalance = await token.balanceOf(feeCollector.address)
+              expect(currentFeeCollectorBalance).to.be.equal(previousFeeCollectorBalance.add(withdrawFeeAmount))
+            })
+
+            it('emits an event', async () => {
+              const tx = await wallet.withdraw(token.address, amount, other.address, data)
+
+              await assertEvent(tx, 'Withdraw', {
+                token,
+                amount: amountAfterFees,
+                recipient: other,
+                fee: withdrawFeeAmount,
+                data,
+              })
+            })
+          })
+        })
+
+        context('when the wallet does not have enough balance', async () => {
+          it('reverts', async () => {
+            await expect(wallet.withdraw(token.address, amount, other.address, data)).to.be.revertedWith(
+              'ERC20: transfer amount exceeds balance'
+            )
           })
         })
       })
 
-      context('when the wallet does not have enough balance', async () => {
-        it('reverts', async () => {
-          await expect(wallet.withdraw(token.address, amount, other.address, data)).to.be.revertedWith(
-            'ERC20: transfer amount exceeds balance'
-          )
+      context('when withdrawing native tokens', () => {
+        let token: string
+
+        beforeEach('set token address', async () => {
+          token = await wallet.ETH()
+        })
+
+        context('when the wallet has enough balance', async () => {
+          beforeEach('deposit native tokens', async () => {
+            await admin.sendTransaction({ to: wallet.address, value: amount })
+          })
+
+          context('without withdraw fees', async () => {
+            it('transfers the tokens to the recipient', async () => {
+              const previousWalletBalance = await ethers.provider.getBalance(wallet.address)
+              const previousRecipientBalance = await ethers.provider.getBalance(other.address)
+
+              await wallet.withdraw(token, amount, other.address, data)
+
+              const currentWalletBalance = await ethers.provider.getBalance(wallet.address)
+              expect(currentWalletBalance).to.be.equal(previousWalletBalance.sub(amount))
+
+              const currentRecipientBalance = await ethers.provider.getBalance(other.address)
+              expect(currentRecipientBalance).to.be.equal(previousRecipientBalance.add(amount))
+            })
+
+            it('emits an event', async () => {
+              const tx = await wallet.withdraw(token, amount, other.address, data)
+
+              await assertEvent(tx, 'Withdraw', { token, amount, recipient: other, fee: 0, data })
+            })
+          })
+
+          context('with withdraw fees', async () => {
+            const withdrawFee = fp(0.01)
+            const withdrawFeeAmount = amount.mul(withdrawFee).div(fp(1))
+            const amountAfterFees = amount.sub(withdrawFeeAmount)
+
+            beforeEach('set withdraw fee', async () => {
+              await wallet.connect(admin).setWithdrawFee(withdrawFee)
+            })
+
+            it('transfers the tokens to the recipient', async () => {
+              const previousWalletBalance = await ethers.provider.getBalance(wallet.address)
+              const previousRecipientBalance = await ethers.provider.getBalance(other.address)
+              const previousFeeCollectorBalance = await ethers.provider.getBalance(feeCollector.address)
+
+              await wallet.withdraw(token, amount, other.address, data)
+
+              const currentWalletBalance = await ethers.provider.getBalance(wallet.address)
+              expect(currentWalletBalance).to.be.equal(previousWalletBalance.sub(amount))
+
+              const currentRecipientBalance = await ethers.provider.getBalance(other.address)
+              expect(currentRecipientBalance).to.be.equal(previousRecipientBalance.add(amountAfterFees))
+
+              const currentFeeCollectorBalance = await ethers.provider.getBalance(feeCollector.address)
+              expect(currentFeeCollectorBalance).to.be.equal(previousFeeCollectorBalance.add(withdrawFeeAmount))
+            })
+
+            it('emits an event', async () => {
+              const tx = await wallet.withdraw(token, amount, other.address, data)
+
+              await assertEvent(tx, 'Withdraw', {
+                token,
+                amount: amountAfterFees,
+                recipient: other,
+                fee: withdrawFeeAmount,
+                data,
+              })
+            })
+          })
+        })
+
+        context('when the wallet does not have enough balance', async () => {
+          it('reverts', async () => {
+            await expect(wallet.withdraw(token, amount, other.address, data)).to.be.revertedWith(
+              'Address: insufficient balance'
+            )
+          })
         })
       })
     })
@@ -498,7 +582,7 @@ describe('Wallet', () => {
       })
 
       it('reverts', async () => {
-        await expect(wallet.withdraw(token.address, 0, other.address, '0x')).to.be.revertedWith(
+        await expect(wallet.withdraw(ZERO_ADDRESS, 0, other.address, '0x')).to.be.revertedWith(
           'AUTH_SENDER_NOT_ALLOWED'
         )
       })

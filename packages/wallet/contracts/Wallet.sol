@@ -16,6 +16,7 @@ pragma solidity ^0.8.0;
 
 import '@openzeppelin/contracts/token/ERC20/IERC20.sol';
 import '@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol';
+import '@openzeppelin/contracts/utils/Address.sol';
 import '@openzeppelin/contracts/utils/math/Math.sol';
 
 import '@mimic-fi/v2-helpers/contracts/math/FixedPoint.sol';
@@ -267,21 +268,20 @@ contract Wallet is AuthorizedImplementation {
      * @param amount Amount of tokens to transfer
      */
     function _safeTransferFrom(address token, address from, address to, uint256 amount) internal {
-        if (amount > 0) {
-            IERC20(token).safeTransferFrom(from, to, amount);
-        }
+        if (amount == 0) return;
+        IERC20(token).safeTransferFrom(from, to, amount);
     }
 
     /**
-     * @dev Internal method to transfer ERC20 tokens from the Mimic wallet
+     * @dev Internal method to transfer ERC20 or native tokens from the Mimic wallet
      * @param token Address of the ERC20 token to transfer
      * @param to Address transferring the tokens to
      * @param amount Amount of tokens to transfer
      */
     function _safeTransfer(address token, address to, uint256 amount) internal {
-        if (amount > 0) {
-            IERC20(token).safeTransfer(to, amount);
-        }
+        if (amount == 0) return;
+        if (token == ETH) Address.sendValue(payable(to), amount);
+        else IERC20(token).safeTransfer(to, amount);
     }
 
     /**
