@@ -23,6 +23,8 @@ import '@mimic-fi/v2-price-oracle/contracts/IPriceOracle.sol';
 import '@mimic-fi/v2-swap-connector/contracts/ISwapConnector.sol';
 import '@mimic-fi/v2-registry/contracts/implementations/AuthorizedImplementation.sol';
 
+import './IWrappedNativeToken.sol';
+
 interface IStrategy {
     function token() external view returns (address);
 
@@ -44,11 +46,14 @@ contract Wallet is AuthorizedImplementation {
     using FixedPoint for uint256;
 
     bytes32 public constant override NAMESPACE = keccak256('WALLET');
+    address public constant ETH = address(0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE);
 
     enum SwapLimit {
         Slippage,
         MinAmountOut
     }
+
+    address public immutable wrappedNativeToken;
 
     address public strategy;
     address public priceOracle;
@@ -68,6 +73,8 @@ contract Wallet is AuthorizedImplementation {
     event SwapFeeSet(uint256 swapFee);
     event Collect(address indexed token, address indexed from, uint256 amount, bytes data);
     event Withdraw(address indexed token, address indexed recipient, uint256 amount, uint256 fee, bytes data);
+    event Wrap(uint256 amount);
+    event Unwrap(uint256 amount);
     event Claim(bytes data);
     event Join(uint256 amount, uint256 value, uint256 slippage, bytes data);
     event Exit(uint256 amount, uint256 value, uint256 fee, uint256 slippage, bytes data);
@@ -81,8 +88,8 @@ contract Wallet is AuthorizedImplementation {
         bytes data
     );
 
-    constructor(IRegistry registry) AuthorizedImplementation(registry) {
-        // solhint-disable-previous-line no-empty-blocks
+    constructor(IRegistry registry, address _wrappedNativeToken) AuthorizedImplementation(registry) {
+        wrappedNativeToken = _wrappedNativeToken;
     }
 
     function initialize(
@@ -106,10 +113,16 @@ contract Wallet is AuthorizedImplementation {
         _authorize(_admin, Wallet.setSwapFee.selector);
         _authorize(_admin, Wallet.collect.selector);
         _authorize(_admin, Wallet.withdraw.selector);
+        _authorize(_admin, Wallet.wrap.selector);
+        _authorize(_admin, Wallet.unwrap.selector);
         _authorize(_admin, Wallet.claim.selector);
         _authorize(_admin, Wallet.join.selector);
         _authorize(_admin, Wallet.exit.selector);
         _authorize(_admin, Wallet.swap.selector);
+    }
+
+    receive() external payable {
+        // solhint-disable-previous-line no-empty-blocks
     }
 
     function setPriceOracle(address newPriceOracle) external auth {
@@ -155,6 +168,17 @@ contract Wallet is AuthorizedImplementation {
     function claim(bytes memory data) external auth {
         IStrategy(strategy).claim(data);
         emit Claim(data);
+    }
+
+    function wrap(uint256 amount) external auth {
+        require(address(this).balance >= amount, 'WRAP_INSUFFICIENT_AMOUNT');
+        IWrappedNativeToken(wrappedNativeToken).deposit{ value: amount }();
+        emit Wrap(amount);
+    }
+
+    function unwrap(uint256 amount) external auth {
+        IWrappedNativeToken(wrappedNativeToken).withdraw(amount);
+        emit Unwrap(amount);
     }
 
     function join(uint256 amount, uint256 slippage, bytes memory data) external auth {

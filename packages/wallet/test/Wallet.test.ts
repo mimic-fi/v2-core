@@ -3,10 +3,11 @@ import { createClone } from '@mimic-fi/v2-registry'
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/dist/src/signer-with-address'
 import { expect } from 'chai'
 import { BigNumber, Contract } from 'ethers'
+import { ethers } from 'hardhat'
 
 describe('Wallet', () => {
   let wallet: Contract, registry: Contract
-  let strategy: Contract, priceOracle: Contract, swapConnector: Contract
+  let strategy: Contract, priceOracle: Contract, swapConnector: Contract, wrappedNativeToken: Contract
   let admin: SignerWithAddress, other: SignerWithAddress, feeCollector: SignerWithAddress
 
   before('set up signers', async () => {
@@ -16,6 +17,7 @@ describe('Wallet', () => {
 
   beforeEach('deploy wallet', async () => {
     registry = await deploy('@mimic-fi/v2-registry/artifacts/contracts/registry/Registry.sol/Registry', [admin.address])
+    wrappedNativeToken = await deploy('WrappedNativeTokenMock')
     strategy = await createClone(registry, admin, 'StrategyMock', [registry.address], [])
     priceOracle = await createClone(registry, admin, 'PriceOracleMock', [])
     swapConnector = await createClone(registry, admin, 'SwapConnectorMock', [])
@@ -23,7 +25,7 @@ describe('Wallet', () => {
       registry,
       admin,
       'Wallet',
-      [registry.address],
+      [registry.address, wrappedNativeToken.address],
       [admin.address, strategy.address, priceOracle.address, swapConnector.address, feeCollector.address]
     )
   })
@@ -499,6 +501,107 @@ describe('Wallet', () => {
         await expect(wallet.withdraw(token.address, 0, other.address, '0x')).to.be.revertedWith(
           'AUTH_SENDER_NOT_ALLOWED'
         )
+      })
+    })
+  })
+
+  describe('wrap', () => {
+    const amount = fp(1)
+
+    context('when the sender is authorized', () => {
+      beforeEach('set sender', async () => {
+        wallet = wallet.connect(admin)
+      })
+
+      context('when the wallet has enough wrapped native tokens', () => {
+        beforeEach('fund wallet', async () => {
+          await admin.sendTransaction({ to: wallet.address, value: amount.mul(2) })
+        })
+
+        it('wraps the requested amount', async () => {
+          const previousNativeBalance = await ethers.provider.getBalance(wallet.address)
+          const previousWrappedBalance = await wrappedNativeToken.balanceOf(wallet.address)
+
+          await wallet.wrap(amount)
+
+          const currentNativeBalance = await ethers.provider.getBalance(wallet.address)
+          expect(currentNativeBalance).to.be.equal(previousNativeBalance.sub(amount))
+
+          const currentWrappedBalance = await wrappedNativeToken.balanceOf(wallet.address)
+          expect(currentWrappedBalance).to.be.equal(previousWrappedBalance.add(amount))
+        })
+
+        it('emits an event', async () => {
+          const tx = await wallet.wrap(amount)
+          await assertEvent(tx, 'Wrap', { amount })
+        })
+      })
+
+      context('when the wallet does not have enough native tokens', () => {
+        it('reverts', async () => {
+          await expect(wallet.wrap(amount)).to.be.revertedWith('WRAP_INSUFFICIENT_AMOUNT')
+        })
+      })
+    })
+
+    context('when the sender is not authorized', () => {
+      beforeEach('set sender', async () => {
+        wallet = wallet.connect(other)
+      })
+
+      it('reverts', async () => {
+        await expect(wallet.wrap(amount)).to.be.revertedWith('AUTH_SENDER_NOT_ALLOWED')
+      })
+    })
+  })
+
+  describe('unwrap', () => {
+    const amount = fp(1)
+
+    context('when the sender is authorized', () => {
+      beforeEach('set sender', async () => {
+        wallet = wallet.connect(admin)
+      })
+
+      context('when the wallet has enough wrapped native tokens', () => {
+        beforeEach('wrap tokens', async () => {
+          await admin.sendTransaction({ to: wallet.address, value: amount.mul(2) })
+          await wallet.wrap(amount.mul(2))
+        })
+
+        it('unwraps the requested amount', async () => {
+          const previousNativeBalance = await ethers.provider.getBalance(wallet.address)
+          const previousWrappedBalance = await wrappedNativeToken.balanceOf(wallet.address)
+
+          await wallet.unwrap(amount)
+
+          const currentNativeBalance = await ethers.provider.getBalance(wallet.address)
+          expect(currentNativeBalance).to.be.equal(previousNativeBalance.add(amount))
+
+          const currentWrappedBalance = await wrappedNativeToken.balanceOf(wallet.address)
+          expect(currentWrappedBalance).to.be.equal(previousWrappedBalance.sub(amount))
+        })
+
+        it('emits an event', async () => {
+          const tx = await wallet.unwrap(amount)
+          await assertEvent(tx, 'Unwrap', { amount })
+        })
+      })
+
+      context('when the wallet does not have enough wrapped native tokens', () => {
+        it('reverts', async () => {
+          await expect(wallet.unwrap(amount)).to.be.revertedWith('WNT_NOT_ENOUGH_BALANCE')
+        })
+      })
+    })
+
+    context('when the sender is not authorized', () => {
+      beforeEach('set sender', async () => {
+        wallet = wallet.connect(other)
+      })
+
+      it('reverts', async () => {
+        await expect(wallet.unwrap(amount)).to.be.revertedWith('AUTH_SENDER_NOT_ALLOWED')
       })
     })
   })
