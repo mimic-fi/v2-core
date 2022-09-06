@@ -26,56 +26,68 @@ library FixedPoint {
      * @dev Adds two fixed point numbers
      */
     function add(uint256 a, uint256 b) internal pure returns (uint256) {
-        uint256 c = a + b;
-        require(c >= a, 'ADD_OVERFLOW');
-        return c;
+        unchecked {
+            uint256 c = a + b;
+            require(c >= a, 'ADD_OVERFLOW');
+            return c;
+        }
     }
 
     /**
      * @dev Subtracts two fixed point numbers
      */
     function sub(uint256 a, uint256 b) internal pure returns (uint256) {
-        require(b <= a, 'SUB_OVERFLOW');
-        return a - b;
+        unchecked {
+            require(b <= a, 'SUB_OVERFLOW');
+            return a - b;
+        }
     }
 
     /**
      * @dev Multiplies two fixed point numbers rounding down
      */
     function mulDown(uint256 a, uint256 b) internal pure returns (uint256) {
-        uint256 product = a * b;
-        require(a == 0 || product / a == b, 'MUL_OVERFLOW');
-        return product / ONE;
+        unchecked {
+            uint256 product = a * b;
+            require(a == 0 || product / a == b, 'MUL_OVERFLOW');
+            return product / ONE;
+        }
     }
 
     /**
      * @dev Multiplies two fixed point numbers rounding up
      */
     function mulUp(uint256 a, uint256 b) internal pure returns (uint256) {
-        uint256 product = a * b;
-        require(a == 0 || product / a == b, 'MUL_OVERFLOW');
-        return product == 0 ? 0 : (((product - 1) / ONE) + 1);
+        unchecked {
+            uint256 product = a * b;
+            require(a == 0 || product / a == b, 'MUL_OVERFLOW');
+            return product == 0 ? 0 : (((product - 1) / ONE) + 1);
+        }
     }
 
     /**
      * @dev Divides two fixed point numbers rounding down
      */
     function divDown(uint256 a, uint256 b) internal pure returns (uint256) {
-        require(b != 0, 'ZERO_DIVISION');
-        uint256 aInflated = a * ONE;
-        require(aInflated / a == ONE, 'DIV_INTERNAL');
-        return aInflated / b;
+        unchecked {
+            require(b != 0, 'ZERO_DIVISION');
+            uint256 aInflated = a * ONE;
+            require(aInflated / a == ONE, 'DIV_INTERNAL');
+            return aInflated / b;
+        }
     }
 
     /**
      * @dev Divides two fixed point numbers rounding up
      */
     function divUp(uint256 a, uint256 b) internal pure returns (uint256) {
-        require(b != 0, 'ZERO_DIVISION');
-        if (a == 0) return 0;
-        uint256 aInflated = a * ONE;
-        require(aInflated / a == ONE, 'DIV_INTERNAL');
-        return ((aInflated - 1) / b) + 1;
+        unchecked {
+            require(b != 0, 'ZERO_DIVISION');
+            if (a == 0) return 0;
+            uint256 aInflated = a * ONE;
+            require(aInflated / a == ONE, 'DIV_INTERNAL');
+            return ((aInflated - 1) / b) + 1;
+        }
     }
 
     /**
