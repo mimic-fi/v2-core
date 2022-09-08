@@ -35,7 +35,7 @@ contract Wallet is IWallet, AuthorizedImplementation {
     using UncheckedMath for uint256;
 
     bytes32 public constant override NAMESPACE = keccak256('WALLET');
-    address public constant ETH = address(0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE);
+    address public constant override ETH = address(0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE);
 
     address public override strategy;
     address public override priceOracle;
