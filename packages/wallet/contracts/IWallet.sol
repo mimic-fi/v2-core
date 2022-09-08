@@ -64,6 +64,8 @@ interface IWallet {
 
     function wrappedNativeToken() external view returns (address);
 
+    function setStrategy(address newStrategy) external;
+
     function setPriceOracle(address newPriceOracle) external;
 
     function setSwapConnector(address newSwapConnector) external;

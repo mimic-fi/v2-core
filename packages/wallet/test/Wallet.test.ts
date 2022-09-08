@@ -18,42 +18,48 @@ describe('Wallet', () => {
   beforeEach('deploy wallet', async () => {
     registry = await deploy('@mimic-fi/v2-registry/artifacts/contracts/registry/Registry.sol/Registry', [admin.address])
     wrappedNativeToken = await deploy('WrappedNativeTokenMock')
-    strategy = await createClone(registry, admin, 'StrategyMock', [registry.address], [])
-    priceOracle = await createClone(registry, admin, 'PriceOracleMock', [])
-    swapConnector = await createClone(registry, admin, 'SwapConnectorMock', [])
     wallet = await createClone(
       registry,
       admin,
       'Wallet',
       [registry.address, wrappedNativeToken.address],
-      [admin.address, strategy.address, priceOracle.address, swapConnector.address, feeCollector.address]
+      [admin.address]
     )
+  })
+
+  beforeEach('deploy wallet dependencies', async () => {
+    const setFeeCollectorRole = wallet.interface.getSighash('setFeeCollector')
+    await wallet.connect(admin).authorize(admin.address, setFeeCollectorRole)
+    await wallet.connect(admin).setFeeCollector(feeCollector.address)
+
+    const setStrategyRole = wallet.interface.getSighash('setStrategy')
+    await wallet.connect(admin).authorize(admin.address, setStrategyRole)
+    strategy = await createClone(registry, admin, 'StrategyMock', [registry.address], [])
+    await wallet.connect(admin).setStrategy(strategy.address)
+
+    const setPriceOracleRole = wallet.interface.getSighash('setPriceOracle')
+    await wallet.connect(admin).authorize(admin.address, setPriceOracleRole)
+    priceOracle = await createClone(registry, admin, 'PriceOracleMock', [])
+    await wallet.connect(admin).setPriceOracle(priceOracle.address)
+
+    const setSwapConnectorRole = wallet.interface.getSighash('setSwapConnector')
+    await wallet.connect(admin).authorize(admin.address, setSwapConnectorRole)
+    swapConnector = await createClone(registry, admin, 'SwapConnectorMock', [])
+    await wallet.connect(admin).setSwapConnector(swapConnector.address)
   })
 
   describe('initialize', async () => {
     it('cannot be initialized twice', async () => {
-      await expect(
-        wallet.initialize(
-          admin.address,
-          strategy.address,
-          priceOracle.address,
-          swapConnector.address,
-          feeCollector.address
-        )
-      ).to.be.revertedWith('Initializable: contract is already initialized')
+      await expect(wallet.initialize(admin.address)).to.be.revertedWith(
+        'Initializable: contract is already initialized'
+      )
     })
 
     it('its implementation is already initialized', async () => {
       const implementation = await instanceAt('Wallet', await registry.getImplementation(wallet.address))
-      await expect(
-        implementation.initialize(
-          admin.address,
-          strategy.address,
-          priceOracle.address,
-          swapConnector.address,
-          feeCollector.address
-        )
-      ).to.be.revertedWith('Initializable: contract is already initialized')
+      await expect(implementation.initialize(admin.address)).to.be.revertedWith(
+        'Initializable: contract is already initialized'
+      )
     })
 
     it('is properly registered in the registry', async () => {
@@ -66,7 +72,9 @@ describe('Wallet', () => {
     let newOracle: Contract
 
     context('when the sender is authorized', async () => {
-      beforeEach('set sender', () => {
+      beforeEach('set sender', async () => {
+        const setPriceOracleRole = wallet.interface.getSighash('setPriceOracle')
+        await wallet.connect(admin).authorize(admin.address, setPriceOracleRole)
         wallet = wallet.connect(admin)
       })
 
@@ -114,7 +122,9 @@ describe('Wallet', () => {
     let newSwapConnector: Contract
 
     context('when the sender is authorized', async () => {
-      beforeEach('set sender', () => {
+      beforeEach('set sender', async () => {
+        const setSwapConnectorRole = wallet.interface.getSighash('setSwapConnector')
+        await wallet.connect(admin).authorize(admin.address, setSwapConnectorRole)
         wallet = wallet.connect(admin)
       })
 
@@ -162,7 +172,9 @@ describe('Wallet', () => {
 
   describe('setFeeCollector', () => {
     context('when the sender is authorized', async () => {
-      beforeEach('set sender', () => {
+      beforeEach('set sender', async () => {
+        const setFeeCollectorRole = wallet.interface.getSighash('setFeeCollector')
+        await wallet.connect(admin).authorize(admin.address, setFeeCollectorRole)
         wallet = wallet.connect(admin)
       })
 
@@ -208,7 +220,9 @@ describe('Wallet', () => {
 
   describe('setWithdrawFee', () => {
     context('when the sender is authorized', async () => {
-      beforeEach('set sender', () => {
+      beforeEach('set sender', async () => {
+        const setWithdrawFeeRole = wallet.interface.getSighash('setWithdrawFee')
+        await wallet.connect(admin).authorize(admin.address, setWithdrawFeeRole)
         wallet = wallet.connect(admin)
       })
 
@@ -250,7 +264,9 @@ describe('Wallet', () => {
 
   describe('setPerformanceFee', () => {
     context('when the sender is authorized', async () => {
-      beforeEach('set sender', () => {
+      beforeEach('set sender', async () => {
+        const setPerformanceFeeRole = wallet.interface.getSighash('setPerformanceFee')
+        await wallet.connect(admin).authorize(admin.address, setPerformanceFeeRole)
         wallet = wallet.connect(admin)
       })
 
@@ -292,7 +308,9 @@ describe('Wallet', () => {
 
   describe('setSwapFee', () => {
     context('when the sender is authorized', async () => {
-      beforeEach('set sender', () => {
+      beforeEach('set sender', async () => {
+        const setSwapFeeRole = wallet.interface.getSighash('setSwapFee')
+        await wallet.connect(admin).authorize(admin.address, setSwapFeeRole)
         wallet = wallet.connect(admin)
       })
 
@@ -346,6 +364,8 @@ describe('Wallet', () => {
 
     context('when the sender is authorized', () => {
       beforeEach('set sender', async () => {
+        const collectRole = wallet.interface.getSighash('collect')
+        await wallet.connect(admin).authorize(admin.address, collectRole)
         wallet = wallet.connect(admin)
       })
 
@@ -408,6 +428,8 @@ describe('Wallet', () => {
 
     context('when the sender is authorized', () => {
       beforeEach('set sender', async () => {
+        const withdrawRole = wallet.interface.getSighash('withdraw')
+        await wallet.connect(admin).authorize(admin.address, withdrawRole)
         wallet = wallet.connect(admin)
       })
 
@@ -450,6 +472,8 @@ describe('Wallet', () => {
             const amountAfterFees = amount.sub(withdrawFeeAmount)
 
             beforeEach('set withdraw fee', async () => {
+              const setWithdrawFeeRole = wallet.interface.getSighash('setWithdrawFee')
+              await wallet.connect(admin).authorize(admin.address, setWithdrawFeeRole)
               await wallet.connect(admin).setWithdrawFee(withdrawFee)
             })
 
@@ -532,6 +556,8 @@ describe('Wallet', () => {
             const amountAfterFees = amount.sub(withdrawFeeAmount)
 
             beforeEach('set withdraw fee', async () => {
+              const setWithdrawFeeRole = wallet.interface.getSighash('setWithdrawFee')
+              await wallet.connect(admin).authorize(admin.address, setWithdrawFeeRole)
               await wallet.connect(admin).setWithdrawFee(withdrawFee)
             })
 
@@ -594,6 +620,8 @@ describe('Wallet', () => {
 
     context('when the sender is authorized', () => {
       beforeEach('set sender', async () => {
+        const wrapRole = wallet.interface.getSighash('wrap')
+        await wallet.connect(admin).authorize(admin.address, wrapRole)
         wallet = wallet.connect(admin)
       })
 
@@ -644,12 +672,16 @@ describe('Wallet', () => {
 
     context('when the sender is authorized', () => {
       beforeEach('set sender', async () => {
+        const unwrapRole = wallet.interface.getSighash('unwrap')
+        await wallet.connect(admin).authorize(admin.address, unwrapRole)
         wallet = wallet.connect(admin)
       })
 
       context('when the wallet has enough wrapped native tokens', () => {
         beforeEach('wrap tokens', async () => {
           await admin.sendTransaction({ to: wallet.address, value: amount.mul(2) })
+          const wrapRole = wallet.interface.getSighash('wrap')
+          await wallet.connect(admin).authorize(admin.address, wrapRole)
           await wallet.wrap(amount.mul(2))
         })
 
@@ -705,6 +737,8 @@ describe('Wallet', () => {
 
     context('when the sender is authorized', () => {
       beforeEach('set sender', async () => {
+        const joinRole = wallet.interface.getSighash('join')
+        await wallet.connect(admin).authorize(admin.address, joinRole)
         wallet = wallet.connect(admin)
       })
 
@@ -788,6 +822,8 @@ describe('Wallet', () => {
 
     context('when the sender is authorized', () => {
       beforeEach('set sender', async () => {
+        const exitRole = wallet.interface.getSighash('exit')
+        await wallet.connect(admin).authorize(admin.address, exitRole)
         wallet = wallet.connect(admin)
       })
 
@@ -795,6 +831,8 @@ describe('Wallet', () => {
         const joinAmount = fp(150)
 
         beforeEach('mint tokens', async () => {
+          const joinRole = wallet.interface.getSighash('join')
+          await wallet.connect(admin).authorize(admin.address, joinRole)
           await token.mint(wallet.address, joinAmount)
           await wallet.join(joinAmount, 0, data)
         })
@@ -862,6 +900,8 @@ describe('Wallet', () => {
               const performanceFee = fp(0.02)
 
               beforeEach('set performance fee', async () => {
+                const setPerformanceFeeRole = wallet.interface.getSighash('setPerformanceFee')
+                await wallet.connect(admin).authorize(admin.address, setPerformanceFeeRole)
                 await wallet.connect(admin).setPerformanceFee(performanceFee)
               })
 
@@ -1153,6 +1193,8 @@ describe('Wallet', () => {
 
     context('when the sender is authorized', () => {
       beforeEach('set sender', async () => {
+        const swapRole = wallet.interface.getSighash('swap')
+        await wallet.connect(admin).authorize(admin.address, swapRole)
         wallet = wallet.connect(admin)
       })
 
@@ -1222,6 +1264,8 @@ describe('Wallet', () => {
           const expectedAmountOutAfterFees = expectedAmountOut.sub(swapFeeAmount)
 
           beforeEach('set swap fee', async () => {
+            const setSwapFeeRole = wallet.interface.getSighash('setSwapFee')
+            await wallet.connect(admin).authorize(admin.address, setSwapFeeRole)
             await wallet.connect(admin).setSwapFee(swapFee)
           })
 

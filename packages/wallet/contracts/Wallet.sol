@@ -51,37 +51,16 @@ contract Wallet is IWallet, AuthorizedImplementation {
         wrappedNativeToken = _wrappedNativeToken;
     }
 
-    function initialize(
-        address _admin,
-        address _strategy,
-        address _priceOracle,
-        address _swapConnector,
-        address _feeCollector
-    ) external initializer {
+    function initialize(address _admin) external initializer {
         _initialize(_admin);
-        _setStrategy(_strategy);
-        _setPriceOracle(_priceOracle);
-        _setSwapConnector(_swapConnector);
-        _setFeeCollector(_feeCollector);
-
-        _authorize(_admin, Wallet.setPriceOracle.selector);
-        _authorize(_admin, Wallet.setSwapConnector.selector);
-        _authorize(_admin, Wallet.setFeeCollector.selector);
-        _authorize(_admin, Wallet.setWithdrawFee.selector);
-        _authorize(_admin, Wallet.setPerformanceFee.selector);
-        _authorize(_admin, Wallet.setSwapFee.selector);
-        _authorize(_admin, Wallet.collect.selector);
-        _authorize(_admin, Wallet.withdraw.selector);
-        _authorize(_admin, Wallet.wrap.selector);
-        _authorize(_admin, Wallet.unwrap.selector);
-        _authorize(_admin, Wallet.claim.selector);
-        _authorize(_admin, Wallet.join.selector);
-        _authorize(_admin, Wallet.exit.selector);
-        _authorize(_admin, Wallet.swap.selector);
     }
 
     receive() external payable {
         // solhint-disable-previous-line no-empty-blocks
+    }
+
+    function setStrategy(address newStrategy) external override auth {
+        _setStrategy(newStrategy);
     }
 
     function setPriceOracle(address newPriceOracle) external override auth {
@@ -252,10 +231,11 @@ contract Wallet is IWallet, AuthorizedImplementation {
     }
 
     /**
-     * @dev Sets a new strategy. Only used in the constructor.
+     * @dev Sets a new strategy.
      * @param newStrategy New strategy to be set
      */
     function _setStrategy(address newStrategy) internal {
+        require(strategy == address(0), 'WALLET_STRATEGY_ALREADY_SET');
         _validateDependency(strategy, newStrategy);
         strategy = newStrategy;
         emit StrategySet(newStrategy);
