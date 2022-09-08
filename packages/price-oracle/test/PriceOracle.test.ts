@@ -36,11 +36,6 @@ describe('PriceOracle', () => {
       expect(await oracle.isAuthorized(admin.address, unauthorizeRole)).to.be.true
     })
 
-    it('authorizes the admin to set feeds', async () => {
-      const setFeedsRole = oracle.interface.getSighash('setFeeds')
-      expect(await oracle.isAuthorized(admin.address, setFeedsRole)).to.be.true
-    })
-
     it('cannot be initialize twice', async () => {
       await expect(oracle.initialize(admin.address)).to.be.revertedWith(
         'Initializable: contract is already initialized'
@@ -58,8 +53,8 @@ describe('PriceOracle', () => {
     context('when the sender is authorized', () => {
       beforeEach('authorize', async () => {
         const setFeedsRole = oracle.interface.getSighash('setFeeds')
-        await oracle.connect(admin).authorize(other.address, setFeedsRole)
-        oracle = oracle.connect(other)
+        await oracle.connect(admin).authorize(admin.address, setFeedsRole)
+        oracle = oracle.connect(admin)
       })
 
       context('when the input length is valid', () => {
@@ -133,6 +128,10 @@ describe('PriceOracle', () => {
     })
 
     context('when the sender is not authorized', () => {
+      beforeEach('set sender', () => {
+        oracle = oracle.connect(other)
+      })
+
       it('reverts', async () => {
         await expect(oracle.setFeeds([base.address], [quote.address], [ZERO_ADDRESS])).to.be.revertedWith(
           'AUTH_SENDER_NOT_ALLOWED'
@@ -142,6 +141,11 @@ describe('PriceOracle', () => {
   })
 
   describe('getPrice', () => {
+    beforeEach('authorize', async () => {
+      const setFeedsRole = oracle.interface.getSighash('setFeeds')
+      await oracle.connect(admin).authorize(admin.address, setFeedsRole)
+    })
+
     context('when there is no feed', () => {
       beforeEach('deploy tokens', async () => {
         base = await deploy('TokenMock', ['BASE', 18])

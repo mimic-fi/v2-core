@@ -43,7 +43,6 @@ contract PriceOracle is IPriceOracle, AuthorizedImplementation {
 
     function initialize(address admin) external initializer {
         _initialize(admin);
-        _authorize(admin, PriceOracle.setFeeds.selector);
     }
 
     function getFeed(address base, address quote) public view override returns (address) {

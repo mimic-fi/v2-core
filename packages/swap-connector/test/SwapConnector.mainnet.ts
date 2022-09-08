@@ -58,6 +58,9 @@ describe('SwapConnector', () => {
 
     await registry.connect(admin).register(await oracle.FEEDS_NAMESPACE(), CHAINLINK_ORACLE_USDC_ETH)
     await registry.connect(admin).register(await oracle.FEEDS_NAMESPACE(), CHAINLINK_ORACLE_WBTC_ETH)
+
+    const setFeedsRole = oracle.interface.getSighash('setFeeds')
+    await oracle.connect(admin).authorize(admin.address, setFeedsRole)
     await oracle
       .connect(admin)
       .setFeeds([USDC, WBTC], [WETH, WETH], [CHAINLINK_ORACLE_USDC_ETH, CHAINLINK_ORACLE_WBTC_ETH])

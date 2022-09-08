@@ -30,6 +30,8 @@ describe('PriceOracle', () => {
   before('create price oracle', async () => {
     registry = await deploy('@mimic-fi/v2-registry/artifacts/contracts/registry/Registry.sol/Registry', [admin.address])
     oracle = await createClone(registry, admin, 'PriceOracle', [WETH, registry.address], [admin.address])
+    const setFeedsRole = oracle.interface.getSighash('setFeeds')
+    await oracle.connect(admin).authorize(admin.address, setFeedsRole)
   })
 
   context('WETH - DAI', () => {
