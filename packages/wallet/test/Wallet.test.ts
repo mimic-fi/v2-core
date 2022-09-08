@@ -690,6 +690,10 @@ describe('Wallet', () => {
     })
   })
 
+  describe('claim', () => {
+    // TODO: implement
+  })
+
   describe('join', () => {
     let token: Contract
 
@@ -1131,10 +1135,6 @@ describe('Wallet', () => {
         await expect(wallet.exit(0, 0, data)).to.be.revertedWith('AUTH_SENDER_NOT_ALLOWED')
       })
     })
-  })
-
-  describe('claim', () => {
-    // TODO: implement
   })
 
   describe('swap', () => {

@@ -26,9 +26,10 @@ import '@mimic-fi/v2-swap-connector/contracts/ISwapConnector.sol';
 import '@mimic-fi/v2-registry/contracts/implementations/AuthorizedImplementation.sol';
 import '@mimic-fi/v2-strategies/contracts/IStrategy.sol';
 
+import './IWallet.sol';
 import './IWrappedNativeToken.sol';
 
-contract Wallet is AuthorizedImplementation {
+contract Wallet is IWallet, AuthorizedImplementation {
     using SafeERC20 for IERC20;
     using FixedPoint for uint256;
     using UncheckedMath for uint256;
@@ -36,45 +37,15 @@ contract Wallet is AuthorizedImplementation {
     bytes32 public constant override NAMESPACE = keccak256('WALLET');
     address public constant ETH = address(0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE);
 
-    enum SwapLimit {
-        Slippage,
-        MinAmountOut
-    }
-
-    address public immutable wrappedNativeToken;
-
-    address public strategy;
-    address public priceOracle;
-    address public swapConnector;
-    uint256 public investedValue;
-    address public feeCollector;
-    uint256 public withdrawFee;
-    uint256 public performanceFee;
-    uint256 public swapFee;
-
-    event StrategySet(address strategy);
-    event PriceOracleSet(address priceOracle);
-    event SwapConnectorSet(address swapConnector);
-    event FeeCollectorSet(address feeCollector);
-    event WithdrawFeeSet(uint256 withdrawFee);
-    event PerformanceFeeSet(uint256 performanceFee);
-    event SwapFeeSet(uint256 swapFee);
-    event Collect(address indexed token, address indexed from, uint256 amount, bytes data);
-    event Withdraw(address indexed token, address indexed recipient, uint256 amount, uint256 fee, bytes data);
-    event Wrap(uint256 amount);
-    event Unwrap(uint256 amount);
-    event Claim(bytes data);
-    event Join(uint256 amount, uint256 value, uint256 slippage, bytes data);
-    event Exit(uint256 amount, uint256 value, uint256 fee, uint256 slippage, bytes data);
-    event Swap(
-        address indexed tokenIn,
-        address indexed tokenOut,
-        uint256 amountIn,
-        uint256 amountOut,
-        uint256 minAmountOut,
-        uint256 fee,
-        bytes data
-    );
+    address public override strategy;
+    address public override priceOracle;
+    address public override swapConnector;
+    uint256 public override investedValue;
+    address public override feeCollector;
+    uint256 public override withdrawFee;
+    uint256 public override performanceFee;
+    uint256 public override swapFee;
+    address public immutable override wrappedNativeToken;
 
     constructor(IRegistry registry, address _wrappedNativeToken) AuthorizedImplementation(registry) {
         wrappedNativeToken = _wrappedNativeToken;
@@ -113,36 +84,36 @@ contract Wallet is AuthorizedImplementation {
         // solhint-disable-previous-line no-empty-blocks
     }
 
-    function setPriceOracle(address newPriceOracle) external auth {
+    function setPriceOracle(address newPriceOracle) external override auth {
         _setPriceOracle(newPriceOracle);
     }
 
-    function setSwapConnector(address newSwapConnector) external auth {
+    function setSwapConnector(address newSwapConnector) external override auth {
         _setSwapConnector(newSwapConnector);
     }
 
-    function setFeeCollector(address newFeeCollector) external auth {
+    function setFeeCollector(address newFeeCollector) external override auth {
         _setFeeCollector(newFeeCollector);
     }
 
-    function setWithdrawFee(uint256 newWithdrawFee) external auth {
+    function setWithdrawFee(uint256 newWithdrawFee) external override auth {
         _setWithdrawFee(newWithdrawFee);
     }
 
-    function setPerformanceFee(uint256 newPerformanceFee) external auth {
+    function setPerformanceFee(uint256 newPerformanceFee) external override auth {
         _setPerformanceFee(newPerformanceFee);
     }
 
-    function setSwapFee(uint256 newSwapFee) external auth {
+    function setSwapFee(uint256 newSwapFee) external override auth {
         _setSwapFee(newSwapFee);
     }
 
-    function collect(address token, address from, uint256 amount, bytes memory data) external auth {
+    function collect(address token, address from, uint256 amount, bytes memory data) external override auth {
         _safeTransferFrom(token, from, address(this), amount);
         emit Collect(token, from, amount, data);
     }
 
-    function withdraw(address token, uint256 amount, address recipient, bytes memory data) external auth {
+    function withdraw(address token, uint256 amount, address recipient, bytes memory data) external override auth {
         require(amount > 0, 'WITHDRAW_AMOUNT_ZERO');
         require(recipient != address(0), 'RECIPIENT_ZERO');
 
@@ -153,23 +124,23 @@ contract Wallet is AuthorizedImplementation {
         emit Withdraw(token, recipient, amountAfterFees, withdrawFeeAmount, data);
     }
 
-    function claim(bytes memory data) external auth {
-        IStrategy(strategy).claim(data);
-        emit Claim(data);
-    }
-
-    function wrap(uint256 amount) external auth {
+    function wrap(uint256 amount) external override auth {
         require(address(this).balance >= amount, 'WRAP_INSUFFICIENT_AMOUNT');
         IWrappedNativeToken(wrappedNativeToken).deposit{ value: amount }();
         emit Wrap(amount);
     }
 
-    function unwrap(uint256 amount) external auth {
+    function unwrap(uint256 amount) external override auth {
         IWrappedNativeToken(wrappedNativeToken).withdraw(amount);
         emit Unwrap(amount);
     }
 
-    function join(uint256 amount, uint256 slippage, bytes memory data) external auth {
+    function claim(bytes memory data) external override auth {
+        IStrategy(strategy).claim(data);
+        emit Claim(data);
+    }
+
+    function join(uint256 amount, uint256 slippage, bytes memory data) external override auth {
         require(amount > 0, 'JOIN_AMOUNT_ZERO');
         require(slippage <= FixedPoint.ONE, 'JOIN_SLIPPAGE_ABOVE_ONE');
 
@@ -180,7 +151,12 @@ contract Wallet is AuthorizedImplementation {
         emit Join(amount, value, slippage, data);
     }
 
-    function exit(uint256 ratio, uint256 slippage, bytes memory data) external auth returns (uint256 received) {
+    function exit(uint256 ratio, uint256 slippage, bytes memory data)
+        external
+        override
+        auth
+        returns (uint256 received)
+    {
         require(investedValue > 0, 'EXIT_NO_INVESTED_VALUE');
         require(ratio > 0 && ratio <= FixedPoint.ONE, 'EXIT_INVALID_RATIO');
         require(slippage <= FixedPoint.ONE, 'EXIT_SLIPPAGE_ABOVE_ONE');
@@ -222,7 +198,7 @@ contract Wallet is AuthorizedImplementation {
         SwapLimit limitType,
         uint256 limitAmount,
         bytes memory data
-    ) external auth returns (uint256 amountOut) {
+    ) external override auth returns (uint256 amountOut) {
         require(tokenIn != tokenOut, 'SWAP_SAME_TOKEN');
 
         uint256 minAmountOut;
