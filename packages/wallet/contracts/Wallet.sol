@@ -47,7 +47,7 @@ contract Wallet is IWallet, AuthorizedImplementation {
     uint256 public override swapFee;
     address public immutable override wrappedNativeToken;
 
-    constructor(IRegistry registry, address _wrappedNativeToken) AuthorizedImplementation(registry) {
+    constructor(address _wrappedNativeToken, IRegistry registry) AuthorizedImplementation(registry) {
         wrappedNativeToken = _wrappedNativeToken;
     }
 

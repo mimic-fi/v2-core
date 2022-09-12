@@ -32,7 +32,7 @@ describe('Wallet', () => {
       registry,
       admin,
       'Wallet',
-      [registry.address, wrappedNativeToken.address],
+      [wrappedNativeToken.address, registry.address],
       [admin.address]
     )
   })
