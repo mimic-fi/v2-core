@@ -35,7 +35,7 @@ contract Wallet is IWallet, AuthorizedImplementation {
     using UncheckedMath for uint256;
 
     bytes32 public constant override NAMESPACE = keccak256('WALLET');
-    address public constant override ETH = address(0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE);
+    address public constant override NATIVE_TOKEN = address(0xFFfFfFffFFfffFFfFFfFFFFFffFFFffffFfFFFfF);
 
     address public override strategy;
     address public override priceOracle;
@@ -226,7 +226,7 @@ contract Wallet is IWallet, AuthorizedImplementation {
      */
     function _safeTransfer(address token, address to, uint256 amount) internal {
         if (amount == 0) return;
-        if (token == ETH) Address.sendValue(payable(to), amount);
+        if (token == NATIVE_TOKEN) Address.sendValue(payable(to), amount);
         else IERC20(token).safeTransfer(to, amount);
     }
 

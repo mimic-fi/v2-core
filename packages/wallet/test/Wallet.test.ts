@@ -521,7 +521,7 @@ describe('Wallet', () => {
         let token: string
 
         beforeEach('set token address', async () => {
-          token = await wallet.ETH()
+          token = await wallet.NATIVE_TOKEN()
         })
 
         context('when the wallet has enough balance', async () => {
