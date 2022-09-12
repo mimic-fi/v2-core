@@ -1,6 +1,6 @@
 {
   "name": "@mimic-fi/v2-price-oracle",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "license": "GPL-3.0",
   "engines": {
     "node": ">=12.0.0"
@@ -23,8 +23,8 @@
   },
   "dependencies": {
     "@chainlink/contracts": "^0.2.1",
-    "@mimic-fi/v2-helpers": "0.0.1",
-    "@mimic-fi/v2-registry": "0.0.1",
+    "@mimic-fi/v2-helpers": "0.0.2",
+    "@mimic-fi/v2-registry": "0.0.2",
     "@openzeppelin/contracts": "4.7.0"
   },
   "devDependencies": {
