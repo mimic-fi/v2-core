@@ -67,4 +67,17 @@ library Arrays {
         for (uint256 i = 0; i < b.length; i = i.uncheckedAdd(1)) result[i.uncheckedAdd(1)] = b[i];
         result[b.length.uncheckedAdd(1)] = c;
     }
+
+    /**
+     * @dev Builds an array of addresses based on the given ones
+     */
+    function from(address a, address[] memory b, address[] memory c) internal pure returns (address[] memory result) {
+        // No need for checked math since we are simply adding two memory array's length
+        result = new address[](b.length.uncheckedAdd(c.length).uncheckedAdd(1));
+        result[0] = a;
+
+        // No need for checked math since we are using it to compute indexes manually, always within boundaries
+        for (uint256 i = 0; i < b.length; i = i.uncheckedAdd(1)) result[i.uncheckedAdd(1)] = b[i];
+        for (uint256 i = 0; i < c.length; i = i.uncheckedAdd(1)) result[b.length.uncheckedAdd(i)] = c[i];
+    }
 }
