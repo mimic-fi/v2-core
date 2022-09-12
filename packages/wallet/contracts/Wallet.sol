@@ -21,6 +21,7 @@ import '@openzeppelin/contracts/utils/math/Math.sol';
 
 import '@mimic-fi/v2-helpers/contracts/math/FixedPoint.sol';
 import '@mimic-fi/v2-helpers/contracts/math/UncheckedMath.sol';
+import '@mimic-fi/v2-helpers/contracts/utils/Denominations.sol';
 import '@mimic-fi/v2-price-oracle/contracts/IPriceOracle.sol';
 import '@mimic-fi/v2-swap-connector/contracts/ISwapConnector.sol';
 import '@mimic-fi/v2-registry/contracts/implementations/AuthorizedImplementation.sol';
@@ -35,7 +36,6 @@ contract Wallet is IWallet, AuthorizedImplementation {
     using UncheckedMath for uint256;
 
     bytes32 public constant override NAMESPACE = keccak256('WALLET');
-    address public constant override NATIVE_TOKEN = address(0xFFfFfFffFFfffFFfFFfFFFFFffFFFffffFfFFFfF);
 
     address public override strategy;
     address public override priceOracle;
@@ -226,7 +226,7 @@ contract Wallet is IWallet, AuthorizedImplementation {
      */
     function _safeTransfer(address token, address to, uint256 amount) internal {
         if (amount == 0) return;
-        if (token == NATIVE_TOKEN) Address.sendValue(payable(to), amount);
+        if (token == Denominations.NATIVE_TOKEN) Address.sendValue(payable(to), amount);
         else IERC20(token).safeTransfer(to, amount);
     }
 

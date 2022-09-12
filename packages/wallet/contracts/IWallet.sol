@@ -17,9 +17,6 @@ pragma solidity ^0.8.0;
 import '@mimic-fi/v2-swap-connector/contracts/ISwapConnector.sol';
 
 interface IWallet {
-    // solhint-disable-next-line func-name-mixedcase
-    function NATIVE_TOKEN() external view returns (address);
-
     enum SwapLimit {
         Slippage,
         MinAmountOut

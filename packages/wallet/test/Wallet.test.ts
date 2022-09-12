@@ -1,4 +1,14 @@
-import { assertEvent, BigNumberish, bn, deploy, fp, getSigners, instanceAt, ZERO_ADDRESS } from '@mimic-fi/v2-helpers'
+import {
+  assertEvent,
+  BigNumberish,
+  bn,
+  deploy,
+  fp,
+  getSigners,
+  instanceAt,
+  NATIVE_TOKEN_ADDRESS,
+  ZERO_ADDRESS,
+} from '@mimic-fi/v2-helpers'
 import { createClone } from '@mimic-fi/v2-registry'
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/dist/src/signer-with-address'
 import { expect } from 'chai'
@@ -521,7 +531,7 @@ describe('Wallet', () => {
         let token: string
 
         beforeEach('set token address', async () => {
-          token = await wallet.NATIVE_TOKEN()
+          token = NATIVE_TOKEN_ADDRESS
         })
 
         context('when the wallet has enough balance', async () => {
