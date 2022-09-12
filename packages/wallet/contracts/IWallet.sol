@@ -34,8 +34,8 @@ interface IWallet {
     event SwapFeeSet(uint256 swapFee);
     event Collect(address indexed token, address indexed from, uint256 amount, bytes data);
     event Withdraw(address indexed token, address indexed recipient, uint256 amount, uint256 fee, bytes data);
-    event Wrap(uint256 amount);
-    event Unwrap(uint256 amount);
+    event Wrap(uint256 amount, bytes data);
+    event Unwrap(uint256 amount, bytes data);
     event Claim(bytes data);
     event Join(uint256 amount, uint256 value, uint256 slippage, bytes data);
     event Exit(uint256 amount, uint256 value, uint256 fee, uint256 slippage, bytes data);
@@ -87,9 +87,9 @@ interface IWallet {
 
     function claim(bytes memory data) external;
 
-    function wrap(uint256 amount) external;
+    function wrap(uint256 amount, bytes memory data) external;
 
-    function unwrap(uint256 amount) external;
+    function unwrap(uint256 amount, bytes memory data) external;
 
     function join(uint256 amount, uint256 slippage, bytes memory data) external;
 

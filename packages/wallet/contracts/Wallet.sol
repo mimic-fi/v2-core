@@ -103,15 +103,15 @@ contract Wallet is IWallet, AuthorizedImplementation {
         emit Withdraw(token, recipient, amountAfterFees, withdrawFeeAmount, data);
     }
 
-    function wrap(uint256 amount) external override auth {
+    function wrap(uint256 amount, bytes memory data) external override auth {
         require(address(this).balance >= amount, 'WRAP_INSUFFICIENT_AMOUNT');
         IWrappedNativeToken(wrappedNativeToken).deposit{ value: amount }();
-        emit Wrap(amount);
+        emit Wrap(amount, data);
     }
 
-    function unwrap(uint256 amount) external override auth {
+    function unwrap(uint256 amount, bytes memory data) external override auth {
         IWrappedNativeToken(wrappedNativeToken).withdraw(amount);
-        emit Unwrap(amount);
+        emit Unwrap(amount, data);
     }
 
     function claim(bytes memory data) external override auth {

@@ -617,6 +617,7 @@ describe('Wallet', () => {
 
   describe('wrap', () => {
     const amount = fp(1)
+    const data = '0xabcdef'
 
     context('when the sender is authorized', () => {
       beforeEach('set sender', async () => {
@@ -634,7 +635,7 @@ describe('Wallet', () => {
           const previousNativeBalance = await ethers.provider.getBalance(wallet.address)
           const previousWrappedBalance = await wrappedNativeToken.balanceOf(wallet.address)
 
-          await wallet.wrap(amount)
+          await wallet.wrap(amount, data)
 
           const currentNativeBalance = await ethers.provider.getBalance(wallet.address)
           expect(currentNativeBalance).to.be.equal(previousNativeBalance.sub(amount))
@@ -644,14 +645,14 @@ describe('Wallet', () => {
         })
 
         it('emits an event', async () => {
-          const tx = await wallet.wrap(amount)
-          await assertEvent(tx, 'Wrap', { amount })
+          const tx = await wallet.wrap(amount, data)
+          await assertEvent(tx, 'Wrap', { amount, data })
         })
       })
 
       context('when the wallet does not have enough native tokens', () => {
         it('reverts', async () => {
-          await expect(wallet.wrap(amount)).to.be.revertedWith('WRAP_INSUFFICIENT_AMOUNT')
+          await expect(wallet.wrap(amount, data)).to.be.revertedWith('WRAP_INSUFFICIENT_AMOUNT')
         })
       })
     })
@@ -662,13 +663,14 @@ describe('Wallet', () => {
       })
 
       it('reverts', async () => {
-        await expect(wallet.wrap(amount)).to.be.revertedWith('AUTH_SENDER_NOT_ALLOWED')
+        await expect(wallet.wrap(amount, data)).to.be.revertedWith('AUTH_SENDER_NOT_ALLOWED')
       })
     })
   })
 
   describe('unwrap', () => {
     const amount = fp(1)
+    const data = '0xabcdef'
 
     context('when the sender is authorized', () => {
       beforeEach('set sender', async () => {
@@ -682,14 +684,14 @@ describe('Wallet', () => {
           await admin.sendTransaction({ to: wallet.address, value: amount.mul(2) })
           const wrapRole = wallet.interface.getSighash('wrap')
           await wallet.connect(admin).authorize(admin.address, wrapRole)
-          await wallet.wrap(amount.mul(2))
+          await wallet.wrap(amount.mul(2), data)
         })
 
         it('unwraps the requested amount', async () => {
           const previousNativeBalance = await ethers.provider.getBalance(wallet.address)
           const previousWrappedBalance = await wrappedNativeToken.balanceOf(wallet.address)
 
-          await wallet.unwrap(amount)
+          await wallet.unwrap(amount, data)
 
           const currentNativeBalance = await ethers.provider.getBalance(wallet.address)
           expect(currentNativeBalance).to.be.equal(previousNativeBalance.add(amount))
@@ -699,14 +701,14 @@ describe('Wallet', () => {
         })
 
         it('emits an event', async () => {
-          const tx = await wallet.unwrap(amount)
+          const tx = await wallet.unwrap(amount, data)
           await assertEvent(tx, 'Unwrap', { amount })
         })
       })
 
       context('when the wallet does not have enough wrapped native tokens', () => {
         it('reverts', async () => {
-          await expect(wallet.unwrap(amount)).to.be.revertedWith('WNT_NOT_ENOUGH_BALANCE')
+          await expect(wallet.unwrap(amount, data)).to.be.revertedWith('WNT_NOT_ENOUGH_BALANCE')
         })
       })
     })
@@ -717,7 +719,7 @@ describe('Wallet', () => {
       })
 
       it('reverts', async () => {
-        await expect(wallet.unwrap(amount)).to.be.revertedWith('AUTH_SENDER_NOT_ALLOWED')
+        await expect(wallet.unwrap(amount, data)).to.be.revertedWith('AUTH_SENDER_NOT_ALLOWED')
       })
     })
   })
