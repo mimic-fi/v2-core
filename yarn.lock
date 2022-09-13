@@ -582,10 +582,10 @@
     decimal.js "^10.3.1"
     ethers "^5.0.8"
 
-"@mimic-fi/v2-helpers@0.0.2":
-  version "0.0.2"
-  resolved "https://registry.yarnpkg.com/@mimic-fi/v2-helpers/-/v2-helpers-0.0.2.tgz#91e907944bce0a356868d9db2bdc15c40ca19320"
-  integrity sha512-rCBCN7q5/PAV1h938whmrGiUTjiK1KjjIGLVwX3p5upotihAe+ts0mA3IqyBmeyCl1unRQFRX22nynE6a95TYg==
+"@mimic-fi/v2-helpers@0.0.3":
+  version "0.0.3"
+  resolved "https://registry.yarnpkg.com/@mimic-fi/v2-helpers/-/v2-helpers-0.0.3.tgz#fd0a953942d8bb096da19862fefd83046aee857f"
+  integrity sha512-bIg/YS0U2xnZXnH/z3ztyKrTzJzPgILe3DSWPmmINjF9jXr1Dbi4UZ1tF3+DiG3eD4eW5pqbSyUcKNguiG0ZHQ==
   dependencies:
     "@nomiclabs/hardhat-ethers" "^2.0.2"
     "@nomiclabs/hardhat-waffle" "^2.0.1"
