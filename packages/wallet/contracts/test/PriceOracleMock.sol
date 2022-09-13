@@ -2,7 +2,6 @@
 
 pragma solidity ^0.8.0;
 
-import '@mimic-fi/v2-helpers/contracts/math/FixedPoint.sol';
 import '@mimic-fi/v2-registry/contracts/implementations/IImplementation.sol';
 
 contract PriceOracleMock is IImplementation {
