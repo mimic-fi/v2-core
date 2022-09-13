@@ -77,7 +77,13 @@ library Arrays {
         result[0] = a;
 
         // No need for checked math since we are using it to compute indexes manually, always within boundaries
-        for (uint256 i = 0; i < b.length; i = i.uncheckedAdd(1)) result[i.uncheckedAdd(1)] = b[i];
-        for (uint256 i = 0; i < c.length; i = i.uncheckedAdd(1)) result[b.length.uncheckedAdd(i)] = c[i];
+        for (uint256 i = 0; i < b.length; i = i.uncheckedAdd(1)) {
+            result[i.uncheckedAdd(1)] = b[i];
+        }
+
+        // No need for checked math since we are using it to compute indexes manually, always within boundaries
+        for (uint256 i = 0; i < c.length; i = i.uncheckedAdd(1)) {
+            result[b.length.uncheckedAdd(1).uncheckedAdd(i)] = c[i];
+        }
     }
 }
