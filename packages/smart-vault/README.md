@@ -5,6 +5,9 @@
 <h4 align="center">A DeFi automation platform</h4>
 
 <p align="center">
+  <a href="https://badge.fury.io/js/@mimic-fi%2Fv2-smart-vault">
+    <img src="https://badge.fury.io/js/@mimic-fi%2Fv2-smart-vault.svg" alt="NPM">
+  </a>
   <a href="https://github.com/mimic-fi/v2-core/actions/workflows/ci.yml">
     <img src="https://github.com/mimic-fi/v2-core/actions/workflows/ci.yml/badge.svg" alt="CI">
   </a>
@@ -27,15 +30,8 @@
 
 ## Content 
 
-This monorepo holds the key components of the Mimic protocol:
-
-- [Helpers](./packages/helpers): Library of solidity and typescript helpers used among all Mimic repositories.
-- [Price Oracle](./packages/price-oracle): Implementation of the on-chain price oracle used by the Mimic platform.
-- [Registry](./packages/registry): Mimic implementations on-chain registry.
-- [Smart Vault](./packages/smart-vault): Smart vault contract grouping all the required core components.
-- [Strategies](./packages/strategies): Smart vault's strategy contracts in charge of handling DeFi protocol integrations.
-- [Swap Connector](./packages/swap-connector): On-chain dex aggregator to be used by smart vaults to swap tokens.
-- [Wallet](./packages/wallet): Mimic wallet contract in charge of connecting users with the rest of the protocol.
+This package contains the implementation of the Smart Vault contract of the Mimic protocol.
+The Smart Vault is a contract that simply groups the different components of a Smart Vault.
 
 ## Setup
 
@@ -46,11 +42,14 @@ From your command line:
 # Clone this repository
 $ git clone https://github.com/mimic-fi/v2-core
 
-# Go into the repository
-$ cd v2-core
+# Go into the repository's package
+$ cd v2-core/packages/smart-vault
 
 # Install dependencies
 $ yarn
+
+# Run tests to make sure everything is set up correctly
+$ yarn test
 ```
 
 ## Security
