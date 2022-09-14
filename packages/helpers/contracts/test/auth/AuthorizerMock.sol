@@ -9,4 +9,8 @@ contract AuthorizerMock is Authorizer {
         _authorize(admin, Authorizer.authorize.selector);
         _authorize(admin, Authorizer.unauthorize.selector);
     }
+
+    function authenticate(address who, bytes4 what) external view {
+        _authenticate(who, what);
+    }
 }

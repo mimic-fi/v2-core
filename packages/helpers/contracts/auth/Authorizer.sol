@@ -14,31 +14,30 @@
 
 pragma solidity ^0.8.0;
 
-contract Authorizer {
-    event Authorized(address indexed who, bytes4 what);
-    event Unauthorized(address indexed who, bytes4 what);
+import './IAuthorizer.sol';
 
+contract Authorizer is IAuthorizer {
     mapping (address => mapping (bytes4 => bool)) private authorized;
 
     modifier auth() {
-        authenticate(msg.sender, msg.sig);
+        _authenticate(msg.sender, msg.sig);
         _;
     }
 
-    function isAuthorized(address who, bytes4 what) public view returns (bool) {
+    function isAuthorized(address who, bytes4 what) public view override returns (bool) {
         return authorized[who][what];
     }
 
-    function authenticate(address who, bytes4 what) public view {
-        require(isAuthorized(who, what), 'AUTH_SENDER_NOT_ALLOWED');
-    }
-
-    function authorize(address who, bytes4 what) external auth {
+    function authorize(address who, bytes4 what) external override auth {
         _authorize(who, what);
     }
 
-    function unauthorize(address who, bytes4 what) external auth {
+    function unauthorize(address who, bytes4 what) external override auth {
         _unauthorize(who, what);
+    }
+
+    function _authenticate(address who, bytes4 what) internal view {
+        require(isAuthorized(who, what), 'AUTH_SENDER_NOT_ALLOWED');
     }
 
     function _authorize(address who, bytes4 what) internal {
