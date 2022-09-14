@@ -14,7 +14,9 @@
 
 pragma solidity >=0.8.0;
 
-interface IRegistry {
+import '@mimic-fi/v2-helpers/contracts/auth/IAuthorizer.sol';
+
+interface IRegistry is IAuthorizer {
     event Registered(bytes32 indexed namespace, address indexed implementation);
     event Deprecated(bytes32 indexed namespace, address indexed implementation);
     event Cloned(bytes32 indexed namespace, address indexed implementation, address instance, bytes initResult);
