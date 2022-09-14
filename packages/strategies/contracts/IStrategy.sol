@@ -14,7 +14,9 @@
 
 pragma solidity ^0.8.0;
 
-interface IStrategy {
+import '@mimic-fi/v2-registry/contracts/implementations/IImplementation.sol';
+
+interface IStrategy is IImplementation {
     function token() external view returns (address);
 
     function lastValue() external view returns (uint256);
