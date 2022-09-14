@@ -78,6 +78,76 @@ describe('Wallet', () => {
     })
   })
 
+  describe('setStrategy', () => {
+    let newStrategy: Contract
+
+    context('when the sender is authorized', async () => {
+      beforeEach('set sender', async () => {
+        const setStrategyRole = wallet.interface.getSighash('setStrategy')
+        await wallet.connect(admin).authorize(admin.address, setStrategyRole)
+        wallet = wallet.connect(admin)
+      })
+
+      context('when the implementation was already set', async () => {
+        it('reverts', async () => {
+          await expect(wallet.setStrategy(ZERO_ADDRESS)).to.be.revertedWith('WALLET_STRATEGY_ALREADY_SET')
+        })
+      })
+
+      context('when the implementation was not set', async () => {
+        beforeEach('deploy another wallet', async () => {
+          wallet = await createClone(
+            registry,
+            admin,
+            'Wallet',
+            [wrappedNativeToken.address, registry.address],
+            [admin.address]
+          )
+          const setStrategyRole = wallet.interface.getSighash('setStrategy')
+          await wallet.connect(admin).authorize(admin.address, setStrategyRole)
+          wallet = wallet.connect(admin)
+        })
+
+        context('when the implementation is registered', async () => {
+          beforeEach('deploy implementation', async () => {
+            newStrategy = await createClone(registry, admin, 'StrategyMock', [registry.address], [])
+          })
+
+          it('sets the implementation', async () => {
+            await wallet.setStrategy(newStrategy.address)
+
+            expect(await wallet.strategy()).to.be.equal(newStrategy.address)
+          })
+
+          it('emits an event', async () => {
+            const tx = await wallet.setStrategy(newStrategy.address)
+            await assertEvent(tx, 'StrategySet', { strategy: newStrategy })
+          })
+        })
+
+        context('when the implementation is not registered', async () => {
+          beforeEach('deploy implementation', async () => {
+            newStrategy = await deploy('StrategyMock', [registry.address])
+          })
+
+          it('reverts', async () => {
+            await expect(wallet.setStrategy(newStrategy.address)).to.be.revertedWith('NEW_DEPENDENCY_NOT_REGISTERED')
+          })
+        })
+      })
+    })
+
+    context('when the sender is not authorized', () => {
+      beforeEach('set sender', () => {
+        wallet = wallet.connect(other)
+      })
+
+      it('reverts', async () => {
+        await expect(wallet.setStrategy(ZERO_ADDRESS)).to.be.revertedWith('AUTH_SENDER_NOT_ALLOWED')
+      })
+    })
+  })
+
   describe('setPriceOracle', () => {
     let newOracle: Contract
 
