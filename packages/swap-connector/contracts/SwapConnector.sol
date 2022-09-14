@@ -20,6 +20,7 @@ import './ISwapConnector.sol';
 import './connectors/UniswapV3Connector.sol';
 import './connectors/UniswapV2Connector.sol';
 import './connectors/BalancerV2Connector.sol';
+import './connectors/ParaswapV5Connector.sol';
 
 /**
  * @title SwapConnector
@@ -32,7 +33,8 @@ contract SwapConnector is
     BaseImplementation,
     UniswapV3Connector,
     UniswapV2Connector,
-    BalancerV2Connector
+    BalancerV2Connector,
+    ParaswapV5Connector
 {
     bytes32 public constant override NAMESPACE = keccak256('SWAP_CONNECTOR');
 
@@ -41,11 +43,19 @@ contract SwapConnector is
      * @param uniswapV3Router Uniswap V3 router reference
      * @param uniswapV2Router Uniswap V2 router reference
      * @param balancerV2Vault Balancer V2 vault reference
+     * @param paraswapV5Augustus Paraswap V5 augustus reference
      */
-    constructor(address uniswapV3Router, address uniswapV2Router, address balancerV2Vault, address registry)
+    constructor(
+        address uniswapV3Router,
+        address uniswapV2Router,
+        address balancerV2Vault,
+        address paraswapV5Augustus,
+        address registry
+    )
         UniswapV3Connector(uniswapV3Router)
         UniswapV2Connector(uniswapV2Router)
         BalancerV2Connector(balancerV2Vault)
+        ParaswapV5Connector(paraswapV5Augustus)
         BaseImplementation(registry)
     {
         // solhint-disable-previous-line no-empty-blocks
@@ -71,6 +81,7 @@ contract SwapConnector is
         if (source == Source.UniswapV2) return _swapUniswapV2(tokenIn, tokenOut, amountIn, minAmountOut, data);
         else if (source == Source.UniswapV3) return _swapUniswapV3(tokenIn, tokenOut, amountIn, minAmountOut, data);
         else if (source == Source.BalancerV2) return _swapBalancerV2(tokenIn, tokenOut, amountIn, minAmountOut, data);
+        else if (source == Source.ParaswapV5) return _swapParaswapV5(tokenIn, tokenOut, amountIn, minAmountOut, data);
         else revert('INVALID_DEX_OPTION');
     }
 }

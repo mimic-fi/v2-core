@@ -41,7 +41,13 @@ describe('SwapConnector', () => {
   })
 
   before('create swap connector', async () => {
-    connector = await deploy('SwapConnector', [UNISWAP_V3_ROUTER, UNISWAP_V2_ROUTER, BALANCER_V2_VAULT, ZERO_ADDRESS])
+    connector = await deploy('SwapConnector', [
+      UNISWAP_V3_ROUTER,
+      UNISWAP_V2_ROUTER,
+      BALANCER_V2_VAULT,
+      ZERO_ADDRESS,
+      ZERO_ADDRESS,
+    ])
   })
 
   before('create price oracle', async () => {

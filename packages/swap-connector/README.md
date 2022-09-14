@@ -33,7 +33,7 @@
 This package contains the implementation of the Swap Connector used by the Mimic protocol.
 The Swap Connector is part of the core architecture and is in charge of providing an interface to swap tokens.
 This can be achieved using any type of on-chain exchange, then this repo provides a simple implementation using
-Uniswap V2, Uniswap V3, and Balancer V2.
+Uniswap V2, Uniswap V3, Balancer V2, and Paraswap V5.
 
 ## Setup
 
