@@ -25,5 +25,7 @@ interface ISmartVault is IImplementation, IAuthorizer {
 
     function isActionWhitelisted(address action) external view returns (bool);
 
+    function setWallet(address newWallet) external;
+
     function setAction(address action, bool whitelisted) external;
 }

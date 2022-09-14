@@ -28,9 +28,8 @@ contract SmartVault is ISmartVault, InitializableAuthorizedImplementation {
         // solhint-disable-previous-line no-empty-blocks
     }
 
-    function initialize(address _admin, address _wallet) external initializer {
+    function initialize(address _admin) external initializer {
         _initialize(_admin);
-        _setWallet(_wallet);
     }
 
     function setAction(address action, bool whitelisted) external override auth {
@@ -38,7 +37,8 @@ contract SmartVault is ISmartVault, InitializableAuthorizedImplementation {
         emit ActionSet(action, whitelisted);
     }
 
-    function _setWallet(address newWallet) internal {
+    function setWallet(address newWallet) external override auth {
+        require(wallet == address(0), 'WALLET_ALREADY_SET');
         _validateDependency(wallet, newWallet);
         wallet = newWallet;
         emit WalletSet(newWallet);

@@ -5,7 +5,7 @@ import { expect } from 'chai'
 import { Contract } from 'ethers'
 
 describe('SmartVault', () => {
-  let smartVault: Contract, wallet: Contract, registry: Contract
+  let smartVault: Contract, registry: Contract
   let admin: SignerWithAddress, other: SignerWithAddress, action: SignerWithAddress
 
   before('set up signers', async () => {
@@ -17,43 +17,81 @@ describe('SmartVault', () => {
     registry = await deploy('@mimic-fi/v2-registry/artifacts/contracts/registry/Registry.sol/Registry', [admin.address])
   })
 
-  before('deploy wallet instance', async () => {
-    wallet = await createClone(
-      registry,
-      admin,
-      '@mimic-fi/v2-wallet/artifacts/contracts/Wallet.sol/Wallet',
-      [ZERO_ADDRESS, registry.address],
-      [admin.address]
-    )
-  })
+  describe('setWallet', () => {
+    let newWallet: Contract
 
-  describe('initialize', async () => {
-    context('when the given wallet implementation was registered', () => {
-      it('can be initialized', async () => {
-        smartVault = await createClone(
-          registry,
-          admin,
-          'SmartVault',
-          [registry.address],
-          [admin.address, wallet.address]
-        )
+    beforeEach('deploy smart vault', async () => {
+      smartVault = await createClone(registry, admin, 'SmartVault', [registry.address], [admin.address])
+    })
 
-        expect(await smartVault.wallet()).to.be.equal(wallet.address)
+    context('when the sender is authorized', async () => {
+      beforeEach('set sender', async () => {
+        const setWalletRole = smartVault.interface.getSighash('setWallet')
+        await smartVault.connect(admin).authorize(admin.address, setWalletRole)
+        smartVault = smartVault.connect(admin)
+      })
+
+      context('when the wallet was already set', async () => {
+        beforeEach('deploy wallet', async () => {
+          newWallet = await createClone(
+            registry,
+            admin,
+            '@mimic-fi/v2-wallet/artifacts/contracts/Wallet.sol/Wallet',
+            [ZERO_ADDRESS, registry.address],
+            [admin.address]
+          )
+
+          await smartVault.setWallet(newWallet.address)
+        })
+
+        it('reverts', async () => {
+          await expect(smartVault.setWallet(ZERO_ADDRESS)).to.be.revertedWith('WALLET_ALREADY_SET')
+        })
+      })
+
+      context('when the wallet was not set', async () => {
+        context('when the wallet is registered', async () => {
+          it('sets the implementation', async () => {
+            await smartVault.setWallet(newWallet.address)
+
+            expect(await smartVault.wallet()).to.be.equal(newWallet.address)
+          })
+
+          it('emits an event', async () => {
+            const tx = await smartVault.setWallet(newWallet.address)
+            await assertEvent(tx, 'WalletSet', { wallet: newWallet })
+          })
+        })
+
+        context('when the wallet is not registered', async () => {
+          beforeEach('deploy wallet', async () => {
+            newWallet = await deploy('@mimic-fi/v2-wallet/artifacts/contracts/Wallet.sol/Wallet', [
+              ZERO_ADDRESS,
+              registry.address,
+            ])
+          })
+
+          it('reverts', async () => {
+            await expect(smartVault.setWallet(newWallet.address)).to.be.revertedWith('NEW_DEPENDENCY_NOT_REGISTERED')
+          })
+        })
       })
     })
 
-    context('when the given wallet implementation was not registered', () => {
-      it('cannot be initialized', async () => {
-        await expect(
-          createClone(registry, admin, 'SmartVault', [registry.address], [admin.address, registry.address])
-        ).to.be.revertedWith('NEW_DEPENDENCY_NOT_REGISTERED')
+    context('when the sender is not authorized', () => {
+      beforeEach('set sender', () => {
+        smartVault = smartVault.connect(other)
+      })
+
+      it('reverts', async () => {
+        await expect(smartVault.setWallet(ZERO_ADDRESS)).to.be.revertedWith('AUTH_SENDER_NOT_ALLOWED')
       })
     })
   })
 
   describe('setAction', () => {
     beforeEach('deploy smart vault', async () => {
-      smartVault = await createClone(registry, admin, 'SmartVault', [registry.address], [admin.address, wallet.address])
+      smartVault = await createClone(registry, admin, 'SmartVault', [registry.address], [admin.address])
     })
 
     context('when the sender is authorized', async () => {
