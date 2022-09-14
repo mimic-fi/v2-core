@@ -14,7 +14,10 @@
 
 pragma solidity >=0.8.0;
 
-interface IPriceOracle {
+import '@mimic-fi/v2-helpers/contracts/auth/IAuthorizer.sol';
+import '@mimic-fi/v2-registry/contracts/implementations/IImplementation.sol';
+
+interface IPriceOracle is IImplementation, IAuthorizer {
     event FeedSet(address indexed base, address indexed quote, address feed);
 
     function hasFeed(address base, address quote) external view returns (bool);
