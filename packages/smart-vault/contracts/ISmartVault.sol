@@ -12,9 +12,12 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-pragma solidity ^0.8.0;
+pragma solidity >=0.8.0;
 
-interface ISmartVault {
+import '@mimic-fi/v2-helpers/contracts/auth/IAuthorizer.sol';
+import '@mimic-fi/v2-registry/contracts/implementations/IImplementation.sol';
+
+interface ISmartVault is IImplementation, IAuthorizer {
     event WalletSet(address indexed wallet);
     event ActionSet(address indexed action, bool whitelisted);
 
