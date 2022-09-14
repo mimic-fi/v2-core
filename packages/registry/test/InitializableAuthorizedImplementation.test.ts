@@ -7,7 +7,7 @@ import { createClone } from '../'
 
 /* eslint-disable no-secrets/no-secrets */
 
-describe('AuthorizedImplementation', () => {
+describe('InitializableAuthorizedImplementation', () => {
   let instance: Contract, registry: Contract, admin: SignerWithAddress
 
   before('set up signers', async () => {
@@ -17,7 +17,13 @@ describe('AuthorizedImplementation', () => {
 
   beforeEach('deploy instance', async () => {
     registry = await deploy('Registry', [admin.address])
-    instance = await createClone(registry, admin, 'AuthorizedImplementationMock', [registry.address], [admin.address])
+    instance = await createClone(
+      registry,
+      admin,
+      'InitializableAuthorizedImplementationMock',
+      [registry.address],
+      [admin.address]
+    )
   })
 
   describe('initialize', () => {

@@ -9,12 +9,8 @@ contract BaseImplementationMock is BaseImplementation {
 
     address public dependency;
 
-    constructor(IRegistry registry) BaseImplementation(registry) {
+    constructor(address registry) BaseImplementation(registry) {
         // solhint-disable-previous-line no-empty-blocks
-    }
-
-    function initialize() external initializer {
-        _initialize();
     }
 
     function setDependency(address newInstance) external {

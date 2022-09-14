@@ -20,49 +20,35 @@ import './IImplementation.sol';
 import '../registry/IRegistry.sol';
 
 /**
- * @dev Implementation contract to be used through proxies. Inheriting contracts are meant to be initialized through
- * initialization functions instead of constructor functions. It allows re-using the same logic contract while making
- * deployments cheaper.
- *
- * This implementation contract comes with an immutable reference to an implementations registry where it should be
- * registered as well (checked during initialization). It allows requesting new instances of other registered
+ * @title BaseImplementation
+ * @dev This implementation contract comes with an immutable reference to an implementations registry where it should
+ * be registered as well (checked during initialization). It allows requesting new instances of other registered
  * implementations to as another safety check to make sure valid instances are referenced in case it's needed.
  */
-abstract contract BaseImplementation is IImplementation, Initializable {
+abstract contract BaseImplementation is IImplementation {
     // Immutable implementations registry reference
-    IRegistry public immutable registry;
+    address public immutable override registry;
 
     /**
-     * @dev Creates a new BaseImplementation. Note that initializers are disabled at creation time.
+     * @dev Creates a new BaseImplementation
      */
-    constructor(IRegistry _registry) {
+    constructor(address _registry) {
         registry = _registry;
-        _disableInitializers();
     }
 
     /**
-     * @dev Initialization function to check a new instance is properly set up in the registry.
-     * Note this function can only be called from a function marked with the `initializer` modifier.
-     */
-    function _initialize() internal view onlyInitializing {
-        address implementation = registry.getImplementation(address(this));
-        require(implementation != address(0), 'IMPLEMENTATION_NOT_REGISTERED');
-        require(registry.isRegistered(this.NAMESPACE(), implementation), 'INVALID_IMPLEMENTATION_NAMESPACE');
-    }
-
-    /**
-     * @dev Internal function to validate a new dependency
-     *      It checks the new dependency is registered in the same registry under the same namespace
+     * @dev Internal function to validate a new dependency. It checks the new dependency is registered in the
+     * same registry under the same namespace
      */
     function _validateDependency(address currentDependency, address newDependency) internal view {
-        address newImplementation = registry.getImplementation(newDependency);
+        address newImplementation = IRegistry(registry).getImplementation(newDependency);
         if (newImplementation != address(0)) {
             // If there is an implementation registered for the new dependency, it means it's a new instance
             _validateDependencyInstance(currentDependency, newImplementation);
         } else {
             // Otherwise, check if the new dependency is actually an implementation
             // If that's the case there must be a namespace registered for it
-            bytes32 newDependencyNamespace = registry.getNamespace(newDependency);
+            bytes32 newDependencyNamespace = IRegistry(registry).getNamespace(newDependency);
             require(newDependencyNamespace != bytes32(0), 'NEW_DEPENDENCY_NOT_REGISTERED');
             _validateDependencyImplementation(currentDependency, newDependency);
         }
@@ -74,12 +60,13 @@ abstract contract BaseImplementation is IImplementation, Initializable {
     function _validateDependencyInstance(address currentDependency, address newImplementation) private view {
         if (currentDependency != address(0)) {
             // Make sure the current dependency is an instance too
-            address currentImplementation = registry.getImplementation(currentDependency);
+            address currentImplementation = IRegistry(registry).getImplementation(currentDependency);
             require(currentImplementation != address(0), 'NEW_DEPENDENCY_MUST_BE_IMPL');
 
             // Make sure namespaces match
-            bytes32 currentNamespace = registry.getNamespace(currentImplementation);
-            require(registry.isRegistered(currentNamespace, newImplementation), 'INVALID_NEW_DEPENDENCY_NAMESPACE');
+            bytes32 currentNamespace = IRegistry(registry).getNamespace(currentImplementation);
+            bool isRegisteredWithSameNamespace = IRegistry(registry).isRegistered(currentNamespace, newImplementation);
+            require(isRegisteredWithSameNamespace, 'INVALID_NEW_DEPENDENCY_NAMESPACE');
         }
     }
 
@@ -89,11 +76,12 @@ abstract contract BaseImplementation is IImplementation, Initializable {
     function _validateDependencyImplementation(address currentDependency, address newImplementation) private view {
         if (currentDependency != address(0)) {
             // Make sure the current dependency is an implementation too
-            bytes32 currentNamespace = registry.getNamespace(currentDependency);
+            bytes32 currentNamespace = IRegistry(registry).getNamespace(currentDependency);
             require(currentNamespace != bytes32(0), 'NEW_DEPENDENCY_MUST_BE_INSTANCE');
 
             // Make sure namespaces match
-            require(registry.isRegistered(currentNamespace, newImplementation), 'INVALID_NEW_DEPENDENCY_NAMESPACE');
+            bool isRegisteredWithSameNamespace = IRegistry(registry).isRegistered(currentNamespace, newImplementation);
+            require(isRegisteredWithSameNamespace, 'INVALID_NEW_DEPENDENCY_NAMESPACE');
         }
     }
 }

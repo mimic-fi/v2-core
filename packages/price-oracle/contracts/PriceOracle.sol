@@ -20,11 +20,11 @@ import '@openzeppelin/contracts/utils/math/SafeCast.sol';
 
 import '@mimic-fi/v2-helpers/contracts/math/FixedPoint.sol';
 import '@mimic-fi/v2-helpers/contracts/math/UncheckedMath.sol';
-import '@mimic-fi/v2-registry/contracts/implementations/AuthorizedImplementation.sol';
+import '@mimic-fi/v2-registry/contracts/implementations/InitializableAuthorizedImplementation.sol';
 
 import './IPriceOracle.sol';
 
-contract PriceOracle is IPriceOracle, AuthorizedImplementation {
+contract PriceOracle is IPriceOracle, InitializableAuthorizedImplementation {
     using FixedPoint for uint256;
     using UncheckedMath for uint256;
 
@@ -37,7 +37,7 @@ contract PriceOracle is IPriceOracle, AuthorizedImplementation {
     address public immutable pivot;
     mapping (address => mapping (address => address)) public feeds;
 
-    constructor(address _pivot, IRegistry _registry) AuthorizedImplementation(_registry) {
+    constructor(address _pivot, address _registry) InitializableAuthorizedImplementation(_registry) {
         pivot = _pivot;
     }
 

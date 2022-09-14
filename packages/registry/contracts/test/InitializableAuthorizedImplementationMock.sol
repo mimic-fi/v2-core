@@ -2,14 +2,14 @@
 
 pragma solidity ^0.8.0;
 
-import '../implementations/AuthorizedImplementation.sol';
+import '../implementations/InitializableAuthorizedImplementation.sol';
 
-contract AuthorizedImplementationMock is AuthorizedImplementation {
-    bytes32 public constant override NAMESPACE = keccak256('AUTHORIZED_IMPLEMENTATION_MOCK');
+contract InitializableAuthorizedImplementationMock is InitializableAuthorizedImplementation {
+    bytes32 public constant override NAMESPACE = keccak256('INITIALIZABLE_AUTHORIZED_IMPLEMENTATION_MOCK');
 
     address public dependency;
 
-    constructor(IRegistry registry) AuthorizedImplementation(registry) {
+    constructor(address registry) InitializableAuthorizedImplementation(registry) {
         // solhint-disable-previous-line no-empty-blocks
     }
 

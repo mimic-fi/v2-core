@@ -14,7 +14,7 @@
 
 pragma solidity ^0.8.0;
 
-import '@mimic-fi/v2-registry/contracts/implementations/IImplementation.sol';
+import '@mimic-fi/v2-registry/contracts/implementations/BaseImplementation.sol';
 
 import './ISwapConnector.sol';
 import './connectors/UniswapV3Connector.sol';
@@ -27,7 +27,13 @@ import './connectors/BalancerV2Connector.sol';
  *      Exchange paths can be pre-set to tell the swap connector which DEX must be used. These paths can bet set/unset
  *      at any time, and Uniswap V2 is being used by default.
  */
-contract SwapConnector is ISwapConnector, IImplementation, UniswapV3Connector, UniswapV2Connector, BalancerV2Connector {
+contract SwapConnector is
+    ISwapConnector,
+    BaseImplementation,
+    UniswapV3Connector,
+    UniswapV2Connector,
+    BalancerV2Connector
+{
     bytes32 public constant override NAMESPACE = keccak256('SWAP_CONNECTOR');
 
     /**
@@ -36,10 +42,11 @@ contract SwapConnector is ISwapConnector, IImplementation, UniswapV3Connector, U
      * @param uniswapV2Router Uniswap V2 router reference
      * @param balancerV2Vault Balancer V2 vault reference
      */
-    constructor(address uniswapV3Router, address uniswapV2Router, address balancerV2Vault)
+    constructor(address uniswapV3Router, address uniswapV2Router, address balancerV2Vault, address registry)
         UniswapV3Connector(uniswapV3Router)
         UniswapV2Connector(uniswapV2Router)
         BalancerV2Connector(balancerV2Vault)
+        BaseImplementation(registry)
     {
         // solhint-disable-previous-line no-empty-blocks
     }

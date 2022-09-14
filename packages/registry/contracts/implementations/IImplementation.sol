@@ -17,4 +17,6 @@ pragma solidity >=0.8.0;
 interface IImplementation {
     // solhint-disable-next-line func-name-mixedcase
     function NAMESPACE() external view returns (bytes32);
+
+    function registry() external view returns (address);
 }

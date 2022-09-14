@@ -23,14 +23,14 @@ import '@mimic-fi/v2-helpers/contracts/math/FixedPoint.sol';
 import '@mimic-fi/v2-helpers/contracts/math/UncheckedMath.sol';
 import '@mimic-fi/v2-helpers/contracts/utils/Denominations.sol';
 import '@mimic-fi/v2-price-oracle/contracts/IPriceOracle.sol';
-import '@mimic-fi/v2-swap-connector/contracts/ISwapConnector.sol';
-import '@mimic-fi/v2-registry/contracts/implementations/AuthorizedImplementation.sol';
 import '@mimic-fi/v2-strategies/contracts/IStrategy.sol';
+import '@mimic-fi/v2-swap-connector/contracts/ISwapConnector.sol';
+import '@mimic-fi/v2-registry/contracts/implementations/InitializableAuthorizedImplementation.sol';
 
 import './IWallet.sol';
 import './IWrappedNativeToken.sol';
 
-contract Wallet is IWallet, AuthorizedImplementation {
+contract Wallet is IWallet, InitializableAuthorizedImplementation {
     using SafeERC20 for IERC20;
     using FixedPoint for uint256;
     using UncheckedMath for uint256;
@@ -47,7 +47,7 @@ contract Wallet is IWallet, AuthorizedImplementation {
     uint256 public override swapFee;
     address public immutable override wrappedNativeToken;
 
-    constructor(address _wrappedNativeToken, IRegistry registry) AuthorizedImplementation(registry) {
+    constructor(address _wrappedNativeToken, address registry) InitializableAuthorizedImplementation(registry) {
         wrappedNativeToken = _wrappedNativeToken;
     }
 

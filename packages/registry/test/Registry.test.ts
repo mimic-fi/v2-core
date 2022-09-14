@@ -18,8 +18,8 @@ describe('Registry', () => {
 
   beforeEach('create registry', async () => {
     registry = await deploy('Registry', [admin.address])
-    implementation = await deploy('BaseImplementationMock', [registry.address])
-    anotherImplementation = await deploy('BaseImplementationMock', [registry.address])
+    implementation = await deploy('InitializableImplementationMock', [registry.address])
+    anotherImplementation = await deploy('InitializableImplementationMock', [registry.address])
   })
 
   describe('initialization', () => {
@@ -214,7 +214,7 @@ describe('Registry', () => {
         let namespace: string
 
         beforeEach('deploy another implementation and register', async () => {
-          implementation = await deploy('BaseImplementationMock', [registry.address])
+          implementation = await deploy('InitializableImplementationMock', [registry.address])
           namespace = await implementation.NAMESPACE()
           await registry.connect(admin).register(namespace, implementation.address)
         })
@@ -225,7 +225,7 @@ describe('Registry', () => {
           beforeEach('clone', async () => {
             const tx = await registry.clone(implementation.address, initializeData)
             const { args } = await assertEvent(tx, 'Cloned', { namespace, implementation })
-            instance = await instanceAt('BaseImplementationMock', args.instance)
+            instance = await instanceAt('InitializableImplementationMock', args.instance)
           })
 
           it('clones the implementation properly', async () => {

@@ -1,5 +1,5 @@
 import { defaultAbiCoder } from '@ethersproject/abi'
-import { deploy, fp, getSigners, impersonate, instanceAt, pct } from '@mimic-fi/v2-helpers'
+import { deploy, fp, getSigners, impersonate, instanceAt, pct, ZERO_ADDRESS } from '@mimic-fi/v2-helpers'
 import { createClone } from '@mimic-fi/v2-registry'
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/dist/src/signer-with-address'
 import { expect } from 'chai'
@@ -41,7 +41,7 @@ describe('SwapConnector', () => {
   })
 
   before('create swap connector', async () => {
-    connector = await deploy('SwapConnector', [UNISWAP_V3_ROUTER, UNISWAP_V2_ROUTER, BALANCER_V2_VAULT])
+    connector = await deploy('SwapConnector', [UNISWAP_V3_ROUTER, UNISWAP_V2_ROUTER, BALANCER_V2_VAULT, ZERO_ADDRESS])
   })
 
   before('create price oracle', async () => {

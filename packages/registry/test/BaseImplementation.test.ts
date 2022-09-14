@@ -1,4 +1,4 @@
-import { assertEvent, deploy, getSigners, instanceAt, ZERO_ADDRESS } from '@mimic-fi/v2-helpers'
+import { deploy, getSigners, ZERO_ADDRESS } from '@mimic-fi/v2-helpers'
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/dist/src/signer-with-address'
 import { expect } from 'chai'
 import { Contract } from 'ethers'
@@ -8,73 +8,25 @@ import { createClone } from '../'
 /* eslint-disable no-secrets/no-secrets */
 
 describe('BaseImplementation', () => {
-  let registry: Contract, admin: SignerWithAddress
+  let instance: Contract, registry: Contract, admin: SignerWithAddress
 
   before('set up signers', async () => {
     // eslint-disable-next-line prettier/prettier
     [, admin] = await getSigners()
   })
 
-  beforeEach('deploy registry', async () => {
+  beforeEach('deploy instance', async () => {
     registry = await deploy('Registry', [admin.address])
-  })
-
-  describe('initialize', () => {
-    let implementation: Contract
-
-    beforeEach('deploy implementation', async () => {
-      implementation = await deploy('BaseImplementationMock', [registry.address])
-    })
-
-    context('when initializing the implementation', () => {
-      it('has a registry reference', async () => {
-        expect(await implementation.registry()).to.be.equal(registry.address)
-      })
-
-      it('cannot be initialize', async () => {
-        await expect(implementation.initialize()).to.be.revertedWith('Initializable: contract is already initialized')
-      })
-    })
-
-    context('when initializing a new instance', () => {
-      context('when the implementation is registered', () => {
-        beforeEach('register implementation', async () => {
-          await registry.connect(admin).register(await implementation.NAMESPACE(), implementation.address)
-        })
-
-        it('can be initialized through the registry', async () => {
-          const initializeData = implementation.interface.encodeFunctionData('initialize', [])
-          const tx = await registry.clone(implementation.address, initializeData)
-          const event = await assertEvent(tx, 'Cloned', { implementation })
-
-          const instance = await instanceAt('BaseImplementationMock', event.args.instance)
-          expect(await registry.getImplementation(instance.address)).to.be.equal(implementation.address)
-          await expect(implementation.initialize()).to.be.revertedWith('Initializable: contract is already initialized')
-        })
-      })
-
-      context('when the implementation is not registered', () => {
-        it('reverts', async () => {
-          const initializeData = implementation.interface.encodeFunctionData('initialize', [])
-          await expect(registry.clone(implementation.address, initializeData)).to.be.revertedWith(
-            'UNREGISTERED_IMPLEMENTATION'
-          )
-        })
-      })
-    })
+    instance = await deploy('BaseImplementationMock', [registry.address])
   })
 
   describe('validateDependency', () => {
-    let instance: Contract, dependency: Contract
-
-    beforeEach('register and create sample instance', async () => {
-      instance = await createClone(registry, admin, 'BaseImplementationMock', [registry.address], [])
-    })
+    let dependency: Contract
 
     context('when the dependency is not set', async () => {
       context('when the new dependency implementation is registered', async () => {
         beforeEach('register and create new dependency', async () => {
-          dependency = await createClone(registry, admin, 'BaseImplementationMock', [registry.address], [])
+          dependency = await createClone(registry, admin, 'InitializableImplementationMock', [registry.address], [])
         })
 
         it('can be set', async () => {
@@ -100,7 +52,7 @@ describe('BaseImplementation', () => {
           const previousDependency = await createClone(
             registry,
             admin,
-            'BaseImplementationMock',
+            'InitializableImplementationMock',
             [registry.address],
             []
           )
@@ -112,7 +64,13 @@ describe('BaseImplementation', () => {
             context('when the new dependency is registered as an instance', async () => {
               context('when the new dependency is registered with the same namespace', async () => {
                 beforeEach('register and create dependency', async () => {
-                  dependency = await createClone(registry, admin, 'BaseImplementationMock', [registry.address], [])
+                  dependency = await createClone(
+                    registry,
+                    admin,
+                    'InitializableImplementationMock',
+                    [registry.address],
+                    []
+                  )
                 })
 
                 it('can be set', async () => {
@@ -126,7 +84,7 @@ describe('BaseImplementation', () => {
                   dependency = await createClone(
                     registry,
                     admin,
-                    'AuthorizedImplementationMock',
+                    'InitializableAuthorizedImplementationMock',
                     [registry.address],
                     [admin.address]
                   )
@@ -143,7 +101,7 @@ describe('BaseImplementation', () => {
             context('when the new dependency is registered as an implementation', async () => {
               context('when the new dependency is registered with the same namespace', async () => {
                 beforeEach('register and create dependency', async () => {
-                  dependency = await deploy('BaseImplementationMock', [registry.address])
+                  dependency = await deploy('InitializableImplementationMock', [registry.address])
                   await registry.connect(admin).register(await dependency.NAMESPACE(), dependency.address)
                 })
 
@@ -156,7 +114,7 @@ describe('BaseImplementation', () => {
 
               context('when the new dependency is registered with another namespace', async () => {
                 beforeEach('register and create dependency', async () => {
-                  dependency = await deploy('AuthorizedImplementationMock', [registry.address])
+                  dependency = await deploy('InitializableAuthorizedImplementationMock', [registry.address])
                   await registry.connect(admin).register(await dependency.NAMESPACE(), dependency.address)
                 })
 
@@ -171,7 +129,7 @@ describe('BaseImplementation', () => {
 
           context('when the new dependency is not registered', async () => {
             beforeEach('create new dependency', async () => {
-              dependency = await deploy('BaseImplementationMock', [registry.address])
+              dependency = await deploy('InitializableImplementationMock', [registry.address])
             })
 
             it('reverts', async () => {
@@ -191,7 +149,7 @@ describe('BaseImplementation', () => {
 
       context('when the dependency is an implementation', async () => {
         beforeEach('set dependency', async () => {
-          const previousDependency = await deploy('BaseImplementationMock', [registry.address])
+          const previousDependency = await deploy('InitializableImplementationMock', [registry.address])
           await registry.connect(admin).register(await previousDependency.NAMESPACE(), previousDependency.address)
           await instance.setDependency(previousDependency.address)
         })
@@ -201,7 +159,7 @@ describe('BaseImplementation', () => {
             context('when the new dependency is registered as an implementation', async () => {
               context('when the new dependency is registered with the same namespace', async () => {
                 beforeEach('register and create dependency', async () => {
-                  dependency = await deploy('BaseImplementationMock', [registry.address])
+                  dependency = await deploy('InitializableImplementationMock', [registry.address])
                   await registry.connect(admin).register(await dependency.NAMESPACE(), dependency.address)
                 })
 
@@ -213,7 +171,7 @@ describe('BaseImplementation', () => {
 
               context('when the new dependency is registered with another namespace', async () => {
                 beforeEach('register and create dependency', async () => {
-                  dependency = await deploy('AuthorizedImplementationMock', [registry.address])
+                  dependency = await deploy('InitializableAuthorizedImplementationMock', [registry.address])
                   await registry.connect(admin).register(await dependency.NAMESPACE(), dependency.address)
                 })
 
@@ -228,7 +186,13 @@ describe('BaseImplementation', () => {
             context('when the new dependency is registered as an instance', async () => {
               context('when the new dependency is registered with the same namespace', async () => {
                 beforeEach('register and create dependency', async () => {
-                  dependency = await createClone(registry, admin, 'BaseImplementationMock', [registry.address], [])
+                  dependency = await createClone(
+                    registry,
+                    admin,
+                    'InitializableImplementationMock',
+                    [registry.address],
+                    []
+                  )
                 })
 
                 it('reverts', async () => {
@@ -243,7 +207,7 @@ describe('BaseImplementation', () => {
                   dependency = await createClone(
                     registry,
                     admin,
-                    'AuthorizedImplementationMock',
+                    'InitializableAuthorizedImplementationMock',
                     [registry.address],
                     [admin.address]
                   )
@@ -260,7 +224,7 @@ describe('BaseImplementation', () => {
 
           context('when the new dependency is not registered', async () => {
             beforeEach('create new dependency', async () => {
-              dependency = await deploy('BaseImplementationMock', [registry.address])
+              dependency = await deploy('InitializableImplementationMock', [registry.address])
             })
 
             it('reverts', async () => {

@@ -14,18 +14,17 @@
 
 pragma solidity ^0.8.0;
 
-import '@mimic-fi/v2-registry/contracts/registry/IRegistry.sol';
-import '@mimic-fi/v2-registry/contracts/implementations/AuthorizedImplementation.sol';
+import '@mimic-fi/v2-registry/contracts/implementations/InitializableAuthorizedImplementation.sol';
 
 import './ISmartVault.sol';
 
-contract SmartVault is ISmartVault, AuthorizedImplementation {
+contract SmartVault is ISmartVault, InitializableAuthorizedImplementation {
     bytes32 public constant override NAMESPACE = keccak256('SMART_VAULT');
 
     address public override wallet;
     mapping (address => bool) public override isActionWhitelisted;
 
-    constructor(IRegistry registry) AuthorizedImplementation(registry) {
+    constructor(address registry) InitializableAuthorizedImplementation(registry) {
         // solhint-disable-previous-line no-empty-blocks
     }
 

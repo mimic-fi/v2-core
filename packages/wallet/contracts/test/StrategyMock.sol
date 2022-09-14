@@ -5,12 +5,12 @@ pragma solidity ^0.8.0;
 import '@openzeppelin/contracts/token/ERC20/IERC20.sol';
 
 import '@mimic-fi/v2-helpers/contracts/math/FixedPoint.sol';
-import '@mimic-fi/v2-registry/contracts/implementations/BaseImplementation.sol';
+import '@mimic-fi/v2-registry/contracts/implementations/InitializableImplementation.sol';
 
 import '../Wallet.sol';
 import './TokenMock.sol';
 
-contract StrategyMock is IStrategy, BaseImplementation {
+contract StrategyMock is IStrategy, InitializableImplementation {
     using FixedPoint for uint256;
 
     bytes32 public constant override NAMESPACE = keccak256('STRATEGY');
@@ -21,7 +21,7 @@ contract StrategyMock is IStrategy, BaseImplementation {
     event Joined(uint256 amount, uint256 slippage, bytes data);
     event Exited(uint256 ratio, uint256 slippage, bytes data);
 
-    constructor(IRegistry registry) BaseImplementation(registry) {
+    constructor(address registry) InitializableImplementation(registry) {
         // solhint-disable-previous-line no-empty-blocks
     }
 

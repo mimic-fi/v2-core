@@ -6,14 +6,18 @@ import '@openzeppelin/contracts/token/ERC20/IERC20.sol';
 
 import '@mimic-fi/v2-helpers/contracts/math/FixedPoint.sol';
 import '@mimic-fi/v2-swap-connector/contracts/ISwapConnector.sol';
-import '@mimic-fi/v2-registry/contracts/implementations/IImplementation.sol';
+import '@mimic-fi/v2-registry/contracts/implementations/BaseImplementation.sol';
 
-contract SwapConnectorMock is ISwapConnector, IImplementation {
+contract SwapConnectorMock is ISwapConnector, BaseImplementation {
     using FixedPoint for uint256;
 
     bytes32 public constant override NAMESPACE = keccak256('SWAP_CONNECTOR');
 
     uint256 public mockedRate;
+
+    constructor(address registry) BaseImplementation(registry) {
+        // solhint-disable-previous-line no-empty-blocks
+    }
 
     function mockRate(uint256 newRate) external {
         mockedRate = newRate;

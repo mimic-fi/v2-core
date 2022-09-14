@@ -49,12 +49,12 @@ describe('Wallet', () => {
 
     const setPriceOracleRole = wallet.interface.getSighash('setPriceOracle')
     await wallet.connect(admin).authorize(admin.address, setPriceOracleRole)
-    priceOracle = await createClone(registry, admin, 'PriceOracleMock', [])
+    priceOracle = await createClone(registry, admin, 'PriceOracleMock', [registry.address])
     await wallet.connect(admin).setPriceOracle(priceOracle.address)
 
     const setSwapConnectorRole = wallet.interface.getSighash('setSwapConnector')
     await wallet.connect(admin).authorize(admin.address, setSwapConnectorRole)
-    swapConnector = await createClone(registry, admin, 'SwapConnectorMock', [])
+    swapConnector = await createClone(registry, admin, 'SwapConnectorMock', [registry.address])
     await wallet.connect(admin).setSwapConnector(swapConnector.address)
   })
 
@@ -90,7 +90,7 @@ describe('Wallet', () => {
 
       context('when the implementation is registered', async () => {
         beforeEach('deploy implementation', async () => {
-          newOracle = await createClone(registry, admin, 'PriceOracleMock', [])
+          newOracle = await createClone(registry, admin, 'PriceOracleMock', [registry.address])
         })
 
         it('sets the implementation', async () => {
@@ -108,7 +108,7 @@ describe('Wallet', () => {
 
       context('when the implementation is not registered', async () => {
         beforeEach('deploy implementation', async () => {
-          newOracle = await deploy('PriceOracleMock')
+          newOracle = await deploy('PriceOracleMock', [registry.address])
         })
 
         it('reverts', async () => {
@@ -140,7 +140,7 @@ describe('Wallet', () => {
 
       context('when the implementation is registered', async () => {
         beforeEach('deploy implementation', async () => {
-          newSwapConnector = await createClone(registry, admin, 'SwapConnectorMock', [])
+          newSwapConnector = await createClone(registry, admin, 'SwapConnectorMock', [registry.address])
         })
 
         it('sets the implementation', async () => {
@@ -158,7 +158,7 @@ describe('Wallet', () => {
 
       context('when the implementation is not registered', async () => {
         beforeEach('deploy implementation', async () => {
-          newSwapConnector = await deploy('SwapConnectorMock')
+          newSwapConnector = await deploy('SwapConnectorMock', [registry.address])
         })
 
         it('reverts', async () => {
