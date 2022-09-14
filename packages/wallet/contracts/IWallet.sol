@@ -31,6 +31,7 @@ interface IWallet is IImplementation, IAuthorizer {
     event WithdrawFeeSet(uint256 withdrawFee);
     event PerformanceFeeSet(uint256 performanceFee);
     event SwapFeeSet(uint256 swapFee);
+    event Call(address indexed target, bytes data, uint256 value, bytes result);
     event Collect(address indexed token, address indexed from, uint256 amount, bytes data);
     event Withdraw(address indexed token, address indexed recipient, uint256 amount, uint256 fee, bytes data);
     event Wrap(uint256 amount, bytes data);
@@ -79,6 +80,8 @@ interface IWallet is IImplementation, IAuthorizer {
     function setPerformanceFee(uint256 newPerformanceFee) external;
 
     function setSwapFee(uint256 newSwapFee) external;
+
+    function call(address target, bytes memory data, uint256 value) external returns (bytes memory);
 
     function collect(address token, address from, uint256 amount, bytes memory data) external;
 

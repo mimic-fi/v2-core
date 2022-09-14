@@ -87,6 +87,11 @@ contract Wallet is IWallet, InitializableAuthorizedImplementation {
         _setSwapFee(newSwapFee);
     }
 
+    function call(address target, bytes memory data, uint256 value) external override auth returns (bytes memory res) {
+        res = Address.functionCallWithValue(target, data, value, 'WALLET_ARBITRARY_CALL_FAILED');
+        emit Call(target, data, value, res);
+    }
+
     function collect(address token, address from, uint256 amount, bytes memory data) external override auth {
         _safeTransferFrom(token, from, address(this), amount);
         emit Collect(token, from, amount, data);

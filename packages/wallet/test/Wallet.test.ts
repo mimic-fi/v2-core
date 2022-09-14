@@ -1,5 +1,6 @@
 import {
   assertEvent,
+  assertIndirectEvent,
   BigNumberish,
   bn,
   deploy,
@@ -426,6 +427,66 @@ describe('Wallet', () => {
 
       it('reverts', async () => {
         await expect(wallet.setSwapFee(0)).to.be.revertedWith('AUTH_SENDER_NOT_ALLOWED')
+      })
+    })
+  })
+
+  describe('call', () => {
+    const value = fp(0.01)
+    let target: Contract
+
+    beforeEach('deploy target', async () => {
+      target = await deploy('ContractMock')
+    })
+
+    context('when the sender is authorized', () => {
+      beforeEach('set sender', async () => {
+        const callRole = wallet.interface.getSighash('call')
+        await wallet.connect(admin).authorize(admin.address, callRole)
+        wallet = wallet.connect(admin)
+      })
+
+      context('when the call succeeds', () => {
+        let data: string
+
+        beforeEach('encode call', async () => {
+          data = target.interface.encodeFunctionData('call')
+        })
+
+        it('calls the target contract', async () => {
+          await admin.sendTransaction({ to: wallet.address, value })
+          const previousWalletBalance = await ethers.provider.getBalance(wallet.address)
+          const previousTargetBalance = await ethers.provider.getBalance(target.address)
+
+          const tx = await wallet.call(target.address, data, value)
+          await assertEvent(tx, 'Call', { target, value, data })
+          await assertIndirectEvent(tx, target.interface, 'Received', { sender: wallet, value })
+
+          const currentWalletBalance = await ethers.provider.getBalance(wallet.address)
+          expect(currentWalletBalance).to.be.equal(previousWalletBalance.sub(value))
+
+          const currentTargetBalance = await ethers.provider.getBalance(target.address)
+          expect(currentTargetBalance).to.be.equal(previousTargetBalance.add(value))
+        })
+      })
+
+      context('when the call does not succeeds', () => {
+        const data = '0xabcdef12' // random
+
+        it('reverts', async () => {
+          await admin.sendTransaction({ to: wallet.address, value })
+          await expect(wallet.call(target.address, data, value)).to.be.revertedWith('WALLET_ARBITRARY_CALL_FAILED')
+        })
+      })
+    })
+
+    context('when the sender is not authorized', () => {
+      beforeEach('set sender', async () => {
+        wallet = wallet.connect(other)
+      })
+
+      it('reverts', async () => {
+        await expect(wallet.call(target.address, '0x', value)).to.be.revertedWith('AUTH_SENDER_NOT_ALLOWED')
       })
     })
   })
