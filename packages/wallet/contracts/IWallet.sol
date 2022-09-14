@@ -14,9 +14,11 @@
 
 pragma solidity ^0.8.0;
 
+import '@mimic-fi/v2-helpers/contracts/auth/IAuthorizer.sol';
 import '@mimic-fi/v2-swap-connector/contracts/ISwapConnector.sol';
+import '@mimic-fi/v2-registry/contracts/implementations/IImplementation.sol';
 
-interface IWallet {
+interface IWallet is IImplementation, IAuthorizer {
     enum SwapLimit {
         Slippage,
         MinAmountOut
