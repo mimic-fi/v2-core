@@ -18,7 +18,7 @@
     "lint:solidity": "solhint 'contracts/**/*.sol' --config ../../node_modules/solhint-config-mimic/index.js",
     "lint:typescript": "eslint . --ext .ts",
     "test": "hardhat test",
-    "prepublish": "yarn build"
+    "prepare": "yarn build"
   },
   "dependencies": {
     "@mimic-fi/v2-helpers": "0.0.5",

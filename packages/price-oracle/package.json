@@ -19,7 +19,7 @@
     "lint:typescript": "eslint . --ext .ts",
     "test": "hardhat test",
     "test:mainnet": "yarn test --fork mainnet --block-number 15396575",
-    "prepublish": "yarn build"
+    "prepare": "yarn build"
   },
   "dependencies": {
     "@chainlink/contracts": "^0.2.1",

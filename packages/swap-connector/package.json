@@ -19,7 +19,7 @@
     "lint:typescript": "eslint . --ext .ts",
     "test": "hardhat test",
     "test:mainnet": "yarn test --fork mainnet --block-number 15395800",
-    "prepublish": "yarn build"
+    "prepare": "yarn build"
   },
   "dependencies": {
     "@mimic-fi/v2-helpers": "0.0.5",
