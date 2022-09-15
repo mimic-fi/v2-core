@@ -23,6 +23,9 @@
   "dependencies": {
     "@mimic-fi/v2-helpers": "0.0.5",
     "@mimic-fi/v2-strategies": "0.0.1",
+    "@mimic-fi/v2-price-oracle": "0.0.2",
+    "@mimic-fi/v2-registry": "0.0.2",
+    "@mimic-fi/v2-swap-connector": "0.0.2",
     "@openzeppelin/contracts": "4.7.0"
   },
   "devDependencies": {
