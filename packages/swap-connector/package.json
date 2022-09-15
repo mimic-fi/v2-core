@@ -23,7 +23,7 @@
   },
   "dependencies": {
     "@mimic-fi/v2-helpers": "0.0.6",
-    "@mimic-fi/v2-registry": "0.0.2",
+    "@mimic-fi/v2-registry": "0.0.3",
     "@openzeppelin/contracts": "4.7.0",
     "@uniswap/v2-core": "^1.0.1",
     "@uniswap/v2-periphery": "^1.1.0-beta.0",
