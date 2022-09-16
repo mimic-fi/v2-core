@@ -17,6 +17,9 @@ pragma solidity ^0.8.0;
 import './IAuthorizer.sol';
 
 contract Authorizer is IAuthorizer {
+    address public constant ANY_ADDRESS = address(0xFFfFfFffFFfffFFfFFfFFFFFffFFFffffFfFFFfF);
+
+    mapping (bytes4 => bool) private any;
     mapping (address => mapping (bytes4 => bool)) private authorized;
 
     modifier auth() {
@@ -25,7 +28,7 @@ contract Authorizer is IAuthorizer {
     }
 
     function isAuthorized(address who, bytes4 what) public view override returns (bool) {
-        return authorized[who][what];
+        return any[what] || authorized[who][what];
     }
 
     function authorize(address who, bytes4 what) external override auth {
@@ -41,12 +44,14 @@ contract Authorizer is IAuthorizer {
     }
 
     function _authorize(address who, bytes4 what) internal {
-        authorized[who][what] = true;
+        if (who == ANY_ADDRESS) any[what] = true;
+        else authorized[who][what] = true;
         emit Authorized(who, what);
     }
 
     function _unauthorize(address who, bytes4 what) internal {
-        authorized[who][what] = false;
+        if (who == ANY_ADDRESS) any[what] = false;
+        else authorized[who][what] = false;
         emit Unauthorized(who, what);
     }
 }
