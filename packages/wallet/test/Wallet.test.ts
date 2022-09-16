@@ -1390,6 +1390,7 @@ describe('Wallet', () => {
             )
 
             await assertEvent(tx, 'Swap', {
+              source,
               tokenIn,
               tokenOut,
               amountIn: amount,
@@ -1458,6 +1459,7 @@ describe('Wallet', () => {
             )
 
             await assertEvent(tx, 'Swap', {
+              source,
               tokenIn,
               tokenOut,
               amountIn: amount,

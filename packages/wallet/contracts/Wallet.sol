@@ -208,7 +208,7 @@ contract Wallet is IWallet, InitializableAuthorizedImplementation {
         _safeTransfer(tokenOut, feeCollector, swapFeeAmount);
 
         amountOut = amountOutBeforeFees.sub(swapFeeAmount);
-        emit Swap(tokenIn, tokenOut, amountIn, amountOut, minAmountOut, swapFeeAmount, data);
+        emit Swap(source, tokenIn, tokenOut, amountIn, amountOut, minAmountOut, swapFeeAmount, data);
     }
 
     /**

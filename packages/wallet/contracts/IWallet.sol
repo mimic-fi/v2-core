@@ -40,6 +40,7 @@ interface IWallet is IImplementation, IAuthorizer {
     event Join(uint256 amount, uint256 value, uint256 slippage, bytes data);
     event Exit(uint256 amount, uint256 value, uint256 fee, uint256 slippage, bytes data);
     event Swap(
+        ISwapConnector.Source indexed source,
         address indexed tokenIn,
         address indexed tokenOut,
         uint256 amountIn,
