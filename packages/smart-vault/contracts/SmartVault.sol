@@ -18,25 +18,52 @@ import '@mimic-fi/v2-registry/contracts/implementations/InitializableAuthorizedI
 
 import './ISmartVault.sol';
 
+/**
+ * @title SmartVault
+ * @dev Smart Vault contract in charge of listing the actions allowed for it and the wallet implementation where funds
+ * are being held. It inherits from InitializableAuthorizedImplementation which means it's implementation can be cloned
+ * from the Mimic Registry and should be initialized depending on each case.
+ */
 contract SmartVault is ISmartVault, InitializableAuthorizedImplementation {
+    // Namespace under which the Smart Vault is registered in the Mimic Registry
     bytes32 public constant override NAMESPACE = keccak256('SMART_VAULT');
 
+    // Mimic Wallet reference
     address public override wallet;
+
+    // List of whitelisted actions indexed by address
     mapping (address => bool) public override isActionWhitelisted;
 
+    /**
+     * @dev Creates a new Smart Vault implementation with references that should be shared among all implementations
+     * @param registry Address of the Mimic Registry
+     */
     constructor(address registry) InitializableAuthorizedImplementation(registry) {
         // solhint-disable-previous-line no-empty-blocks
     }
 
+    /**
+     * @dev Initializes the Price Oracle instance
+     * @param _admin Address that will be granted with admin rights
+     */
     function initialize(address _admin) external initializer {
         _initialize(_admin);
     }
 
+    /**
+     * @dev Sets the whitelist condition of an action. Sender must be authorized.
+     * @param action Address of the action to be set
+     * @param whitelisted Whether the given action should be whitelisted or not
+     */
     function setAction(address action, bool whitelisted) external override auth {
         isActionWhitelisted[action] = whitelisted;
         emit ActionSet(action, whitelisted);
     }
 
+    /**
+     * @dev Sets the Mimic Wallet tied to a Smart Vault. Sender must be authorized. It can be set only once.
+     * @param newWallet Address of the wallet to be set
+     */
     function setWallet(address newWallet) external override auth {
         require(wallet == address(0), 'WALLET_ALREADY_SET');
         _validateDependency(wallet, newWallet);
