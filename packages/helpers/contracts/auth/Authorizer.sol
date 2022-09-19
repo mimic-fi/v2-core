@@ -26,7 +26,7 @@ contract Authorizer is IAuthorizer {
     // Constant used to denote that a permission is open to anyone
     address public constant ANY_ADDRESS = address(0xFFfFfFffFFfffFFfFFfFFFFFffFFFffffFfFFFfF);
 
-    mapping (bytes4 => bool) private any;
+    // Internal mapping to tell who is allowed to do what indexed by (account, function selector)
     mapping (address => mapping (bytes4 => bool)) private authorized;
 
     /**
@@ -43,7 +43,7 @@ contract Authorizer is IAuthorizer {
      * @param what Function selector asking permission for
      */
     function isAuthorized(address who, bytes4 what) public view override returns (bool) {
-        return any[what] || authorized[who][what];
+        return authorized[ANY_ADDRESS][what] || authorized[who][what];
     }
 
     /**
@@ -80,8 +80,7 @@ contract Authorizer is IAuthorizer {
      * @param what Function selector to be granted
      */
     function _authorize(address who, bytes4 what) internal {
-        if (who == ANY_ADDRESS) any[what] = true;
-        else authorized[who][what] = true;
+        authorized[who][what] = true;
         emit Authorized(who, what);
     }
 
@@ -91,8 +90,7 @@ contract Authorizer is IAuthorizer {
      * @param what Function selector to be revoked
      */
     function _unauthorize(address who, bytes4 what) internal {
-        if (who == ANY_ADDRESS) any[what] = false;
-        else authorized[who][what] = false;
+        authorized[who][what] = false;
         emit Unauthorized(who, what);
     }
 }
