@@ -16,6 +16,10 @@ pragma solidity >=0.8.0;
 
 import '@mimic-fi/v2-registry/contracts/implementations/IImplementation.sol';
 
+/**
+ * @title ISwapConnector
+ * @dev Swap Connector interface to perform token swaps. It must follow the IImplementation interface.
+ */
 interface ISwapConnector is IImplementation {
     /**
      * @dev Enum identifying the sources proposed: Uniswap V2, Uniswap V3, and Balancer V2.

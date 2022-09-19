@@ -24,9 +24,7 @@ import './connectors/ParaswapV5Connector.sol';
 
 /**
  * @title SwapConnector
- * @dev This is a pre-set DEX aggregator. Currently, it interfaces with Uniswap V2, Uniswap V3, and Balancer V2.
- *      Exchange paths can be pre-set to tell the swap connector which DEX must be used. These paths can bet set/unset
- *      at any time, and Uniswap V2 is being used by default.
+ * @dev Swap Connector implementation that interfaces with Uniswap V2, Uniswap V3, Balancer V2, and Paraswap V5.
  */
 contract SwapConnector is
     ISwapConnector,
@@ -36,6 +34,7 @@ contract SwapConnector is
     BalancerV2Connector,
     ParaswapV5Connector
 {
+    // Namespace under which the Swap Connector is registered in the Mimic Registry
     bytes32 public constant override NAMESPACE = keccak256('SWAP_CONNECTOR');
 
     /**
