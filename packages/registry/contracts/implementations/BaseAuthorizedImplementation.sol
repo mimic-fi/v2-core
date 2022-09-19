@@ -26,6 +26,8 @@ import './BaseImplementation.sol';
 abstract contract BaseAuthorizedImplementation is BaseImplementation, Authorizer {
     /**
      * @dev Creates a new BaseAuthorizedImplementation
+     * @param admin Address to be granted authorize and unauthorize permissions
+     * @param registry Address of the Mimic Registry
      */
     constructor(address admin, address registry) BaseImplementation(registry) {
         _authorize(admin, Authorizer.authorize.selector);

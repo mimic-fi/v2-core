@@ -26,6 +26,7 @@ import './InitializableImplementation.sol';
 abstract contract InitializableAuthorizedImplementation is InitializableImplementation, Authorizer {
     /**
      * @dev Creates a new InitializableAuthorizedImplementation
+     * @param registry Address of the Mimic Registry
      */
     constructor(address registry) InitializableImplementation(registry) {
         // solhint-disable-previous-line no-empty-blocks
@@ -34,6 +35,7 @@ abstract contract InitializableAuthorizedImplementation is InitializableImplemen
     /**
      * @dev Initialization function that authorizes an admin account to authorize and unauthorize accounts.
      * Note this function can only be called from a function marked with the `initializer` modifier.
+     * @param admin Address to be granted authorize and unauthorize permissions
      */
     function _initialize(address admin) internal onlyInitializing {
         _initialize();

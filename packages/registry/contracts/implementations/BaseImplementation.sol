@@ -31,6 +31,7 @@ abstract contract BaseImplementation is IImplementation {
 
     /**
      * @dev Creates a new BaseImplementation
+     * @param _registry Address of the Mimic Registry where dependencies will be validated against
      */
     constructor(address _registry) {
         registry = _registry;
@@ -39,6 +40,8 @@ abstract contract BaseImplementation is IImplementation {
     /**
      * @dev Internal function to validate a new dependency. It checks the new dependency is registered in the
      * same registry under the same namespace
+     * @param currentDependency Address of the dependency currently set. It can be zero if it's being initialized.
+     * @param newDependency New address to replace the current one
      */
     function _validateDependency(address currentDependency, address newDependency) internal view {
         address newImplementation = IRegistry(registry).getImplementation(newDependency);
@@ -55,7 +58,10 @@ abstract contract BaseImplementation is IImplementation {
     }
 
     /**
-     * @dev Internal function to validate a new dependency instance
+     * @dev Internal function to validate a new dependency instance. It requests the current dependency to be an
+     * instance whose implementation is registered under the same namespace as the new requested one.
+     * @param currentDependency Address of the dependency currently set. It can be zero if it's being initialized.
+     * @param newImplementation Address of the new dependency's implementation
      */
     function _validateDependencyInstance(address currentDependency, address newImplementation) private view {
         if (currentDependency != address(0)) {
@@ -71,7 +77,10 @@ abstract contract BaseImplementation is IImplementation {
     }
 
     /**
-     * @dev Internal function to validate a new dependency implementation
+     * @dev Internal function to validate a new dependency implementation. It requests the current dependency to be an
+     * implementation registered under the same namespace as the new requested one.
+     * @param currentDependency Address of the dependency currently set. It can be zero if it's being initialized.
+     * @param newImplementation Address of the new dependency's implementation
      */
     function _validateDependencyImplementation(address currentDependency, address newImplementation) private view {
         if (currentDependency != address(0)) {

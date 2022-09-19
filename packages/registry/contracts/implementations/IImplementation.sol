@@ -14,9 +14,20 @@
 
 pragma solidity >=0.8.0;
 
+// solhint-disable func-name-mixedcase
+
+/**
+ * @title IImplementation
+ * @dev Implementation interface that must be followed for implementations to be registered in the Mimic Registry
+ */
 interface IImplementation {
-    // solhint-disable-next-line func-name-mixedcase
+    /**
+     * @dev Tells the namespace under which the implementation is registered in the Mimic Registry
+     */
     function NAMESPACE() external view returns (bytes32);
 
+    /**
+     * @dev Tells the address of the Mimic Registry
+     */
     function registry() external view returns (address);
 }

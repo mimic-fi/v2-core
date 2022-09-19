@@ -21,13 +21,30 @@ import '@mimic-fi/v2-helpers/contracts/auth/Authorizer.sol';
 
 import './IRegistry.sol';
 
+/**
+ * @title Registry
+ * @dev Registry of contracts that acts as a curated list of implementations and instances to be trusted by the Mimic
+ * protocol. Here consumers can find either implementation contracts (to be cloned through proxies) and contract
+ * instances (from cloned implementations).
+ *
+ * The registry follows the Authorizer mixin and only authorized parties are allowed to register implementations.
+ * Instances are automatically registered when a new clone is requested to the registry.
+ */
 contract Registry is IRegistry, Authorizer {
     using Address for address;
 
+    // Mapping of active implementations
     mapping (address => bool) public override isActive;
+
+    // List of namespaces indexed by implementation address
     mapping (address => bytes32) public override getNamespace;
+
+    // List of implementations indexed by instance address
     mapping (address => address) public override getImplementation;
 
+    /**
+     * @dev Modifier to make sure an implementation is active: registered and not deprecated.
+     */
     modifier active(address implementation) {
         require(implementation != address(0), 'INVALID_IMPLEMENTATION');
         require(getNamespace[implementation] != bytes32(0), 'UNREGISTERED_IMPLEMENTATION');
@@ -35,6 +52,10 @@ contract Registry is IRegistry, Authorizer {
         _;
     }
 
+    /**
+     * @dev Initializes the registry contract
+     * @param admin Address to be granted with register, deprecate, authorize, and unauthorize permissions
+     */
     constructor(address admin) {
         _authorize(admin, Registry.register.selector);
         _authorize(admin, Registry.deprecate.selector);
@@ -42,10 +63,20 @@ contract Registry is IRegistry, Authorizer {
         _authorize(admin, Authorizer.unauthorize.selector);
     }
 
+    /**
+     * @dev Tells if a specific implementation is registered under a certain namespace
+     * @param namespace Namespace asking for
+     * @param implementation Address of the implementation to be checked
+     */
     function isRegistered(bytes32 namespace, address implementation) public view override returns (bool) {
         return isActive[implementation] && getNamespace[implementation] == namespace;
     }
 
+    /**
+     * @dev Registers a new implementation for a given namespace. Sender must be authorized.
+     * @param namespace Namespace to be used for the implementation
+     * @param implementation Address of the implementation to be registered
+     */
     function register(bytes32 namespace, address implementation) external override auth {
         require(namespace != bytes32(0), 'INVALID_NAMESPACE');
         require(implementation != address(0), 'INVALID_IMPLEMENTATION');
@@ -57,11 +88,21 @@ contract Registry is IRegistry, Authorizer {
         emit Registered(namespace, implementation);
     }
 
+    /**
+     * @dev Deprecates a registered implementation. Sender must be authorized.
+     * @param implementation Address of the implementation to be deprecated. It must be active.
+     */
     function deprecate(address implementation) external override auth active(implementation) {
         isActive[implementation] = false;
         emit Deprecated(getNamespace[implementation], implementation);
     }
 
+    /**
+     * @dev Clones a registered implementation
+     * @param implementation Address of the implementation to be cloned. It must be active.
+     * @param initializeData Arbitrary data to be sent after deployment. It can be used to initialize the new instance.
+     * @return instance Address of the new instance created
+     */
     function clone(address implementation, bytes memory initializeData)
         external
         override
