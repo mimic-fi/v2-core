@@ -41,7 +41,7 @@ contract PriceOracle is IPriceOracle, InitializableAuthorizedImplementation {
     // Internal namespace followed to set feeds
     bytes32 public constant FEEDS_NAMESPACE = keccak256('PRICE_ORACLE_FEEDS');
 
-    // Namespace used for this price oracle implementation
+    // Namespace under which the Price Oracle is registered in the Mimic Registry
     bytes32 public constant override NAMESPACE = keccak256('PRICE_ORACLE');
 
     // Number of decimals used for fixed point operations: 18
@@ -57,7 +57,7 @@ contract PriceOracle is IPriceOracle, InitializableAuthorizedImplementation {
     mapping (address => mapping (address => address)) public feeds;
 
     /**
-     * @dev Initializes the price oracle implementation with references that should be shared among all implementations
+     * @dev Creates a new Price Oracle implementation with references that should be shared among all implementations
      * @param _pivot Address of the token to be used as the pivot
      * @param _registry Address of the Mimic Registry to be referenced
      */
@@ -66,7 +66,7 @@ contract PriceOracle is IPriceOracle, InitializableAuthorizedImplementation {
     }
 
     /**
-     * @dev Initializes the price oracle instance
+     * @dev Initializes the Price Oracle instance
      * @param admin Address that will be granted with admin rights
      */
     function initialize(address admin) external initializer {
