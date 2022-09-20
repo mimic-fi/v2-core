@@ -188,9 +188,10 @@ contract Wallet is IWallet, InitializableAuthorizedImplementation {
         require(amount > 0, 'WITHDRAW_AMOUNT_ZERO');
         require(recipient != address(0), 'RECIPIENT_ZERO');
 
+        // Withdraw fee amount is rounded down
         uint256 withdrawFeeAmount = amount.mulDown(withdrawFee);
         _safeTransfer(token, feeCollector, withdrawFeeAmount);
-        uint256 amountAfterFees = amount.sub(withdrawFeeAmount);
+        uint256 amountAfterFees = amount - withdrawFeeAmount;
         _safeTransfer(token, recipient, amountAfterFees);
         emit Withdraw(token, recipient, amountAfterFees, withdrawFeeAmount, data);
     }
@@ -268,12 +269,14 @@ contract Wallet is IWallet, InitializableAuthorizedImplementation {
         if (valueBeforeExit <= investedValue) {
             // There where losses, invested value is simply reduced using the exited ratio
             // No need for checked math as we are checking it manually beforehand
+            // Invested value is round up to avoid interpreting losses due to rounding errors
             investedValue = investedValue.mulUp(FixedPoint.ONE.uncheckedSub(ratio));
         } else {
             // If value gains are greater than the exit value, it means only gains are being withdrawn. In that case
             // the taxable amount is the entire exited amount, otherwise it should be the equivalent gains ratio of it.
             uint256 valueGains = valueBeforeExit - investedValue;
             uint256 taxableAmount = valueGains > exitValue ? amount : ((amount * valueGains) / exitValue);
+            // Performance fee amount is rounded down
             performanceFeeAmount = taxableAmount.mulDown(performanceFee);
             _safeTransfer(token, feeCollector, performanceFeeAmount);
             // If the exit value is greater than the value gains, the invested value should be reduced by the portion
@@ -316,6 +319,7 @@ contract Wallet is IWallet, InitializableAuthorizedImplementation {
             require(limitAmount <= FixedPoint.ONE, 'SWAP_SLIPPAGE_ABOVE_ONE');
             uint256 price = IPriceOracle(priceOracle).getPrice(tokenOut, tokenIn);
             // No need for checked math as we are checking it manually beforehand
+            // Always round up the expected min amount out
             minAmountOut = amountIn.mulUp(price).mulUp(FixedPoint.ONE.uncheckedSub(limitAmount));
         }
 
@@ -333,12 +337,13 @@ contract Wallet is IWallet, InitializableAuthorizedImplementation {
         require(amountOutBeforeFees >= minAmountOut, 'SWAP_MIN_AMOUNT');
 
         uint256 postBalanceOut = IERC20(tokenOut).balanceOf(address(this));
-        require(postBalanceOut >= preBalanceOut.add(amountOutBeforeFees), 'SWAP_INVALID_AMOUNT_OUT');
+        require(postBalanceOut >= preBalanceOut + amountOutBeforeFees, 'SWAP_INVALID_AMOUNT_OUT');
 
+        // Swap fee amount is rounded down
         uint256 swapFeeAmount = amountOutBeforeFees.mulDown(swapFee);
         _safeTransfer(tokenOut, feeCollector, swapFeeAmount);
 
-        amountOut = amountOutBeforeFees.sub(swapFeeAmount);
+        amountOut = amountOutBeforeFees - swapFeeAmount;
         emit Swap(source, tokenIn, tokenOut, amountIn, amountOut, minAmountOut, swapFeeAmount, data);
     }
 

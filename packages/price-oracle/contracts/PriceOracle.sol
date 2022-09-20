@@ -167,7 +167,7 @@ contract PriceOracle is IPriceOracle, InitializableAuthorizedImplementation {
         (uint256 inversePrice, uint256 feedDecimals) = _getFeedData(feed);
         require(feedDecimals <= INVERSE_FEED_MAX_DECIMALS, 'FEED_DECIMALS_TOO_BIG');
 
-        // TODO: review rounding
+        // Prices are requested for different purposes, we are rounding down always to follow a single strategy
         price = FixedPoint.ONE.divDown(inversePrice);
         // No need for checked math as we are checking it manually beforehand
         decimals = INVERSE_FEED_MAX_DECIMALS.uncheckedSub(feedDecimals);
@@ -193,8 +193,8 @@ contract PriceOracle is IPriceOracle, InitializableAuthorizedImplementation {
         // No need for checked math as an uint8 + FP_DECIMALS (constant) will always fit in an uint256
         require(quoteFeedDecimals <= baseFeedDecimals + FP_DECIMALS, 'QUOTE_FEED_DECIMALS_TOO_BIG');
 
-        // TODO: review rounding
         // Price is base/quote = (base/pivot) / (quote/pivot)
+        // Prices are requested for different purposes, we are rounding down always to follow a single strategy
         price = basePrice.divDown(quotePrice);
         // No need for checked math as we are checking it manually beforehand
         decimals = baseFeedDecimals.uncheckedAdd(FP_DECIMALS).uncheckedSub(quoteFeedDecimals);

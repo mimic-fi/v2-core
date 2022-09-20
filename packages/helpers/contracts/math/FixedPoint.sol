@@ -23,27 +23,6 @@ library FixedPoint {
     uint256 internal constant ONE = 1e18;
 
     /**
-     * @dev Adds two fixed point numbers
-     */
-    function add(uint256 a, uint256 b) internal pure returns (uint256) {
-        unchecked {
-            uint256 c = a + b;
-            require(c >= a, 'ADD_OVERFLOW');
-            return c;
-        }
-    }
-
-    /**
-     * @dev Subtracts two fixed point numbers
-     */
-    function sub(uint256 a, uint256 b) internal pure returns (uint256) {
-        unchecked {
-            require(b <= a, 'SUB_OVERFLOW');
-            return a - b;
-        }
-    }
-
-    /**
      * @dev Multiplies two fixed point numbers rounding down
      */
     function mulDown(uint256 a, uint256 b) internal pure returns (uint256) {
@@ -88,19 +67,5 @@ library FixedPoint {
             require(aInflated / a == ONE, 'DIV_INTERNAL');
             return ((aInflated - 1) / b) + 1;
         }
-    }
-
-    /**
-     * @dev Finds the maximum between two fixed point numbers
-     */
-    function max(uint256 a, uint256 b) internal pure returns (uint256) {
-        return a >= b ? a : b;
-    }
-
-    /**
-     * @dev Finds the minimum between two fixed point numbers
-     */
-    function min(uint256 a, uint256 b) internal pure returns (uint256) {
-        return a < b ? a : b;
     }
 }
