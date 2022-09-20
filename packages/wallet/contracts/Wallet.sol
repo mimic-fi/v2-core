@@ -30,73 +30,160 @@ import '@mimic-fi/v2-registry/contracts/implementations/InitializableAuthorizedI
 import './IWallet.sol';
 import './IWrappedNativeToken.sol';
 
+/**
+ * @title Wallet
+ * @dev Mimic Wallet contract where funds are being held offering a bunch of primitives to allow users model any
+ * type of action to manage them, these are: collector, withdraw, swap, join, exit, bridge, wrap, and unwrap.
+ *
+ * It inherits from InitializableAuthorizedImplementation which means it's implementation can be cloned
+ * from the Mimic Registry and should be initialized depending on each case.
+ */
 contract Wallet is IWallet, InitializableAuthorizedImplementation {
     using SafeERC20 for IERC20;
     using FixedPoint for uint256;
     using UncheckedMath for uint256;
 
+    // Namespace under which the Wallet is registered in the Mimic Registry
     bytes32 public constant override NAMESPACE = keccak256('WALLET');
 
+    // Strategy reference
     address public override strategy;
+
+    // Price oracle reference
     address public override priceOracle;
+
+    // Swap connector reference
     address public override swapConnector;
+
+    // Current invested value
     uint256 public override investedValue;
+
+    // Fee collector address where fees will be deposited
     address public override feeCollector;
+
+    // Withdraw fee percentage expressed using 16 decimals (1e18 = 100%)
     uint256 public override withdrawFee;
+
+    // Performance fee percentage expressed using 16 decimals (1e18 = 100%)
     uint256 public override performanceFee;
+
+    // Swap fee percentage expressed using 16 decimals (1e18 = 100%)
     uint256 public override swapFee;
+
+    // Wrapped native token reference
     address public immutable override wrappedNativeToken;
 
-    constructor(address _wrappedNativeToken, address registry) InitializableAuthorizedImplementation(registry) {
+    /**
+     * @dev Creates a new Wallet implementation with references that should be shared among all implementations
+     * @param _wrappedNativeToken Address of the wrapped native token to be used
+     * @param _registry Address of the Mimic Registry to be referenced
+     */
+    constructor(address _wrappedNativeToken, address _registry) InitializableAuthorizedImplementation(_registry) {
         wrappedNativeToken = _wrappedNativeToken;
     }
 
-    function initialize(address _admin) external initializer {
-        _initialize(_admin);
+    /**
+     * @dev Initializes the Wallet instance
+     * @param admin Address that will be granted with admin rights
+     */
+    function initialize(address admin) external initializer {
+        _initialize(admin);
     }
 
+    /**
+     * @dev It allows receiving native token transfers
+     */
     receive() external payable {
         // solhint-disable-previous-line no-empty-blocks
     }
 
+    /**
+     * @dev Sets a new strategy to the Mimic Wallet. Sender must be authorized. It can only be set once.
+     * @param newStrategy Address of the new strategy to be set
+     */
     function setStrategy(address newStrategy) external override auth {
         _setStrategy(newStrategy);
     }
 
+    /**
+     * @dev Sets a new price oracle to the Mimic Wallet. Sender must be authorized.
+     * @param newPriceOracle Address of the new price oracle to be set
+     */
     function setPriceOracle(address newPriceOracle) external override auth {
         _setPriceOracle(newPriceOracle);
     }
 
+    /**
+     * @dev Sets a new swap connector to the Mimic Wallet. Sender must be authorized.
+     * @param newSwapConnector Address of the new swap connector to be set
+     */
     function setSwapConnector(address newSwapConnector) external override auth {
         _setSwapConnector(newSwapConnector);
     }
 
+    /**
+     * @dev Sets a new fee collector. Sender must be authorized.
+     * @param newFeeCollector Address of the new fee collector to be set
+     */
     function setFeeCollector(address newFeeCollector) external override auth {
         _setFeeCollector(newFeeCollector);
     }
 
+    /**
+     * @dev Sets a new withdraw fee. Sender must be authorized.
+     * @param newWithdrawFee Withdraw fee percentage to be set
+     */
     function setWithdrawFee(uint256 newWithdrawFee) external override auth {
         _setWithdrawFee(newWithdrawFee);
     }
 
+    /**
+     * @dev Sets a new performance fee. Sender must be authorized.
+     * @param newPerformanceFee Performance fee percentage to be set
+     */
     function setPerformanceFee(uint256 newPerformanceFee) external override auth {
         _setPerformanceFee(newPerformanceFee);
     }
 
+    /**
+     * @dev Sets a new swap fee. Sender must be authorized.
+     * @param newSwapFee Swap fee percentage to be set
+     */
     function setSwapFee(uint256 newSwapFee) external override auth {
         _setSwapFee(newSwapFee);
     }
 
+    /**
+     * @dev Execute an arbitrary call from the Mimic Wallet. Sender must be authorized.
+     * @param target Address where the call will be sent
+     * @param data Calldata to be used for the call
+     * @param value Value in wei that will be attached to the call
+     * @return res Call response if it was successful, otherwise it reverts
+     */
     function call(address target, bytes memory data, uint256 value) external override auth returns (bytes memory res) {
         res = Address.functionCallWithValue(target, data, value, 'WALLET_ARBITRARY_CALL_FAILED');
         emit Call(target, data, value, res);
     }
 
+    /**
+     * @dev Collect tokens from a sender to the Mimic Wallet. Sender must be authorized.
+     * @param token Address of the token to be collected
+     * @param from Address where the tokens will be transfer from
+     * @param amount Amount of tokens to be transferred
+     * @param data Extra data only logged
+     */
     function collect(address token, address from, uint256 amount, bytes memory data) external override auth {
         _safeTransferFrom(token, from, address(this), amount);
         emit Collect(token, from, amount, data);
     }
 
+    /**
+     * @dev Withdraw tokens to an external account. Sender must be authorized.
+     * @param token Address of the token to be withdrawn
+     * @param amount Amount of tokens to withdraw
+     * @param recipient Address where the tokens will be transferred to
+     * @param data Extra data only logged
+     */
     function withdraw(address token, uint256 amount, address recipient, bytes memory data) external override auth {
         require(amount > 0, 'WITHDRAW_AMOUNT_ZERO');
         require(recipient != address(0), 'RECIPIENT_ZERO');
@@ -108,22 +195,42 @@ contract Wallet is IWallet, InitializableAuthorizedImplementation {
         emit Withdraw(token, recipient, amountAfterFees, withdrawFeeAmount, data);
     }
 
+    /**
+     * @dev Wrap an amount of native tokens to the wrapped ERC20 version of it. Sender must be authorized.
+     * @param amount Amount of native tokens to be wrapped
+     * @param data Extra data only logged
+     */
     function wrap(uint256 amount, bytes memory data) external override auth {
         require(address(this).balance >= amount, 'WRAP_INSUFFICIENT_AMOUNT');
         IWrappedNativeToken(wrappedNativeToken).deposit{ value: amount }();
         emit Wrap(amount, data);
     }
 
+    /**
+     * @dev Unwrap an amount of wrapped native tokens. Sender must be authorized.
+     * @param amount Amount of wrapped native tokens to unwrapped
+     * @param data Extra data only logged
+     */
     function unwrap(uint256 amount, bytes memory data) external override auth {
         IWrappedNativeToken(wrappedNativeToken).withdraw(amount);
         emit Unwrap(amount, data);
     }
 
+    /**
+     * @dev Claim strategy rewards. Sender must be authorized.
+     * @param data Extra data passed to the strategy and logged
+     */
     function claim(bytes memory data) external override auth {
         IStrategy(strategy).claim(data);
         emit Claim(data);
     }
 
+    /**
+     * @dev Join the Mimic Wallet strategy with an amount of tokens. Sender must be authorized.
+     * @param amount Amount of strategy tokens to join with
+     * @param slippage Slippage that will be used to compute the join
+     * @param data Extra data passed to the strategy and logged
+     */
     function join(uint256 amount, uint256 slippage, bytes memory data) external override auth {
         require(amount > 0, 'JOIN_AMOUNT_ZERO');
         require(slippage <= FixedPoint.ONE, 'JOIN_SLIPPAGE_ABOVE_ONE');
@@ -135,6 +242,12 @@ contract Wallet is IWallet, InitializableAuthorizedImplementation {
         emit Join(amount, value, slippage, data);
     }
 
+    /**
+     * @dev Exit the Mimic Wallet strategy. Sender must be authorized.
+     * @param ratio Percentage of the current position that will be exited
+     * @param slippage Slippage that will be used to compute the exit
+     * @param data Extra data passed to the strategy and logged
+     */
     function exit(uint256 ratio, uint256 slippage, bytes memory data)
         external
         override
@@ -174,8 +287,19 @@ contract Wallet is IWallet, InitializableAuthorizedImplementation {
         emit Exit(received, exitValue, performanceFeeAmount, slippage, data);
     }
 
+    /**
+     * @dev Swaps two tokens. Sender must be authorized.
+     * @param source Source to request the swap: Uniswap V2, Uniswap V3, Balancer V2, or Paraswap V5.
+     * @param tokenIn Token being sent
+     * @param tokenOut Token being received
+     * @param amountIn Amount of tokenIn being swapped
+     * @param limitType Swap limit to be applied: slippage or min amount out
+     * @param limitAmount Amount of the swap limit to be applied depending on limitType
+     * @param data Encoded data to specify different swap parameters depending on the source picked
+     * @return amountOut Received amount of tokens out
+     */
     function swap(
-        ISwapConnector.Source source,
+        uint8 source,
         address tokenIn,
         address tokenOut,
         uint256 amountIn,
@@ -198,7 +322,14 @@ contract Wallet is IWallet, InitializableAuthorizedImplementation {
         ISwapConnector connector = ISwapConnector(swapConnector);
         _safeTransfer(tokenIn, address(connector), amountIn);
         uint256 preBalanceOut = IERC20(tokenOut).balanceOf(address(this));
-        uint256 amountOutBeforeFees = connector.swap(source, tokenIn, tokenOut, amountIn, minAmountOut, data);
+        uint256 amountOutBeforeFees = connector.swap(
+            ISwapConnector.Source(source),
+            tokenIn,
+            tokenOut,
+            amountIn,
+            minAmountOut,
+            data
+        );
         require(amountOutBeforeFees >= minAmountOut, 'SWAP_MIN_AMOUNT');
 
         uint256 postBalanceOut = IERC20(tokenOut).balanceOf(address(this));

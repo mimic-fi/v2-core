@@ -18,7 +18,7 @@ import '@mimic-fi/v2-helpers/contracts/auth/IAuthorizer.sol';
 import '@mimic-fi/v2-registry/contracts/implementations/IImplementation.sol';
 
 /**
- * @title PriceOracle
+ * @title IPriceOracle
  * @dev Oracle that interfaces with external feeds to provide quotes for tokens based on any other token.
  * It must support also `IImplementation` and `IAuthorizer`
  */
