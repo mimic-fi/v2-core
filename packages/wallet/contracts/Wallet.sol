@@ -485,18 +485,45 @@ contract Wallet is IWallet, InitializableAuthorizedImplementation {
      * @param period New cap period length in seconds
      */
     function _setFeeConfiguration(Fee storage fee, uint256 pct, uint256 cap, address token, uint256 period) internal {
-        require(pct <= FixedPoint.ONE, 'FEE_AMOUNT_ABOVE_ONE');
-        require(pct != 0 || (token == address(0) && cap == 0 && period == 0), 'INVALID_CAP_WITH_FEE_ZERO');
+        require(pct <= FixedPoint.ONE, 'FEE_PCT_ABOVE_ONE');
 
+        // If there is no fee percentage, there must not be a fee cap
         bool isZeroCap = token == address(0) && cap == 0 && period == 0;
+        require(pct != 0 || isZeroCap, 'INVALID_CAP_WITH_FEE_ZERO');
+
+        // If there is a cap, all values must be non-zero
         bool isNonZeroCap = token != address(0) && cap != 0 && period != 0;
         require(isZeroCap || isNonZeroCap, 'INCONSISTENT_CAP_VALUES');
 
+        // Changing the fee percentage does not affect the totalizator at all, it only affects future fee charges
         fee.pct = pct;
+
+        // Changing the fee cap amount does not affect the totalizator, it only applies when changing the for the total
+        // charged amount. Note that it can happen that the cap amount is lower than the total charged amount if the
+        // cap amount is lowered. However, there shouldn't be any accounting issues with that.
         fee.cap = cap;
-        fee.token = token;
+
+        // Changing the cap period only affects the end time of the next period, but not the end date of the current one
         fee.period = period;
-        fee.totalCharged = 0;
-        fee.nextResetTime = isNonZeroCap ? block.timestamp + period : 0;
+
+        // Therefore, only clean the totalizators if the cap is being removed
+        if (isZeroCap) {
+            fee.totalCharged = 0;
+            fee.nextResetTime = 0;
+        } else {
+            // If cap values are not zero, set the next reset time if it wasn't set already
+            if (fee.nextResetTime == 0) {
+                fee.nextResetTime = block.timestamp + period;
+            }
+
+            // If the cap token is being changed the total charged amount must be updated accordingly
+            if (fee.token != token) {
+                uint256 newTokenPrice = IPriceOracle(priceOracle).getPrice(fee.token, token);
+                fee.totalCharged = fee.totalCharged.mulDown(newTokenPrice);
+            }
+        }
+
+        // Finally simply set the new requested token
+        fee.token = token;
     }
 }
