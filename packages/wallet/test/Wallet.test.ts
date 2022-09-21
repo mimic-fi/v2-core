@@ -1,12 +1,15 @@
 import {
+  advanceTime,
   assertEvent,
   assertIndirectEvent,
   BigNumberish,
   bn,
+  currentTimestamp,
   deploy,
   fp,
   getSigners,
   instanceAt,
+  MONTH,
   NATIVE_TOKEN_ADDRESS,
   ZERO_ADDRESS,
 } from '@mimic-fi/v2-helpers'
@@ -308,26 +311,236 @@ describe('Wallet', () => {
       })
 
       context('when the new fee is below one', async () => {
-        const newWithdrawFee = fp(0.01)
+        const itSetsTheFeeCorrectly = (pct: BigNumberish, cap: BigNumberish, token: string, period: BigNumberish) => {
+          it('sets the withdraw fee', async () => {
+            await wallet.setWithdrawFee(pct, cap, token, period)
 
-        it('sets the withdraw fee', async () => {
-          await wallet.setWithdrawFee(newWithdrawFee)
+            const now = await currentTimestamp()
+            const fee = await wallet.withdrawFee()
+            expect(fee.pct).to.be.equal(pct)
+            expect(fee.cap).to.be.equal(cap)
+            expect(fee.token).to.be.equal(token)
+            expect(fee.period).to.be.equal(period)
+            expect(fee.totalCharged).to.be.equal(0)
+            expect(fee.nextResetTime).to.be.equal(cap != 0 ? now.add(period) : 0)
+          })
 
-          const withdrawFee = await wallet.withdrawFee()
-          expect(withdrawFee).to.be.equal(newWithdrawFee)
+          it('emits an event', async () => {
+            const tx = await wallet.setWithdrawFee(pct, cap, token, period)
+            await assertEvent(tx, 'WithdrawFeeSet', { pct, cap, token, period })
+          })
+        }
+
+        context('when the new fee is not zero', async () => {
+          const pct = fp(0.01)
+
+          context('when the cap is not zero', async () => {
+            const cap = fp(100)
+
+            context('when the token is not zero', async () => {
+              const token = NATIVE_TOKEN_ADDRESS
+
+              context('when the cap period is not zero', async () => {
+                const period = MONTH
+
+                itSetsTheFeeCorrectly(pct, cap, token, period)
+              })
+
+              context('when the cap period is zero', async () => {
+                const period = 0
+
+                it('reverts', async () => {
+                  await expect(wallet.setWithdrawFee(pct, cap, token, period)).to.be.revertedWith(
+                    'INCONSISTENT_CAP_VALUES'
+                  )
+                })
+              })
+            })
+
+            context('when the token is zero', async () => {
+              const token = ZERO_ADDRESS
+
+              context('when the cap period is not zero', async () => {
+                const period = MONTH
+
+                it('reverts', async () => {
+                  await expect(wallet.setWithdrawFee(pct, cap, token, period)).to.be.revertedWith(
+                    'INCONSISTENT_CAP_VALUES'
+                  )
+                })
+              })
+
+              context('when the cap period is zero', async () => {
+                const period = 0
+
+                it('reverts', async () => {
+                  await expect(wallet.setWithdrawFee(pct, cap, token, period)).to.be.revertedWith(
+                    'INCONSISTENT_CAP_VALUES'
+                  )
+                })
+              })
+            })
+          })
+
+          context('when the cap is zero', async () => {
+            const cap = 0
+
+            context('when the token is not zero', async () => {
+              const token = NATIVE_TOKEN_ADDRESS
+
+              context('when the cap period is not zero', async () => {
+                const period = MONTH
+
+                it('reverts', async () => {
+                  await expect(wallet.setWithdrawFee(pct, cap, token, period)).to.be.revertedWith(
+                    'INCONSISTENT_CAP_VALUES'
+                  )
+                })
+              })
+
+              context('when the cap period is zero', async () => {
+                const period = 0
+
+                it('reverts', async () => {
+                  await expect(wallet.setWithdrawFee(pct, cap, token, period)).to.be.revertedWith(
+                    'INCONSISTENT_CAP_VALUES'
+                  )
+                })
+              })
+            })
+
+            context('when the token is zero', async () => {
+              const token = ZERO_ADDRESS
+
+              context('when the cap period is not zero', async () => {
+                const period = MONTH
+
+                it('reverts', async () => {
+                  await expect(wallet.setWithdrawFee(pct, cap, token, period)).to.be.revertedWith(
+                    'INCONSISTENT_CAP_VALUES'
+                  )
+                })
+              })
+
+              context('when the cap period is zero', async () => {
+                const period = 0
+
+                itSetsTheFeeCorrectly(pct, cap, token, period)
+              })
+            })
+          })
         })
 
-        it('emits an event', async () => {
-          const tx = await wallet.setWithdrawFee(newWithdrawFee)
-          await assertEvent(tx, 'WithdrawFeeSet', { withdrawFee: newWithdrawFee })
+        context('when the new fee is zero', async () => {
+          const pct = 0
+
+          context('when the cap is not zero', async () => {
+            const cap = fp(100)
+
+            context('when the token is not zero', async () => {
+              const token = NATIVE_TOKEN_ADDRESS
+
+              context('when the cap period is not zero', async () => {
+                const period = MONTH
+
+                it('reverts', async () => {
+                  await expect(wallet.setWithdrawFee(pct, cap, token, period)).to.be.revertedWith(
+                    'INVALID_CAP_WITH_FEE_ZERO'
+                  )
+                })
+              })
+
+              context('when the cap period is zero', async () => {
+                const period = 0
+
+                it('reverts', async () => {
+                  await expect(wallet.setWithdrawFee(pct, cap, token, period)).to.be.revertedWith(
+                    'INVALID_CAP_WITH_FEE_ZERO'
+                  )
+                })
+              })
+            })
+
+            context('when the token is zero', async () => {
+              const token = ZERO_ADDRESS
+
+              context('when the cap period is not zero', async () => {
+                const period = MONTH
+
+                it('reverts', async () => {
+                  await expect(wallet.setWithdrawFee(pct, cap, token, period)).to.be.revertedWith(
+                    'INVALID_CAP_WITH_FEE_ZERO'
+                  )
+                })
+              })
+
+              context('when the cap period is zero', async () => {
+                const period = 0
+
+                it('reverts', async () => {
+                  await expect(wallet.setWithdrawFee(pct, cap, token, period)).to.be.revertedWith(
+                    'INVALID_CAP_WITH_FEE_ZERO'
+                  )
+                })
+              })
+            })
+          })
+
+          context('when the cap is zero', async () => {
+            const cap = 0
+
+            context('when the token is not zero', async () => {
+              const token = NATIVE_TOKEN_ADDRESS
+
+              context('when the cap period is not zero', async () => {
+                const period = MONTH
+
+                it('reverts', async () => {
+                  await expect(wallet.setWithdrawFee(pct, cap, token, period)).to.be.revertedWith(
+                    'INVALID_CAP_WITH_FEE_ZERO'
+                  )
+                })
+              })
+
+              context('when the cap period is zero', async () => {
+                const period = 0
+
+                it('reverts', async () => {
+                  await expect(wallet.setWithdrawFee(pct, cap, token, period)).to.be.revertedWith(
+                    'INVALID_CAP_WITH_FEE_ZERO'
+                  )
+                })
+              })
+            })
+
+            context('when the token is zero', async () => {
+              const token = ZERO_ADDRESS
+
+              context('when the cap period is not zero', async () => {
+                const period = MONTH
+
+                it('reverts', async () => {
+                  await expect(wallet.setWithdrawFee(pct, cap, token, period)).to.be.revertedWith(
+                    'INVALID_CAP_WITH_FEE_ZERO'
+                  )
+                })
+              })
+
+              context('when the cap period is zero', async () => {
+                const period = 0
+
+                itSetsTheFeeCorrectly(pct, cap, token, period)
+              })
+            })
+          })
         })
       })
 
       context('when the new fee is above one', async () => {
-        const newWithdrawFee = fp(1.01)
+        const pct = fp(1.01)
 
         it('reverts', async () => {
-          await expect(wallet.setWithdrawFee(newWithdrawFee)).to.be.revertedWith('WITHDRAW_FEE_ABOVE_ONE')
+          await expect(wallet.setWithdrawFee(pct, 0, ZERO_ADDRESS, 0)).to.be.revertedWith('FEE_AMOUNT_ABOVE_ONE')
         })
       })
     })
@@ -338,7 +551,7 @@ describe('Wallet', () => {
       })
 
       it('reverts', async () => {
-        await expect(wallet.setWithdrawFee(0)).to.be.revertedWith('AUTH_SENDER_NOT_ALLOWED')
+        await expect(wallet.setWithdrawFee(0, 0, ZERO_ADDRESS, 0)).to.be.revertedWith('AUTH_SENDER_NOT_ALLOWED')
       })
     })
   })
@@ -352,26 +565,236 @@ describe('Wallet', () => {
       })
 
       context('when the new fee is below one', async () => {
-        const newPerformanceFee = fp(0.01)
+        const itSetsTheFeeCorrectly = (pct: BigNumberish, cap: BigNumberish, token: string, period: BigNumberish) => {
+          it('sets the performance fee', async () => {
+            await wallet.setPerformanceFee(pct, cap, token, period)
 
-        it('sets the performance fee', async () => {
-          await wallet.setPerformanceFee(newPerformanceFee)
+            const now = await currentTimestamp()
+            const fee = await wallet.performanceFee()
+            expect(fee.pct).to.be.equal(pct)
+            expect(fee.cap).to.be.equal(cap)
+            expect(fee.token).to.be.equal(token)
+            expect(fee.period).to.be.equal(period)
+            expect(fee.totalCharged).to.be.equal(0)
+            expect(fee.nextResetTime).to.be.equal(cap != 0 ? now.add(period) : 0)
+          })
 
-          const performanceFee = await wallet.performanceFee()
-          expect(performanceFee).to.be.equal(newPerformanceFee)
+          it('emits an event', async () => {
+            const tx = await wallet.setPerformanceFee(pct, cap, token, period)
+            await assertEvent(tx, 'PerformanceFeeSet', { pct, cap, token, period })
+          })
+        }
+
+        context('when the new fee is not zero', async () => {
+          const pct = fp(0.01)
+
+          context('when the cap is not zero', async () => {
+            const cap = fp(100)
+
+            context('when the token is not zero', async () => {
+              const token = NATIVE_TOKEN_ADDRESS
+
+              context('when the cap period is not zero', async () => {
+                const period = MONTH
+
+                itSetsTheFeeCorrectly(pct, cap, token, period)
+              })
+
+              context('when the cap period is zero', async () => {
+                const period = 0
+
+                it('reverts', async () => {
+                  await expect(wallet.setPerformanceFee(pct, cap, token, period)).to.be.revertedWith(
+                    'INCONSISTENT_CAP_VALUES'
+                  )
+                })
+              })
+            })
+
+            context('when the token is zero', async () => {
+              const token = ZERO_ADDRESS
+
+              context('when the cap period is not zero', async () => {
+                const period = MONTH
+
+                it('reverts', async () => {
+                  await expect(wallet.setPerformanceFee(pct, cap, token, period)).to.be.revertedWith(
+                    'INCONSISTENT_CAP_VALUES'
+                  )
+                })
+              })
+
+              context('when the cap period is zero', async () => {
+                const period = 0
+
+                it('reverts', async () => {
+                  await expect(wallet.setPerformanceFee(pct, cap, token, period)).to.be.revertedWith(
+                    'INCONSISTENT_CAP_VALUES'
+                  )
+                })
+              })
+            })
+          })
+
+          context('when the cap is zero', async () => {
+            const cap = 0
+
+            context('when the token is not zero', async () => {
+              const token = NATIVE_TOKEN_ADDRESS
+
+              context('when the cap period is not zero', async () => {
+                const period = MONTH
+
+                it('reverts', async () => {
+                  await expect(wallet.setPerformanceFee(pct, cap, token, period)).to.be.revertedWith(
+                    'INCONSISTENT_CAP_VALUES'
+                  )
+                })
+              })
+
+              context('when the cap period is zero', async () => {
+                const period = 0
+
+                it('reverts', async () => {
+                  await expect(wallet.setPerformanceFee(pct, cap, token, period)).to.be.revertedWith(
+                    'INCONSISTENT_CAP_VALUES'
+                  )
+                })
+              })
+            })
+
+            context('when the token is zero', async () => {
+              const token = ZERO_ADDRESS
+
+              context('when the cap period is not zero', async () => {
+                const period = MONTH
+
+                it('reverts', async () => {
+                  await expect(wallet.setPerformanceFee(pct, cap, token, period)).to.be.revertedWith(
+                    'INCONSISTENT_CAP_VALUES'
+                  )
+                })
+              })
+
+              context('when the cap period is zero', async () => {
+                const period = 0
+
+                itSetsTheFeeCorrectly(pct, cap, token, period)
+              })
+            })
+          })
         })
 
-        it('emits an event', async () => {
-          const tx = await wallet.setPerformanceFee(newPerformanceFee)
-          await assertEvent(tx, 'PerformanceFeeSet', { performanceFee: newPerformanceFee })
+        context('when the new fee is zero', async () => {
+          const pct = 0
+
+          context('when the cap is not zero', async () => {
+            const cap = fp(100)
+
+            context('when the token is not zero', async () => {
+              const token = NATIVE_TOKEN_ADDRESS
+
+              context('when the cap period is not zero', async () => {
+                const period = MONTH
+
+                it('reverts', async () => {
+                  await expect(wallet.setPerformanceFee(pct, cap, token, period)).to.be.revertedWith(
+                    'INVALID_CAP_WITH_FEE_ZERO'
+                  )
+                })
+              })
+
+              context('when the cap period is zero', async () => {
+                const period = 0
+
+                it('reverts', async () => {
+                  await expect(wallet.setPerformanceFee(pct, cap, token, period)).to.be.revertedWith(
+                    'INVALID_CAP_WITH_FEE_ZERO'
+                  )
+                })
+              })
+            })
+
+            context('when the token is zero', async () => {
+              const token = ZERO_ADDRESS
+
+              context('when the cap period is not zero', async () => {
+                const period = MONTH
+
+                it('reverts', async () => {
+                  await expect(wallet.setPerformanceFee(pct, cap, token, period)).to.be.revertedWith(
+                    'INVALID_CAP_WITH_FEE_ZERO'
+                  )
+                })
+              })
+
+              context('when the cap period is zero', async () => {
+                const period = 0
+
+                it('reverts', async () => {
+                  await expect(wallet.setPerformanceFee(pct, cap, token, period)).to.be.revertedWith(
+                    'INVALID_CAP_WITH_FEE_ZERO'
+                  )
+                })
+              })
+            })
+          })
+
+          context('when the cap is zero', async () => {
+            const cap = 0
+
+            context('when the token is not zero', async () => {
+              const token = NATIVE_TOKEN_ADDRESS
+
+              context('when the cap period is not zero', async () => {
+                const period = MONTH
+
+                it('reverts', async () => {
+                  await expect(wallet.setPerformanceFee(pct, cap, token, period)).to.be.revertedWith(
+                    'INVALID_CAP_WITH_FEE_ZERO'
+                  )
+                })
+              })
+
+              context('when the cap period is zero', async () => {
+                const period = 0
+
+                it('reverts', async () => {
+                  await expect(wallet.setPerformanceFee(pct, cap, token, period)).to.be.revertedWith(
+                    'INVALID_CAP_WITH_FEE_ZERO'
+                  )
+                })
+              })
+            })
+
+            context('when the token is zero', async () => {
+              const token = ZERO_ADDRESS
+
+              context('when the cap period is not zero', async () => {
+                const period = MONTH
+
+                it('reverts', async () => {
+                  await expect(wallet.setPerformanceFee(pct, cap, token, period)).to.be.revertedWith(
+                    'INVALID_CAP_WITH_FEE_ZERO'
+                  )
+                })
+              })
+
+              context('when the cap period is zero', async () => {
+                const period = 0
+
+                itSetsTheFeeCorrectly(pct, cap, token, period)
+              })
+            })
+          })
         })
       })
 
       context('when the new fee is above one', async () => {
-        const newPerformanceFee = fp(1.01)
+        const pct = fp(1.01)
 
         it('reverts', async () => {
-          await expect(wallet.setPerformanceFee(newPerformanceFee)).to.be.revertedWith('PERFORMANCE_FEE_ABOVE_ONE')
+          await expect(wallet.setPerformanceFee(pct, 0, ZERO_ADDRESS, 0)).to.be.revertedWith('FEE_AMOUNT_ABOVE_ONE')
         })
       })
     })
@@ -382,7 +805,7 @@ describe('Wallet', () => {
       })
 
       it('reverts', async () => {
-        await expect(wallet.setPerformanceFee(0)).to.be.revertedWith('AUTH_SENDER_NOT_ALLOWED')
+        await expect(wallet.setPerformanceFee(0, 0, ZERO_ADDRESS, 0)).to.be.revertedWith('AUTH_SENDER_NOT_ALLOWED')
       })
     })
   })
@@ -396,26 +819,224 @@ describe('Wallet', () => {
       })
 
       context('when the new fee is below one', async () => {
-        const newSwapFee = fp(0.01)
+        const itSetsTheFeeCorrectly = (pct: BigNumberish, cap: BigNumberish, token: string, period: BigNumberish) => {
+          it('sets the swap fee', async () => {
+            await wallet.setSwapFee(pct, cap, token, period)
 
-        it('sets the swap fee', async () => {
-          await wallet.setSwapFee(newSwapFee)
+            const now = await currentTimestamp()
+            const fee = await wallet.swapFee()
+            expect(fee.pct).to.be.equal(pct)
+            expect(fee.cap).to.be.equal(cap)
+            expect(fee.token).to.be.equal(token)
+            expect(fee.period).to.be.equal(period)
+            expect(fee.totalCharged).to.be.equal(0)
+            expect(fee.nextResetTime).to.be.equal(cap != 0 ? now.add(period) : 0)
+          })
 
-          const swapFee = await wallet.swapFee()
-          expect(swapFee).to.be.equal(newSwapFee)
+          it('emits an event', async () => {
+            const tx = await wallet.setSwapFee(pct, cap, token, period)
+            await assertEvent(tx, 'SwapFeeSet', { pct, cap, token, period })
+          })
+        }
+
+        context('when the new fee is not zero', async () => {
+          const pct = fp(0.01)
+
+          context('when the cap is not zero', async () => {
+            const cap = fp(100)
+
+            context('when the token is not zero', async () => {
+              const token = NATIVE_TOKEN_ADDRESS
+
+              context('when the cap period is not zero', async () => {
+                const period = MONTH
+
+                itSetsTheFeeCorrectly(pct, cap, token, period)
+              })
+
+              context('when the cap period is zero', async () => {
+                const period = 0
+
+                it('reverts', async () => {
+                  await expect(wallet.setSwapFee(pct, cap, token, period)).to.be.revertedWith('INCONSISTENT_CAP_VALUES')
+                })
+              })
+            })
+
+            context('when the token is zero', async () => {
+              const token = ZERO_ADDRESS
+
+              context('when the cap period is not zero', async () => {
+                const period = MONTH
+
+                it('reverts', async () => {
+                  await expect(wallet.setSwapFee(pct, cap, token, period)).to.be.revertedWith('INCONSISTENT_CAP_VALUES')
+                })
+              })
+
+              context('when the cap period is zero', async () => {
+                const period = 0
+
+                it('reverts', async () => {
+                  await expect(wallet.setSwapFee(pct, cap, token, period)).to.be.revertedWith('INCONSISTENT_CAP_VALUES')
+                })
+              })
+            })
+          })
+
+          context('when the cap is zero', async () => {
+            const cap = 0
+
+            context('when the token is not zero', async () => {
+              const token = NATIVE_TOKEN_ADDRESS
+
+              context('when the cap period is not zero', async () => {
+                const period = MONTH
+
+                it('reverts', async () => {
+                  await expect(wallet.setSwapFee(pct, cap, token, period)).to.be.revertedWith('INCONSISTENT_CAP_VALUES')
+                })
+              })
+
+              context('when the cap period is zero', async () => {
+                const period = 0
+
+                it('reverts', async () => {
+                  await expect(wallet.setSwapFee(pct, cap, token, period)).to.be.revertedWith('INCONSISTENT_CAP_VALUES')
+                })
+              })
+            })
+
+            context('when the token is zero', async () => {
+              const token = ZERO_ADDRESS
+
+              context('when the cap period is not zero', async () => {
+                const period = MONTH
+
+                it('reverts', async () => {
+                  await expect(wallet.setSwapFee(pct, cap, token, period)).to.be.revertedWith('INCONSISTENT_CAP_VALUES')
+                })
+              })
+
+              context('when the cap period is zero', async () => {
+                const period = 0
+
+                itSetsTheFeeCorrectly(pct, cap, token, period)
+              })
+            })
+          })
         })
 
-        it('emits an event', async () => {
-          const tx = await wallet.setSwapFee(newSwapFee)
-          await assertEvent(tx, 'SwapFeeSet', { swapFee: newSwapFee })
+        context('when the new fee is zero', async () => {
+          const pct = 0
+
+          context('when the cap is not zero', async () => {
+            const cap = fp(100)
+
+            context('when the token is not zero', async () => {
+              const token = NATIVE_TOKEN_ADDRESS
+
+              context('when the cap period is not zero', async () => {
+                const period = MONTH
+
+                it('reverts', async () => {
+                  await expect(wallet.setSwapFee(pct, cap, token, period)).to.be.revertedWith(
+                    'INVALID_CAP_WITH_FEE_ZERO'
+                  )
+                })
+              })
+
+              context('when the cap period is zero', async () => {
+                const period = 0
+
+                it('reverts', async () => {
+                  await expect(wallet.setSwapFee(pct, cap, token, period)).to.be.revertedWith(
+                    'INVALID_CAP_WITH_FEE_ZERO'
+                  )
+                })
+              })
+            })
+
+            context('when the token is zero', async () => {
+              const token = ZERO_ADDRESS
+
+              context('when the cap period is not zero', async () => {
+                const period = MONTH
+
+                it('reverts', async () => {
+                  await expect(wallet.setSwapFee(pct, cap, token, period)).to.be.revertedWith(
+                    'INVALID_CAP_WITH_FEE_ZERO'
+                  )
+                })
+              })
+
+              context('when the cap period is zero', async () => {
+                const period = 0
+
+                it('reverts', async () => {
+                  await expect(wallet.setSwapFee(pct, cap, token, period)).to.be.revertedWith(
+                    'INVALID_CAP_WITH_FEE_ZERO'
+                  )
+                })
+              })
+            })
+          })
+
+          context('when the cap is zero', async () => {
+            const cap = 0
+
+            context('when the token is not zero', async () => {
+              const token = NATIVE_TOKEN_ADDRESS
+
+              context('when the cap period is not zero', async () => {
+                const period = MONTH
+
+                it('reverts', async () => {
+                  await expect(wallet.setSwapFee(pct, cap, token, period)).to.be.revertedWith(
+                    'INVALID_CAP_WITH_FEE_ZERO'
+                  )
+                })
+              })
+
+              context('when the cap period is zero', async () => {
+                const period = 0
+
+                it('reverts', async () => {
+                  await expect(wallet.setSwapFee(pct, cap, token, period)).to.be.revertedWith(
+                    'INVALID_CAP_WITH_FEE_ZERO'
+                  )
+                })
+              })
+            })
+
+            context('when the token is zero', async () => {
+              const token = ZERO_ADDRESS
+
+              context('when the cap period is not zero', async () => {
+                const period = MONTH
+
+                it('reverts', async () => {
+                  await expect(wallet.setSwapFee(pct, cap, token, period)).to.be.revertedWith(
+                    'INVALID_CAP_WITH_FEE_ZERO'
+                  )
+                })
+              })
+
+              context('when the cap period is zero', async () => {
+                const period = 0
+
+                itSetsTheFeeCorrectly(pct, cap, token, period)
+              })
+            })
+          })
         })
       })
 
       context('when the new fee is above one', async () => {
-        const newSwapFee = fp(1.01)
+        const pct = fp(1.01)
 
         it('reverts', async () => {
-          await expect(wallet.setSwapFee(newSwapFee)).to.be.revertedWith('SWAP_FEE_ABOVE_ONE')
+          await expect(wallet.setSwapFee(pct, 0, ZERO_ADDRESS, 0)).to.be.revertedWith('FEE_AMOUNT_ABOVE_ONE')
         })
       })
     })
@@ -426,7 +1047,7 @@ describe('Wallet', () => {
       })
 
       it('reverts', async () => {
-        await expect(wallet.setSwapFee(0)).to.be.revertedWith('AUTH_SENDER_NOT_ALLOWED')
+        await expect(wallet.setSwapFee(0, 0, ZERO_ADDRESS, 0)).to.be.revertedWith('AUTH_SENDER_NOT_ALLOWED')
       })
     })
   })
@@ -610,40 +1231,149 @@ describe('Wallet', () => {
           context('with withdraw fees', async () => {
             const withdrawFee = fp(0.01)
             const withdrawFeeAmount = amount.mul(withdrawFee).div(fp(1))
-            const amountAfterFees = amount.sub(withdrawFeeAmount)
 
-            beforeEach('set withdraw fee', async () => {
+            beforeEach('authorize', async () => {
               const setWithdrawFeeRole = wallet.interface.getSighash('setWithdrawFee')
               await wallet.connect(admin).authorize(admin.address, setWithdrawFeeRole)
-              await wallet.connect(admin).setWithdrawFee(withdrawFee)
             })
 
-            it('transfers the tokens to the recipient', async () => {
-              const previousWalletBalance = await token.balanceOf(wallet.address)
-              const previousRecipientBalance = await token.balanceOf(other.address)
-              const previousFeeCollectorBalance = await token.balanceOf(feeCollector.address)
+            const itWithdrawsCorrectly = (expectedChargedFees: BigNumber) => {
+              const amountAfterFees = amount.sub(expectedChargedFees)
 
-              await wallet.withdraw(token.address, amount, other.address, data)
+              it('transfers the tokens to the recipient', async () => {
+                const previousWalletBalance = await token.balanceOf(wallet.address)
+                const previousRecipientBalance = await token.balanceOf(other.address)
+                const previousFeeCollectorBalance = await token.balanceOf(feeCollector.address)
 
-              const currentWalletBalance = await token.balanceOf(wallet.address)
-              expect(currentWalletBalance).to.be.equal(previousWalletBalance.sub(amount))
+                await wallet.withdraw(token.address, amount, other.address, data)
 
-              const currentRecipientBalance = await token.balanceOf(other.address)
-              expect(currentRecipientBalance).to.be.equal(previousRecipientBalance.add(amountAfterFees))
+                const currentWalletBalance = await token.balanceOf(wallet.address)
+                expect(currentWalletBalance).to.be.equal(previousWalletBalance.sub(amount))
 
-              const currentFeeCollectorBalance = await token.balanceOf(feeCollector.address)
-              expect(currentFeeCollectorBalance).to.be.equal(previousFeeCollectorBalance.add(withdrawFeeAmount))
+                const currentRecipientBalance = await token.balanceOf(other.address)
+                expect(currentRecipientBalance).to.be.equal(previousRecipientBalance.add(amountAfterFees))
+
+                const currentFeeCollectorBalance = await token.balanceOf(feeCollector.address)
+                expect(currentFeeCollectorBalance).to.be.equal(previousFeeCollectorBalance.add(expectedChargedFees))
+              })
+
+              it('emits an event', async () => {
+                const tx = await wallet.withdraw(token.address, amount, other.address, data)
+
+                await assertEvent(tx, 'Withdraw', {
+                  token,
+                  amount: amountAfterFees,
+                  recipient: other,
+                  fee: expectedChargedFees,
+                  data,
+                })
+              })
+            }
+
+            context('without cap', async () => {
+              beforeEach('set withdraw fee', async () => {
+                await wallet.connect(admin).setWithdrawFee(withdrawFee, 0, ZERO_ADDRESS, 0)
+              })
+
+              itWithdrawsCorrectly(withdrawFeeAmount)
+
+              it('does not update the total charged fees', async () => {
+                const previousData = await wallet.withdrawFee()
+
+                await wallet.withdraw(token.address, amount, other.address, data)
+
+                const currentData = await wallet.withdrawFee()
+                expect(currentData.pct).to.be.equal(previousData.pct)
+                expect(currentData.cap).to.be.equal(previousData.cap)
+                expect(currentData.period).to.be.equal(previousData.period)
+                expect(currentData.totalCharged).to.be.equal(0)
+                expect(currentData.nextResetTime).to.be.equal(0)
+              })
             })
 
-            it('emits an event', async () => {
-              const tx = await wallet.withdraw(token.address, amount, other.address, data)
+            context('with cap', async () => {
+              const period = MONTH
+              const capTokenRate = 2
+              const cap = withdrawFeeAmount.mul(capTokenRate)
 
-              await assertEvent(tx, 'Withdraw', {
-                token,
-                amount: amountAfterFees,
-                recipient: other,
-                fee: withdrawFeeAmount,
-                data,
+              let capToken: Contract
+              let periodStartTime: BigNumber
+
+              beforeEach('deploy cap token', async () => {
+                capToken = await deploy('TokenMock', ['USDT'])
+                await priceOracle.mockRate(token.address, capToken.address, fp(capTokenRate))
+              })
+
+              beforeEach('set withdraw fee', async () => {
+                await wallet.connect(admin).setWithdrawFee(withdrawFee, cap, capToken.address, period)
+                periodStartTime = await currentTimestamp()
+              })
+
+              context('when the cap period has not been reached', async () => {
+                itWithdrawsCorrectly(withdrawFeeAmount)
+
+                it('updates the total charged fees', async () => {
+                  const previousData = await wallet.withdrawFee()
+
+                  await wallet.withdraw(token.address, amount, other.address, data)
+
+                  const currentData = await wallet.withdrawFee()
+                  expect(currentData.pct).to.be.equal(previousData.pct)
+                  expect(currentData.cap).to.be.equal(previousData.cap)
+                  expect(currentData.token).to.be.equal(previousData.token)
+                  expect(currentData.period).to.be.equal(previousData.period)
+                  expect(currentData.totalCharged).to.be.equal(withdrawFeeAmount.mul(capTokenRate))
+                  expect(currentData.nextResetTime).to.be.equal(periodStartTime.add(period))
+                })
+              })
+
+              context('when the cap period has been reached', async () => {
+                beforeEach('accrue some charged fees', async () => {
+                  await token.mint(wallet.address, amount.mul(3).div(4))
+                  await wallet.withdraw(token.address, amount.mul(3).div(4), other.address, data)
+                })
+
+                context('within the current cap period', async () => {
+                  const expectedChargedFees = withdrawFeeAmount.div(4) // already accrued 3/4 of it
+
+                  itWithdrawsCorrectly(expectedChargedFees)
+
+                  it('updates the total charged fees', async () => {
+                    const previousData = await wallet.withdrawFee()
+
+                    await wallet.withdraw(token.address, amount, other.address, data)
+
+                    const currentData = await wallet.withdrawFee()
+                    expect(currentData.pct).to.be.equal(previousData.pct)
+                    expect(currentData.cap).to.be.equal(previousData.cap)
+                    expect(currentData.token).to.be.equal(previousData.token)
+                    expect(currentData.period).to.be.equal(previousData.period)
+                    expect(currentData.totalCharged).to.be.equal(cap)
+                    expect(currentData.nextResetTime).to.be.equal(periodStartTime.add(period))
+                  })
+                })
+
+                context('within the next cap period', async () => {
+                  beforeEach('advance time', async () => {
+                    await advanceTime(period + 1)
+                  })
+
+                  itWithdrawsCorrectly(withdrawFeeAmount)
+
+                  it('updates the total charged fees and the next reset time', async () => {
+                    const previousData = await wallet.withdrawFee()
+
+                    await wallet.withdraw(token.address, amount, other.address, data)
+
+                    const currentData = await wallet.withdrawFee()
+                    expect(currentData.pct).to.be.equal(previousData.pct)
+                    expect(currentData.cap).to.be.equal(previousData.cap)
+                    expect(currentData.token).to.be.equal(previousData.token)
+                    expect(currentData.period).to.be.equal(previousData.period)
+                    expect(currentData.totalCharged).to.be.equal(withdrawFeeAmount.mul(capTokenRate))
+                    expect(currentData.nextResetTime).to.be.equal(periodStartTime.add(period).add(period))
+                  })
+                })
               })
             })
           })
@@ -694,40 +1424,149 @@ describe('Wallet', () => {
           context('with withdraw fees', async () => {
             const withdrawFee = fp(0.01)
             const withdrawFeeAmount = amount.mul(withdrawFee).div(fp(1))
-            const amountAfterFees = amount.sub(withdrawFeeAmount)
 
-            beforeEach('set withdraw fee', async () => {
+            beforeEach('authorize', async () => {
               const setWithdrawFeeRole = wallet.interface.getSighash('setWithdrawFee')
               await wallet.connect(admin).authorize(admin.address, setWithdrawFeeRole)
-              await wallet.connect(admin).setWithdrawFee(withdrawFee)
             })
 
-            it('transfers the tokens to the recipient', async () => {
-              const previousWalletBalance = await ethers.provider.getBalance(wallet.address)
-              const previousRecipientBalance = await ethers.provider.getBalance(other.address)
-              const previousFeeCollectorBalance = await ethers.provider.getBalance(feeCollector.address)
+            const itWithdrawsCorrectly = (expectedChargedFees: BigNumber) => {
+              const amountAfterFees = amount.sub(expectedChargedFees)
 
-              await wallet.withdraw(token, amount, other.address, data)
+              it('transfers the tokens to the recipient', async () => {
+                const previousWalletBalance = await ethers.provider.getBalance(wallet.address)
+                const previousRecipientBalance = await ethers.provider.getBalance(other.address)
+                const previousFeeCollectorBalance = await ethers.provider.getBalance(feeCollector.address)
 
-              const currentWalletBalance = await ethers.provider.getBalance(wallet.address)
-              expect(currentWalletBalance).to.be.equal(previousWalletBalance.sub(amount))
+                await wallet.withdraw(token, amount, other.address, data)
 
-              const currentRecipientBalance = await ethers.provider.getBalance(other.address)
-              expect(currentRecipientBalance).to.be.equal(previousRecipientBalance.add(amountAfterFees))
+                const currentWalletBalance = await ethers.provider.getBalance(wallet.address)
+                expect(currentWalletBalance).to.be.equal(previousWalletBalance.sub(amount))
 
-              const currentFeeCollectorBalance = await ethers.provider.getBalance(feeCollector.address)
-              expect(currentFeeCollectorBalance).to.be.equal(previousFeeCollectorBalance.add(withdrawFeeAmount))
+                const currentRecipientBalance = await ethers.provider.getBalance(other.address)
+                expect(currentRecipientBalance).to.be.equal(previousRecipientBalance.add(amountAfterFees))
+
+                const currentFeeCollectorBalance = await ethers.provider.getBalance(feeCollector.address)
+                expect(currentFeeCollectorBalance).to.be.equal(previousFeeCollectorBalance.add(expectedChargedFees))
+              })
+
+              it('emits an event', async () => {
+                const tx = await wallet.withdraw(token, amount, other.address, data)
+
+                await assertEvent(tx, 'Withdraw', {
+                  token,
+                  amount: amountAfterFees,
+                  recipient: other,
+                  fee: expectedChargedFees,
+                  data,
+                })
+              })
+            }
+
+            context('without cap', async () => {
+              beforeEach('set withdraw fee', async () => {
+                await wallet.connect(admin).setWithdrawFee(withdrawFee, 0, ZERO_ADDRESS, 0)
+              })
+
+              itWithdrawsCorrectly(withdrawFeeAmount)
+
+              it('does not update the total charged fees', async () => {
+                const previousData = await wallet.withdrawFee()
+
+                await wallet.withdraw(token, amount, other.address, data)
+
+                const currentData = await wallet.withdrawFee()
+                expect(currentData.pct).to.be.equal(previousData.pct)
+                expect(currentData.cap).to.be.equal(previousData.cap)
+                expect(currentData.period).to.be.equal(previousData.period)
+                expect(currentData.totalCharged).to.be.equal(0)
+                expect(currentData.nextResetTime).to.be.equal(0)
+              })
             })
 
-            it('emits an event', async () => {
-              const tx = await wallet.withdraw(token, amount, other.address, data)
+            context('with cap', async () => {
+              const period = MONTH
+              const capTokenRate = 2
+              const cap = withdrawFeeAmount.mul(capTokenRate)
 
-              await assertEvent(tx, 'Withdraw', {
-                token,
-                amount: amountAfterFees,
-                recipient: other,
-                fee: withdrawFeeAmount,
-                data,
+              let capToken: Contract
+              let periodStartTime: BigNumber
+
+              beforeEach('deploy cap token', async () => {
+                capToken = await deploy('TokenMock', ['USDT'])
+                await priceOracle.mockRate(token, capToken.address, fp(capTokenRate))
+              })
+
+              beforeEach('set withdraw fee', async () => {
+                await wallet.connect(admin).setWithdrawFee(withdrawFee, cap, capToken.address, period)
+                periodStartTime = await currentTimestamp()
+              })
+
+              context('when the cap period has not been reached', async () => {
+                itWithdrawsCorrectly(withdrawFeeAmount)
+
+                it('updates the total charged fees', async () => {
+                  const previousData = await wallet.withdrawFee()
+
+                  await wallet.withdraw(token, amount, other.address, data)
+
+                  const currentData = await wallet.withdrawFee()
+                  expect(currentData.pct).to.be.equal(previousData.pct)
+                  expect(currentData.cap).to.be.equal(previousData.cap)
+                  expect(currentData.token).to.be.equal(previousData.token)
+                  expect(currentData.period).to.be.equal(previousData.period)
+                  expect(currentData.totalCharged).to.be.equal(withdrawFeeAmount.mul(capTokenRate))
+                  expect(currentData.nextResetTime).to.be.equal(periodStartTime.add(period))
+                })
+              })
+
+              context('when the cap period has been reached', async () => {
+                beforeEach('accrue some charged fees', async () => {
+                  await admin.sendTransaction({ to: wallet.address, value: amount.mul(3).div(4) })
+                  await wallet.withdraw(token, amount.mul(3).div(4), other.address, data)
+                })
+
+                context('within the current cap period', async () => {
+                  const expectedChargedFees = withdrawFeeAmount.div(4) // already accrued 3/4 of it
+
+                  itWithdrawsCorrectly(expectedChargedFees)
+
+                  it('updates the total charged fees', async () => {
+                    const previousData = await wallet.withdrawFee()
+
+                    await wallet.withdraw(token, amount, other.address, data)
+
+                    const currentData = await wallet.withdrawFee()
+                    expect(currentData.pct).to.be.equal(previousData.pct)
+                    expect(currentData.cap).to.be.equal(previousData.cap)
+                    expect(currentData.token).to.be.equal(previousData.token)
+                    expect(currentData.period).to.be.equal(previousData.period)
+                    expect(currentData.totalCharged).to.be.equal(cap)
+                    expect(currentData.nextResetTime).to.be.equal(periodStartTime.add(period))
+                  })
+                })
+
+                context('within the next cap period', async () => {
+                  beforeEach('advance time', async () => {
+                    await advanceTime(period + 1)
+                  })
+
+                  itWithdrawsCorrectly(withdrawFeeAmount)
+
+                  it('updates the total charged fees and the next reset time', async () => {
+                    const previousData = await wallet.withdrawFee()
+
+                    await wallet.withdraw(token, amount, other.address, data)
+
+                    const currentData = await wallet.withdrawFee()
+                    expect(currentData.pct).to.be.equal(previousData.pct)
+                    expect(currentData.cap).to.be.equal(previousData.cap)
+                    expect(currentData.token).to.be.equal(previousData.token)
+                    expect(currentData.period).to.be.equal(previousData.period)
+                    expect(currentData.totalCharged).to.be.equal(withdrawFeeAmount.mul(capTokenRate))
+                    expect(currentData.nextResetTime).to.be.equal(periodStartTime.add(period).add(period))
+                  })
+                })
               })
             })
           })
@@ -1045,7 +1884,7 @@ describe('Wallet', () => {
               beforeEach('set performance fee', async () => {
                 const setPerformanceFeeRole = wallet.interface.getSighash('setPerformanceFee')
                 await wallet.connect(admin).authorize(admin.address, setPerformanceFeeRole)
-                await wallet.connect(admin).setPerformanceFee(performanceFee)
+                await wallet.connect(admin).setPerformanceFee(performanceFee, fp(1000), token.address, MONTH)
               })
 
               async function computePerformanceFeeAmount(ratio: BigNumber): Promise<BigNumber> {
@@ -1107,6 +1946,21 @@ describe('Wallet', () => {
                   const expectedBalance = previousBalance.add(expectedPerformanceFeeAmount)
                   expect(currentBalance).to.be.at.least(expectedBalance.sub(1))
                   expect(currentBalance).to.be.at.most(expectedBalance.add(1))
+                })
+
+                it('updates the total charged fees', async () => {
+                  const previousData = await wallet.performanceFee()
+                  const expectedPerformanceFeeAmount = await computePerformanceFeeAmount(ratio)
+
+                  await wallet.exit(ratio, slippage, data)
+
+                  const currentData = await wallet.performanceFee()
+                  expect(currentData.pct).to.be.equal(previousData.pct)
+                  expect(currentData.cap).to.be.equal(previousData.cap)
+                  expect(currentData.token).to.be.equal(previousData.token)
+                  expect(currentData.period).to.be.equal(previousData.period)
+                  expect(currentData.totalCharged).to.be.equal(expectedPerformanceFeeAmount)
+                  expect(currentData.nextResetTime).to.be.equal(previousData.nextResetTime)
                 })
               }
 
@@ -1405,68 +2259,188 @@ describe('Wallet', () => {
         context('with swap fee', () => {
           const swapFee = fp(0.03)
           const swapFeeAmount = expectedAmountOut.mul(swapFee).div(fp(1))
-          const expectedAmountOutAfterFees = expectedAmountOut.sub(swapFeeAmount)
 
-          beforeEach('set swap fee', async () => {
+          beforeEach('authorize', async () => {
             const setSwapFeeRole = wallet.interface.getSighash('setSwapFee')
             await wallet.connect(admin).authorize(admin.address, setSwapFeeRole)
-            await wallet.connect(admin).setSwapFee(swapFee)
           })
 
-          it('transfers the token in to the swap connector', async () => {
-            const previousWalletBalance = await tokenIn.balanceOf(wallet.address)
-            const previousConnectorBalance = await tokenIn.balanceOf(swapConnector.address)
-            const previousFeeCollectorBalance = await tokenIn.balanceOf(feeCollector.address)
+          const itSwapsCorrectly = (expectedChargedFees: BigNumber) => {
+            const expectedAmountOutAfterFees = expectedAmountOut.sub(expectedChargedFees)
 
-            await wallet.swap(source, tokenIn.address, tokenOut.address, amount, limitType, limitAmount, data)
+            it('transfers the token in to the swap connector', async () => {
+              const previousWalletBalance = await tokenIn.balanceOf(wallet.address)
+              const previousConnectorBalance = await tokenIn.balanceOf(swapConnector.address)
+              const previousFeeCollectorBalance = await tokenIn.balanceOf(feeCollector.address)
 
-            const currentWalletBalance = await tokenIn.balanceOf(wallet.address)
-            expect(currentWalletBalance).to.be.equal(previousWalletBalance.sub(amount))
+              await wallet.swap(source, tokenIn.address, tokenOut.address, amount, limitType, limitAmount, data)
 
-            const currentConnectorBalance = await tokenIn.balanceOf(swapConnector.address)
-            expect(currentConnectorBalance).to.be.equal(previousConnectorBalance.add(amount))
+              const currentWalletBalance = await tokenIn.balanceOf(wallet.address)
+              expect(currentWalletBalance).to.be.equal(previousWalletBalance.sub(amount))
 
-            const currentFeeCollectorBalance = await tokenIn.balanceOf(feeCollector.address)
-            expect(currentFeeCollectorBalance).to.be.equal(previousFeeCollectorBalance)
+              const currentConnectorBalance = await tokenIn.balanceOf(swapConnector.address)
+              expect(currentConnectorBalance).to.be.equal(previousConnectorBalance.add(amount))
+
+              const currentFeeCollectorBalance = await tokenIn.balanceOf(feeCollector.address)
+              expect(currentFeeCollectorBalance).to.be.equal(previousFeeCollectorBalance)
+            })
+
+            it('transfers the token out to the wallet', async () => {
+              const previousWalletBalance = await tokenOut.balanceOf(wallet.address)
+              const previousConnectorBalance = await tokenOut.balanceOf(swapConnector.address)
+              const previousFeeCollectorBalance = await tokenOut.balanceOf(feeCollector.address)
+
+              await wallet.swap(source, tokenIn.address, tokenOut.address, amount, limitType, limitAmount, data)
+
+              const currentWalletBalance = await tokenOut.balanceOf(wallet.address)
+              expect(currentWalletBalance).to.be.equal(previousWalletBalance.add(expectedAmountOutAfterFees))
+
+              const currentConnectorBalance = await tokenOut.balanceOf(swapConnector.address)
+              expect(currentConnectorBalance).to.be.equal(previousConnectorBalance.sub(expectedAmountOut))
+
+              const currentFeeCollectorBalance = await tokenOut.balanceOf(feeCollector.address)
+              expect(currentFeeCollectorBalance).to.be.equal(previousFeeCollectorBalance.add(expectedChargedFees))
+            })
+
+            it('emits an event', async () => {
+              const tx = await wallet.swap(
+                source,
+                tokenIn.address,
+                tokenOut.address,
+                amount,
+                limitType,
+                limitAmount,
+                data
+              )
+
+              await assertEvent(tx, 'Swap', {
+                source,
+                tokenIn,
+                tokenOut,
+                amountIn: amount,
+                amountOut: expectedAmountOutAfterFees,
+                minAmountOut: expectedMinAmountOut,
+                fee: expectedChargedFees,
+                data,
+              })
+            })
+          }
+
+          context('without cap', async () => {
+            beforeEach('set swap fee', async () => {
+              await wallet.connect(admin).setSwapFee(swapFee, 0, ZERO_ADDRESS, 0)
+            })
+
+            itSwapsCorrectly(swapFeeAmount)
+
+            it('does not update the total charged fees', async () => {
+              const previousData = await wallet.swapFee()
+
+              await wallet.swap(source, tokenIn.address, tokenOut.address, amount, limitType, limitAmount, data)
+
+              const currentData = await wallet.swapFee()
+              expect(currentData.pct).to.be.equal(previousData.pct)
+              expect(currentData.cap).to.be.equal(previousData.cap)
+              expect(currentData.period).to.be.equal(previousData.period)
+              expect(currentData.totalCharged).to.be.equal(0)
+              expect(currentData.nextResetTime).to.be.equal(0)
+            })
           })
 
-          it('transfers the token out to the wallet', async () => {
-            const previousWalletBalance = await tokenOut.balanceOf(wallet.address)
-            const previousConnectorBalance = await tokenOut.balanceOf(swapConnector.address)
-            const previousFeeCollectorBalance = await tokenOut.balanceOf(feeCollector.address)
+          context('with cap', async () => {
+            const period = MONTH
+            const capTokenRate = 2
+            const cap = swapFeeAmount.mul(capTokenRate)
 
-            await wallet.swap(source, tokenIn.address, tokenOut.address, amount, limitType, limitAmount, data)
+            let capToken: Contract
+            let periodStartTime: BigNumber
 
-            const currentWalletBalance = await tokenOut.balanceOf(wallet.address)
-            expect(currentWalletBalance).to.be.equal(previousWalletBalance.add(expectedAmountOutAfterFees))
+            beforeEach('deploy cap token', async () => {
+              capToken = await deploy('TokenMock', ['USDT'])
+              await priceOracle.mockRate(tokenOut.address, capToken.address, fp(capTokenRate))
+            })
 
-            const currentConnectorBalance = await tokenOut.balanceOf(swapConnector.address)
-            expect(currentConnectorBalance).to.be.equal(previousConnectorBalance.sub(expectedAmountOut))
+            beforeEach('set swap fee', async () => {
+              await wallet.connect(admin).setSwapFee(swapFee, cap, capToken.address, period)
+              periodStartTime = await currentTimestamp()
+            })
 
-            const currentFeeCollectorBalance = await tokenOut.balanceOf(feeCollector.address)
-            expect(currentFeeCollectorBalance).to.be.equal(previousFeeCollectorBalance.add(swapFeeAmount))
-          })
+            context('when the cap period has not been reached', async () => {
+              itSwapsCorrectly(swapFeeAmount)
 
-          it('emits an event', async () => {
-            const tx = await wallet.swap(
-              source,
-              tokenIn.address,
-              tokenOut.address,
-              amount,
-              limitType,
-              limitAmount,
-              data
-            )
+              it('updates the total charged fees', async () => {
+                const previousData = await wallet.swapFee()
 
-            await assertEvent(tx, 'Swap', {
-              source,
-              tokenIn,
-              tokenOut,
-              amountIn: amount,
-              amountOut: expectedAmountOutAfterFees,
-              minAmountOut: expectedMinAmountOut,
-              fee: swapFeeAmount,
-              data,
+                await wallet.swap(source, tokenIn.address, tokenOut.address, amount, limitType, limitAmount, data)
+
+                const currentData = await wallet.swapFee()
+                expect(currentData.pct).to.be.equal(previousData.pct)
+                expect(currentData.cap).to.be.equal(previousData.cap)
+                expect(currentData.token).to.be.equal(previousData.token)
+                expect(currentData.period).to.be.equal(previousData.period)
+                expect(currentData.totalCharged).to.be.equal(swapFeeAmount.mul(capTokenRate))
+                expect(currentData.nextResetTime).to.be.equal(periodStartTime.add(period))
+              })
+            })
+
+            context('when the cap period has been reached', async () => {
+              beforeEach('accrue some charged fees', async () => {
+                await tokenIn.mint(wallet.address, amount.mul(3).div(4))
+                await tokenOut.mint(swapConnector.address, expectedAmountOut.mul(3).div(4))
+
+                const limit = limitType == SWAP_LIMIT.SLIPPAGE ? limitAmount : bn(limitAmount).mul(3).div(4)
+                await wallet.swap(
+                  source,
+                  tokenIn.address,
+                  tokenOut.address,
+                  amount.mul(3).div(4),
+                  limitType,
+                  limit,
+                  data
+                )
+              })
+
+              context('within the current cap period', async () => {
+                const expectedChargedFees = swapFeeAmount.div(4) // already accrued 3/4 of it
+
+                itSwapsCorrectly(expectedChargedFees)
+
+                it('updates the total charged fees', async () => {
+                  const previousData = await wallet.swapFee()
+
+                  await wallet.swap(source, tokenIn.address, tokenOut.address, amount, limitType, limitAmount, data)
+
+                  const currentData = await wallet.swapFee()
+                  expect(currentData.pct).to.be.equal(previousData.pct)
+                  expect(currentData.cap).to.be.equal(previousData.cap)
+                  expect(currentData.token).to.be.equal(previousData.token)
+                  expect(currentData.period).to.be.equal(previousData.period)
+                  expect(currentData.totalCharged).to.be.equal(cap)
+                  expect(currentData.nextResetTime).to.be.equal(periodStartTime.add(period))
+                })
+              })
+
+              context('within the next cap period', async () => {
+                beforeEach('advance time', async () => {
+                  await advanceTime(period + 1)
+                })
+
+                itSwapsCorrectly(swapFeeAmount)
+
+                it('updates the total charged fees and the next reset time', async () => {
+                  const previousData = await wallet.swapFee()
+
+                  await wallet.swap(source, tokenIn.address, tokenOut.address, amount, limitType, limitAmount, data)
+
+                  const currentData = await wallet.swapFee()
+                  expect(currentData.pct).to.be.equal(previousData.pct)
+                  expect(currentData.cap).to.be.equal(previousData.cap)
+                  expect(currentData.token).to.be.equal(previousData.token)
+                  expect(currentData.period).to.be.equal(previousData.period)
+                  expect(currentData.totalCharged).to.be.equal(swapFeeAmount.mul(capTokenRate))
+                  expect(currentData.nextResetTime).to.be.equal(periodStartTime.add(period).add(period))
+                })
+              })
             })
           })
         })
@@ -1480,7 +2454,7 @@ describe('Wallet', () => {
           const oracleAmountOut = amount.mul(ORACLE_RATE).div(fp(1))
 
           beforeEach('mock price oracle rate', async () => {
-            await priceOracle.mockRate(ORACLE_RATE)
+            await priceOracle.mockRate(tokenIn.address, tokenOut.address, ORACLE_RATE)
           })
 
           context('when the wallet has enough balance', async () => {

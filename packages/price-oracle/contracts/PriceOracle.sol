@@ -99,6 +99,8 @@ contract PriceOracle is IPriceOracle, InitializableAuthorizedImplementation {
      * @param quote Token used for the price rate
      */
     function getPrice(address base, address quote) external view override returns (uint256) {
+        if (base == quote) return FixedPoint.ONE;
+
         // If `base * result / 1e18` must be expressed in `quote` decimals, then
         uint256 baseDecimals = IERC20Metadata(base).decimals();
         uint256 quoteDecimals = IERC20Metadata(quote).decimals();

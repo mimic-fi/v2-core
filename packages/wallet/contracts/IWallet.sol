@@ -50,17 +50,17 @@ interface IWallet is IImplementation, IAuthorizer {
     /**
      * @dev Emitted every time the withdraw fee percentage is set
      */
-    event WithdrawFeeSet(uint256 withdrawFee);
+    event WithdrawFeeSet(uint256 pct, uint256 cap, address token, uint256 period);
 
     /**
      * @dev Emitted every time the performance fee percentage is set
      */
-    event PerformanceFeeSet(uint256 performanceFee);
+    event PerformanceFeeSet(uint256 pct, uint256 cap, address token, uint256 period);
 
     /**
      * @dev Emitted every time the swap fee percentage is set
      */
-    event SwapFeeSet(uint256 swapFee);
+    event SwapFeeSet(uint256 pct, uint256 cap, address token, uint256 period);
 
     /**
      * @dev Emitted every time `call` is called
@@ -142,19 +142,28 @@ interface IWallet is IImplementation, IAuthorizer {
     function feeCollector() external view returns (address);
 
     /**
-     * @dev Tells the withdraw fee percentage expressed with 16 decimals (1e18 = 100%)
+     * @dev Tells the withdraw fee configuration
      */
-    function withdrawFee() external view returns (uint256);
+    function withdrawFee()
+        external
+        view
+        returns (uint256 pct, uint256 cap, address token, uint256 period, uint256 totalCharged, uint256 nextResetTime);
 
     /**
-     * @dev Tells the performance fee percentage expressed with 16 decimals (1e18 = 100%)
+     * @dev Tells the performance fee configuration
      */
-    function performanceFee() external view returns (uint256);
+    function performanceFee()
+        external
+        view
+        returns (uint256 pct, uint256 cap, address token, uint256 period, uint256 totalCharged, uint256 nextResetTime);
 
     /**
-     * @dev Tells the swap fee percentage expressed with 16 decimals (1e18 = 100%)
+     * @dev Tells the swap fee configuration
      */
-    function swapFee() external view returns (uint256);
+    function swapFee()
+        external
+        view
+        returns (uint256 pct, uint256 cap, address token, uint256 period, uint256 totalCharged, uint256 nextResetTime);
 
     /**
      * @dev Tells the address of the wrapped native token
@@ -186,22 +195,31 @@ interface IWallet is IImplementation, IAuthorizer {
     function setFeeCollector(address newFeeCollector) external;
 
     /**
-     * @dev Sets a new withdraw fee
-     * @param newWithdrawFee Withdraw fee percentage to be set
+     * @dev Sets a new withdraw fee configuration
+     * @param pct Withdraw fee percentage to be set
+     * @param cap New maximum amount of withdraw fees to be charged per period
+     * @param token Address of the token cap to be set
+     * @param period New cap period length in seconds for the withdraw fee
      */
-    function setWithdrawFee(uint256 newWithdrawFee) external;
+    function setWithdrawFee(uint256 pct, uint256 cap, address token, uint256 period) external;
 
     /**
-     * @dev Sets a new performance fee
-     * @param newPerformanceFee Performance fee percentage to be set
+     * @dev Sets a new performance fee configuration
+     * @param pct Performance fee percentage to be set
+     * @param cap New maximum amount of performance fees to be charged per period
+     * @param token Address of the token cap to be set
+     * @param period New cap period length in seconds for the performance fee
      */
-    function setPerformanceFee(uint256 newPerformanceFee) external;
+    function setPerformanceFee(uint256 pct, uint256 cap, address token, uint256 period) external;
 
     /**
-     * @dev Sets a new swap fee
-     * @param newSwapFee Swap fee percentage to be set
+     * @dev Sets a new swap fee configuration
+     * @param pct Swap fee percentage to be set
+     * @param cap New maximum amount of swap fees to be charged per period
+     * @param token Address of the token cap to be set
+     * @param period New cap period length in seconds for the swap fee
      */
-    function setSwapFee(uint256 newSwapFee) external;
+    function setSwapFee(uint256 pct, uint256 cap, address token, uint256 period) external;
 
     /**
      * @dev Execute an arbitrary call from the Mimic Wallet

@@ -46,6 +46,24 @@ contract Wallet is IWallet, InitializableAuthorizedImplementation {
     // Namespace under which the Wallet is registered in the Mimic Registry
     bytes32 public constant override NAMESPACE = keccak256('WALLET');
 
+    /**
+     * @dev Fee configuration parameters
+     * @param pct Percentage expressed using 16 decimals (1e18 = 100%)
+     * @param cap Maximum amount of fees to be charged per period
+     * @param token Address of the token to express the cap amount
+     * @param period Period length in seconds
+     * @param totalCharged Total amount of fees charged in the current period
+     * @param nextResetTime Current cap period end date
+     */
+    struct Fee {
+        uint256 pct;
+        uint256 cap;
+        address token;
+        uint256 period;
+        uint256 totalCharged;
+        uint256 nextResetTime;
+    }
+
     // Strategy reference
     address public override strategy;
 
@@ -61,14 +79,14 @@ contract Wallet is IWallet, InitializableAuthorizedImplementation {
     // Fee collector address where fees will be deposited
     address public override feeCollector;
 
-    // Withdraw fee percentage expressed using 16 decimals (1e18 = 100%)
-    uint256 public override withdrawFee;
+    // Withdraw fee configuration
+    Fee public override withdrawFee;
 
-    // Performance fee percentage expressed using 16 decimals (1e18 = 100%)
-    uint256 public override performanceFee;
+    // Performance fee configuration
+    Fee public override performanceFee;
 
-    // Swap fee percentage expressed using 16 decimals (1e18 = 100%)
-    uint256 public override swapFee;
+    // Swap fee configuration
+    Fee public override swapFee;
 
     // Wrapped native token reference
     address public immutable override wrappedNativeToken;
@@ -131,26 +149,38 @@ contract Wallet is IWallet, InitializableAuthorizedImplementation {
 
     /**
      * @dev Sets a new withdraw fee. Sender must be authorized.
-     * @param newWithdrawFee Withdraw fee percentage to be set
+     * @param pct Withdraw fee percentage to be set
+     * @param cap New maximum amount of withdraw fees to be charged per period
+     * @param token Address of the token cap to be set
+     * @param period New cap period length in seconds for the withdraw fee
      */
-    function setWithdrawFee(uint256 newWithdrawFee) external override auth {
-        _setWithdrawFee(newWithdrawFee);
+    function setWithdrawFee(uint256 pct, uint256 cap, address token, uint256 period) external override auth {
+        _setFeeConfiguration(withdrawFee, pct, cap, token, period);
+        emit WithdrawFeeSet(pct, cap, token, period);
     }
 
     /**
      * @dev Sets a new performance fee. Sender must be authorized.
-     * @param newPerformanceFee Performance fee percentage to be set
+     * @param pct Performance fee percentage to be set
+     * @param cap New maximum amount of performance fees to be charged per period
+     * @param token Address of the token cap to be set
+     * @param period New cap period length in seconds for the performance fee
      */
-    function setPerformanceFee(uint256 newPerformanceFee) external override auth {
-        _setPerformanceFee(newPerformanceFee);
+    function setPerformanceFee(uint256 pct, uint256 cap, address token, uint256 period) external override auth {
+        _setFeeConfiguration(performanceFee, pct, cap, token, period);
+        emit PerformanceFeeSet(pct, cap, token, period);
     }
 
     /**
      * @dev Sets a new swap fee. Sender must be authorized.
-     * @param newSwapFee Swap fee percentage to be set
+     * @param pct New swap fee percentage to be set
+     * @param cap New maximum amount of swap fees to be charged per period
+     * @param token Address of the token cap to be set
+     * @param period New cap period length in seconds for the swap fee
      */
-    function setSwapFee(uint256 newSwapFee) external override auth {
-        _setSwapFee(newSwapFee);
+    function setSwapFee(uint256 pct, uint256 cap, address token, uint256 period) external override auth {
+        _setFeeConfiguration(swapFee, pct, cap, token, period);
+        emit SwapFeeSet(pct, cap, token, period);
     }
 
     /**
@@ -188,8 +218,7 @@ contract Wallet is IWallet, InitializableAuthorizedImplementation {
         require(amount > 0, 'WITHDRAW_AMOUNT_ZERO');
         require(recipient != address(0), 'RECIPIENT_ZERO');
 
-        // Withdraw fee amount is rounded down
-        uint256 withdrawFeeAmount = amount.mulDown(withdrawFee);
+        uint256 withdrawFeeAmount = _calcFeeAmountToCharge(token, amount, withdrawFee);
         _safeTransfer(token, feeCollector, withdrawFeeAmount);
         uint256 amountAfterFees = amount - withdrawFeeAmount;
         _safeTransfer(token, recipient, amountAfterFees);
@@ -276,8 +305,7 @@ contract Wallet is IWallet, InitializableAuthorizedImplementation {
             // the taxable amount is the entire exited amount, otherwise it should be the equivalent gains ratio of it.
             uint256 valueGains = valueBeforeExit - investedValue;
             uint256 taxableAmount = valueGains > exitValue ? amount : ((amount * valueGains) / exitValue);
-            // Performance fee amount is rounded down
-            performanceFeeAmount = taxableAmount.mulDown(performanceFee);
+            performanceFeeAmount = _calcFeeAmountToCharge(token, taxableAmount, performanceFee);
             _safeTransfer(token, feeCollector, performanceFeeAmount);
             // If the exit value is greater than the value gains, the invested value should be reduced by the portion
             // of the invested value being exited. Otherwise, it's still the same, only gains are being withdrawn.
@@ -317,7 +345,7 @@ contract Wallet is IWallet, InitializableAuthorizedImplementation {
             minAmountOut = limitAmount;
         } else {
             require(limitAmount <= FixedPoint.ONE, 'SWAP_SLIPPAGE_ABOVE_ONE');
-            uint256 price = IPriceOracle(priceOracle).getPrice(tokenOut, tokenIn);
+            uint256 price = IPriceOracle(priceOracle).getPrice(tokenIn, tokenOut);
             // No need for checked math as we are checking it manually beforehand
             // Always round up the expected min amount out
             minAmountOut = amountIn.mulUp(price).mulUp(FixedPoint.ONE.uncheckedSub(limitAmount));
@@ -339,12 +367,48 @@ contract Wallet is IWallet, InitializableAuthorizedImplementation {
         uint256 postBalanceOut = IERC20(tokenOut).balanceOf(address(this));
         require(postBalanceOut >= preBalanceOut + amountOutBeforeFees, 'SWAP_INVALID_AMOUNT_OUT');
 
-        // Swap fee amount is rounded down
-        uint256 swapFeeAmount = amountOutBeforeFees.mulDown(swapFee);
+        uint256 swapFeeAmount = _calcFeeAmountToCharge(tokenOut, amountOutBeforeFees, swapFee);
         _safeTransfer(tokenOut, feeCollector, swapFeeAmount);
 
         amountOut = amountOutBeforeFees - swapFeeAmount;
         emit Swap(source, tokenIn, tokenOut, amountIn, amountOut, minAmountOut, swapFeeAmount, data);
+    }
+
+    /**
+     * @dev Internal function to compute the amount of fees to be charged based on a fee configuration
+     * @param token Token being charged
+     * @param amount Token amount to be taxed with fees
+     * @param fee Fee configuration to be applied
+     * @return amountToCharge Amount of fees to be charged
+     */
+    function _calcFeeAmountToCharge(address token, uint256 amount, Fee storage fee)
+        internal
+        returns (uint256 amountToCharge)
+    {
+        // Fee amounts are always rounded down
+        uint256 feeAmount = amount.mulDown(fee.pct);
+
+        // If cap amount or cap period are not set, charge the entire amount
+        if (fee.token == address(0) || fee.cap == 0 || fee.period == 0) return feeAmount;
+
+        // Reset cap totalizator if necessary
+        if (block.timestamp >= fee.nextResetTime) {
+            fee.totalCharged = 0;
+            fee.nextResetTime += fee.period;
+        }
+
+        // Calc fee amount in the fee token used for the cap
+        uint256 feeTokenPrice = IPriceOracle(priceOracle).getPrice(token, fee.token);
+        uint256 feeAmountInFeeToken = feeAmount.mulDown(feeTokenPrice);
+
+        // Compute fee amount picking the minimum between the chargeable amount and the remaining part for the cap
+        if (fee.totalCharged + feeAmountInFeeToken <= fee.cap) {
+            amountToCharge = feeAmount;
+            fee.totalCharged += feeAmountInFeeToken;
+        } else {
+            amountToCharge = ((fee.cap - fee.totalCharged) * feeAmount) / feeAmountInFeeToken;
+            fee.totalCharged = fee.cap;
+        }
     }
 
     /**
@@ -413,32 +477,26 @@ contract Wallet is IWallet, InitializableAuthorizedImplementation {
     }
 
     /**
-     * @dev Internal method to set the withdraw fee
-     * @param newWithdrawFee New withdraw fee to be set
+     * @dev Internal method to set a new fee cap configuration
+     * @param fee Fee configuration to be updated
+     * @param pct Fee percentage to be set
+     * @param cap New maximum amount of fees to be charged per period
+     * @param token Address of the token cap to be set
+     * @param period New cap period length in seconds
      */
-    function _setWithdrawFee(uint256 newWithdrawFee) internal {
-        require(newWithdrawFee <= FixedPoint.ONE, 'WITHDRAW_FEE_ABOVE_ONE');
-        withdrawFee = newWithdrawFee;
-        emit WithdrawFeeSet(newWithdrawFee);
-    }
+    function _setFeeConfiguration(Fee storage fee, uint256 pct, uint256 cap, address token, uint256 period) internal {
+        require(pct <= FixedPoint.ONE, 'FEE_AMOUNT_ABOVE_ONE');
+        require(pct != 0 || (token == address(0) && cap == 0 && period == 0), 'INVALID_CAP_WITH_FEE_ZERO');
 
-    /**
-     * @dev Internal method to set the performance fee
-     * @param newPerformanceFee New performance fee to be set
-     */
-    function _setPerformanceFee(uint256 newPerformanceFee) internal {
-        require(newPerformanceFee <= FixedPoint.ONE, 'PERFORMANCE_FEE_ABOVE_ONE');
-        performanceFee = newPerformanceFee;
-        emit PerformanceFeeSet(newPerformanceFee);
-    }
+        bool isZeroCap = token == address(0) && cap == 0 && period == 0;
+        bool isNonZeroCap = token != address(0) && cap != 0 && period != 0;
+        require(isZeroCap || isNonZeroCap, 'INCONSISTENT_CAP_VALUES');
 
-    /**
-     * @dev Internal method to set the swap fee
-     * @param newSwapFee New swap fee to be set
-     */
-    function _setSwapFee(uint256 newSwapFee) internal {
-        require(newSwapFee <= FixedPoint.ONE, 'SWAP_FEE_ABOVE_ONE');
-        swapFee = newSwapFee;
-        emit SwapFeeSet(newSwapFee);
+        fee.pct = pct;
+        fee.cap = cap;
+        fee.token = token;
+        fee.period = period;
+        fee.totalCharged = 0;
+        fee.nextResetTime = isNonZeroCap ? block.timestamp + period : 0;
     }
 }
