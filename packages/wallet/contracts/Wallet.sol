@@ -29,6 +29,7 @@ import '@mimic-fi/v2-registry/contracts/implementations/InitializableAuthorizedI
 
 import './IWallet.sol';
 import './IWrappedNativeToken.sol';
+import './helpers/SwapConnectorLib.sol';
 
 /**
  * @title Wallet
@@ -42,6 +43,7 @@ contract Wallet is IWallet, InitializableAuthorizedImplementation {
     using SafeERC20 for IERC20;
     using FixedPoint for uint256;
     using UncheckedMath for uint256;
+    using SwapConnectorLib for address;
 
     // Namespace under which the Wallet is registered in the Mimic Registry
     bytes32 public constant override NAMESPACE = keccak256('WALLET');
@@ -351,17 +353,8 @@ contract Wallet is IWallet, InitializableAuthorizedImplementation {
             minAmountOut = amountIn.mulUp(price).mulUp(FixedPoint.ONE.uncheckedSub(limitAmount));
         }
 
-        ISwapConnector connector = ISwapConnector(swapConnector);
-        _safeTransfer(tokenIn, address(connector), amountIn);
         uint256 preBalanceOut = IERC20(tokenOut).balanceOf(address(this));
-        uint256 amountOutBeforeFees = connector.swap(
-            ISwapConnector.Source(source),
-            tokenIn,
-            tokenOut,
-            amountIn,
-            minAmountOut,
-            data
-        );
+        uint256 amountOutBeforeFees = swapConnector.swap(source, tokenIn, tokenOut, amountIn, minAmountOut, data);
         require(amountOutBeforeFees >= minAmountOut, 'SWAP_MIN_AMOUNT');
 
         uint256 postBalanceOut = IERC20(tokenOut).balanceOf(address(this));

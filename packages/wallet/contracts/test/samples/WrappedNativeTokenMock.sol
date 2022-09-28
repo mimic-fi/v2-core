@@ -2,7 +2,7 @@
 
 pragma solidity ^0.8.0;
 
-import '../IWrappedNativeToken.sol';
+import '../../IWrappedNativeToken.sol';
 
 contract WrappedNativeTokenMock is IWrappedNativeToken {
     uint8 public decimals = 18;

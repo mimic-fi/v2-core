@@ -5,10 +5,10 @@ pragma solidity ^0.8.0;
 import '@openzeppelin/contracts/token/ERC20/IERC20.sol';
 
 import '@mimic-fi/v2-helpers/contracts/math/FixedPoint.sol';
+import '@mimic-fi/v2-strategies/contracts/IStrategy.sol';
 import '@mimic-fi/v2-registry/contracts/implementations/InitializableImplementation.sol';
 
-import '../Wallet.sol';
-import './TokenMock.sol';
+import '../samples/TokenMock.sol';
 
 contract StrategyMock is IStrategy, InitializableImplementation {
     using FixedPoint for uint256;

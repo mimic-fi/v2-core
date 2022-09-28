@@ -1356,7 +1356,7 @@ describe('Wallet', () => {
             const amount = fp(10)
             const anotherToken = await deploy('TokenMock', ['TKN'])
             await anotherToken.mint(wallet.address, amount)
-            await newToken.mint(swapConnector.address, amount)
+            await newToken.mint(await swapConnector.dex(), amount)
             await swapConnector.mockRate(fp(1))
             await wallet.swap(0, anotherToken.address, newToken.address, amount, 1, 0, '0x')
           })
@@ -2566,10 +2566,16 @@ describe('Wallet', () => {
     })
 
     context('when the sender is authorized', () => {
+      let swapConnectorDex: string
+
       beforeEach('set sender', async () => {
         const swapRole = wallet.interface.getSighash('swap')
         await wallet.connect(admin).authorize(admin.address, swapRole)
         wallet = wallet.connect(admin)
+      })
+
+      beforeEach('load swap connector dex', async () => {
+        swapConnectorDex = await swapConnector.dex()
       })
 
       const itSwapsAsExpected = (
@@ -2579,33 +2585,33 @@ describe('Wallet', () => {
         expectedMinAmountOut: BigNumber
       ) => {
         beforeEach('fund swap connector', async () => {
-          await tokenOut.mint(swapConnector.address, expectedAmountOut)
+          await tokenOut.mint(swapConnectorDex, expectedAmountOut)
         })
 
         context('without swap fee', () => {
-          it('transfers the token in to the swap connector', async () => {
+          it('transfers the token in to the dex', async () => {
             const previousWalletBalance = await tokenIn.balanceOf(wallet.address)
-            const previousConnectorBalance = await tokenIn.balanceOf(swapConnector.address)
+            const previousConnectorBalance = await tokenIn.balanceOf(swapConnectorDex)
 
             await wallet.swap(source, tokenIn.address, tokenOut.address, amount, limitType, limitAmount, data)
 
             const currentWalletBalance = await tokenIn.balanceOf(wallet.address)
             expect(currentWalletBalance).to.be.equal(previousWalletBalance.sub(amount))
 
-            const currentConnectorBalance = await tokenIn.balanceOf(swapConnector.address)
+            const currentConnectorBalance = await tokenIn.balanceOf(swapConnectorDex)
             expect(currentConnectorBalance).to.be.equal(previousConnectorBalance.add(amount))
           })
 
           it('transfers the token out to the wallet', async () => {
             const previousWalletBalance = await tokenOut.balanceOf(wallet.address)
-            const previousConnectorBalance = await tokenOut.balanceOf(swapConnector.address)
+            const previousConnectorBalance = await tokenOut.balanceOf(swapConnectorDex)
 
             await wallet.swap(source, tokenIn.address, tokenOut.address, amount, limitType, limitAmount, data)
 
             const currentWalletBalance = await tokenOut.balanceOf(wallet.address)
             expect(currentWalletBalance).to.be.equal(previousWalletBalance.add(expectedAmountOut))
 
-            const currentConnectorBalance = await tokenOut.balanceOf(swapConnector.address)
+            const currentConnectorBalance = await tokenOut.balanceOf(swapConnectorDex)
             expect(currentConnectorBalance).to.be.equal(previousConnectorBalance.sub(expectedAmountOut))
           })
 
@@ -2645,9 +2651,9 @@ describe('Wallet', () => {
           const itSwapsCorrectly = (expectedChargedFees: BigNumber) => {
             const expectedAmountOutAfterFees = expectedAmountOut.sub(expectedChargedFees)
 
-            it('transfers the token in to the swap connector', async () => {
+            it('transfers the token in to the dex', async () => {
               const previousWalletBalance = await tokenIn.balanceOf(wallet.address)
-              const previousConnectorBalance = await tokenIn.balanceOf(swapConnector.address)
+              const previousConnectorBalance = await tokenIn.balanceOf(swapConnectorDex)
               const previousFeeCollectorBalance = await tokenIn.balanceOf(feeCollector.address)
 
               await wallet.swap(source, tokenIn.address, tokenOut.address, amount, limitType, limitAmount, data)
@@ -2655,7 +2661,7 @@ describe('Wallet', () => {
               const currentWalletBalance = await tokenIn.balanceOf(wallet.address)
               expect(currentWalletBalance).to.be.equal(previousWalletBalance.sub(amount))
 
-              const currentConnectorBalance = await tokenIn.balanceOf(swapConnector.address)
+              const currentConnectorBalance = await tokenIn.balanceOf(swapConnectorDex)
               expect(currentConnectorBalance).to.be.equal(previousConnectorBalance.add(amount))
 
               const currentFeeCollectorBalance = await tokenIn.balanceOf(feeCollector.address)
@@ -2664,7 +2670,7 @@ describe('Wallet', () => {
 
             it('transfers the token out to the wallet', async () => {
               const previousWalletBalance = await tokenOut.balanceOf(wallet.address)
-              const previousConnectorBalance = await tokenOut.balanceOf(swapConnector.address)
+              const previousConnectorBalance = await tokenOut.balanceOf(swapConnectorDex)
               const previousFeeCollectorBalance = await tokenOut.balanceOf(feeCollector.address)
 
               await wallet.swap(source, tokenIn.address, tokenOut.address, amount, limitType, limitAmount, data)
@@ -2672,7 +2678,7 @@ describe('Wallet', () => {
               const currentWalletBalance = await tokenOut.balanceOf(wallet.address)
               expect(currentWalletBalance).to.be.equal(previousWalletBalance.add(expectedAmountOutAfterFees))
 
-              const currentConnectorBalance = await tokenOut.balanceOf(swapConnector.address)
+              const currentConnectorBalance = await tokenOut.balanceOf(swapConnectorDex)
               expect(currentConnectorBalance).to.be.equal(previousConnectorBalance.sub(expectedAmountOut))
 
               const currentFeeCollectorBalance = await tokenOut.balanceOf(feeCollector.address)
@@ -2763,7 +2769,7 @@ describe('Wallet', () => {
             context('when the cap period has been reached', async () => {
               beforeEach('accrue some charged fees', async () => {
                 await tokenIn.mint(wallet.address, amount.mul(3).div(4))
-                await tokenOut.mint(swapConnector.address, expectedAmountOut.mul(3).div(4))
+                await tokenOut.mint(swapConnectorDex, expectedAmountOut.mul(3).div(4))
 
                 const limit = limitType == SWAP_LIMIT.SLIPPAGE ? limitAmount : bn(limitAmount).mul(3).div(4)
                 await wallet.swap(
@@ -2859,7 +2865,7 @@ describe('Wallet', () => {
                 const slippage = SWAP_CONNECTOR_SLIPPAGE.sub(1)
 
                 beforeEach('fund swap connector', async () => {
-                  await tokenOut.mint(swapConnector.address, amount.mul(SWAP_CONNECTOR_RATE).div(fp(1)))
+                  await tokenOut.mint(swapConnectorDex, amount.mul(SWAP_CONNECTOR_RATE).div(fp(1)))
                 })
 
                 it('reverts', async () => {
@@ -2952,7 +2958,7 @@ describe('Wallet', () => {
 
             beforeEach('mock rate and fund swap connector', async () => {
               await swapConnector.mockRate(SWAP_CONNECTOR_RATE)
-              await tokenOut.mint(swapConnector.address, amount.mul(SWAP_CONNECTOR_RATE).div(fp(1)))
+              await tokenOut.mint(swapConnectorDex, amount.mul(SWAP_CONNECTOR_RATE).div(fp(1)))
             })
 
             it('reverts', async () => {
