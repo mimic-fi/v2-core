@@ -1,149 +1,21 @@
-import { assertEvent, bn, deploy, getSigners, ZERO_ADDRESS } from '@mimic-fi/v2-helpers'
-import { createClone } from '@mimic-fi/v2-registry'
-import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/dist/src/signer-with-address'
+import { bn, deploy, ZERO_ADDRESS } from '@mimic-fi/v2-helpers'
 import { expect } from 'chai'
 import { Contract } from 'ethers'
 
 describe('PriceOracle', () => {
-  let admin: SignerWithAddress, other: SignerWithAddress
-  let oracle: Contract, registry: Contract, base: Contract, quote: Contract, feed: Contract
+  let oracle: Contract
 
   const PIVOT = '0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE' // ETH
 
-  before('set up signers', async () => {
-    // eslint-disable-next-line prettier/prettier
-    [, admin, other] = await getSigners()
-  })
-
   beforeEach('create oracle', async () => {
-    registry = await deploy('@mimic-fi/v2-registry/artifacts/contracts/registry/Registry.sol/Registry', [admin.address])
-    oracle = await createClone(registry, admin, 'PriceOracle', [PIVOT, registry.address], [admin.address])
-  })
-
-  describe('initialize', async () => {
-    it('has registry and pivot references', async () => {
-      expect(await oracle.pivot()).to.be.equal(PIVOT)
-      expect(await oracle.registry()).to.be.equal(registry.address)
-    })
-
-    it('authorizes the admin to authorize', async () => {
-      const authorizeRole = oracle.interface.getSighash('authorize')
-      expect(await oracle.isAuthorized(admin.address, authorizeRole)).to.be.true
-    })
-
-    it('authorizes the admin to unauthorize', async () => {
-      const unauthorizeRole = oracle.interface.getSighash('unauthorize')
-      expect(await oracle.isAuthorized(admin.address, unauthorizeRole)).to.be.true
-    })
-
-    it('cannot be initialize twice', async () => {
-      await expect(oracle.initialize(admin.address)).to.be.revertedWith(
-        'Initializable: contract is already initialized'
-      )
-    })
-  })
-
-  describe('setFeeds', () => {
-    beforeEach('deploy feed and tokens', async () => {
-      feed = await deploy('FeedMock', [0, 0])
-      base = await deploy('TokenMock', ['BASE', 18])
-      quote = await deploy('TokenMock', ['QUOTE', 18])
-    })
-
-    context('when the sender is authorized', () => {
-      beforeEach('authorize', async () => {
-        const setFeedsRole = oracle.interface.getSighash('setFeeds')
-        await oracle.connect(admin).authorize(admin.address, setFeedsRole)
-        oracle = oracle.connect(admin)
-      })
-
-      context('when the input length is valid', () => {
-        context('when the feed is in the registry', () => {
-          beforeEach('register feed in registry', async () => {
-            await registry.connect(admin).register(await oracle.FEEDS_NAMESPACE(), feed.address)
-          })
-
-          const itCanBeSet = () => {
-            it('can be set', async () => {
-              const tx = await oracle.setFeeds([base.address], [quote.address], [feed.address])
-
-              expect(await oracle.hasFeed(base.address, quote.address)).to.be.true
-              expect(await oracle.getFeed(base.address, quote.address)).to.be.equal(feed.address)
-
-              await assertEvent(tx, 'FeedSet', { base, quote, feed })
-            })
-          }
-
-          const itCanBeUnset = () => {
-            it('can be unset', async () => {
-              const tx = await oracle.setFeeds([base.address], [quote.address], [ZERO_ADDRESS])
-
-              expect(await oracle.hasFeed(base.address, quote.address)).to.be.false
-              expect(await oracle.getFeed(base.address, quote.address)).to.be.equal(ZERO_ADDRESS)
-
-              await assertEvent(tx, 'FeedSet', { base, quote, feed: ZERO_ADDRESS })
-            })
-          }
-
-          context('when the feed is set', () => {
-            beforeEach('set feed', async () => {
-              await oracle.connect(admin).setFeeds([base.address], [quote.address], [feed.address])
-              expect(await oracle.getFeed(base.address, quote.address)).to.be.equal(feed.address)
-            })
-
-            itCanBeSet()
-            itCanBeUnset()
-          })
-
-          context('when the feed is not set', () => {
-            beforeEach('unset feed', async () => {
-              await oracle.connect(admin).setFeeds([base.address], [quote.address], [ZERO_ADDRESS])
-              expect(await oracle.getFeed(base.address, quote.address)).to.be.equal(ZERO_ADDRESS)
-            })
-
-            itCanBeSet()
-            itCanBeUnset()
-          })
-        })
-
-        context('when the feed is not in the registry', () => {
-          it('reverts', async () => {
-            await expect(oracle.setFeeds([base.address], [quote.address], [feed.address])).to.be.revertedWith(
-              'NEW_DEPENDENCY_NOT_REGISTERED'
-            )
-          })
-        })
-      })
-
-      context('when the input is invalid', () => {
-        it('reverts', async () => {
-          await expect(
-            oracle.setFeeds([base.address], [quote.address, ZERO_ADDRESS], [ZERO_ADDRESS])
-          ).to.be.revertedWith('SET_FEEDS_INVALID_QUOTES_LENGTH')
-          await expect(
-            oracle.setFeeds([base.address], [quote.address], [ZERO_ADDRESS, ZERO_ADDRESS])
-          ).to.be.revertedWith('SET_FEEDS_INVALID_FEEDS_LENGTH')
-        })
-      })
-    })
-
-    context('when the sender is not authorized', () => {
-      beforeEach('set sender', () => {
-        oracle = oracle.connect(other)
-      })
-
-      it('reverts', async () => {
-        await expect(oracle.setFeeds([base.address], [quote.address], [ZERO_ADDRESS])).to.be.revertedWith(
-          'AUTH_SENDER_NOT_ALLOWED'
-        )
-      })
-    })
+    oracle = await deploy('PriceOracle', [PIVOT, ZERO_ADDRESS])
   })
 
   describe('getPrice', () => {
-    beforeEach('authorize', async () => {
-      const setFeedsRole = oracle.interface.getSighash('setFeeds')
-      await oracle.connect(admin).authorize(admin.address, setFeedsRole)
+    let provider: Contract, base: Contract, quote: Contract
+
+    beforeEach('deploy provider', async () => {
+      provider = await deploy('PriceFeedProvider')
     })
 
     context('when there is no feed', () => {
@@ -153,7 +25,9 @@ describe('PriceOracle', () => {
       })
 
       it('reverts', async () => {
-        await expect(oracle.getPrice(base.address, quote.address)).to.be.revertedWith('MISSING_BASE_PIVOT_FEED')
+        await expect(oracle.getPrice(provider.address, base.address, quote.address)).to.be.revertedWith(
+          'MISSING_PRICE_FEED'
+        )
       })
     })
 
@@ -167,7 +41,9 @@ describe('PriceOracle', () => {
         })
 
         it('reverts', async () => {
-          await expect(oracle.getPrice(base.address, quote.address)).to.be.revertedWith('BASE_DECIMALS_TOO_BIG')
+          await expect(oracle.getPrice(provider.address, base.address, quote.address)).to.be.revertedWith(
+            'BASE_DECIMALS_TOO_BIG'
+          )
         })
       }
 
@@ -183,12 +59,11 @@ describe('PriceOracle', () => {
 
         beforeEach('set feed', async () => {
           const feed = await deploy('FeedMock', [reportedPrice, feedDecimals])
-          await registry.connect(admin).register(await oracle.FEEDS_NAMESPACE(), feed.address)
-          await oracle.connect(admin).setFeeds([base.address], [quote.address], [feed.address])
+          await provider.setPriceFeeds([base.address], [quote.address], [feed.address])
         })
 
         it(`expresses the price with ${resultDecimals} decimals`, async () => {
-          expect(await oracle.getPrice(base.address, quote.address)).to.be.equal(expectedPrice)
+          expect(await oracle.getPrice(provider.address, base.address, quote.address)).to.be.equal(expectedPrice)
         })
       }
 
@@ -451,7 +326,9 @@ describe('PriceOracle', () => {
         })
 
         it('reverts', async () => {
-          await expect(oracle.getPrice(base.address, quote.address)).to.be.revertedWith('BASE_DECIMALS_TOO_BIG')
+          await expect(oracle.getPrice(provider.address, base.address, quote.address)).to.be.revertedWith(
+            'BASE_DECIMALS_TOO_BIG'
+          )
         })
       }
 
@@ -467,12 +344,11 @@ describe('PriceOracle', () => {
 
         beforeEach('set inverse feed', async () => {
           const feed = await deploy('FeedMock', [reportedInversePrice, feedDecimals])
-          await registry.connect(admin).register(await oracle.FEEDS_NAMESPACE(), feed.address)
-          await oracle.connect(admin).setFeeds([quote.address], [base.address], [feed.address])
+          await provider.setPriceFeeds([quote.address], [base.address], [feed.address])
         })
 
         it(`expresses the price with ${resultDecimals} decimals`, async () => {
-          const price = await oracle.getPrice(base.address, quote.address)
+          const price = await oracle.getPrice(provider.address, base.address, quote.address)
 
           if (feedDecimals > 18) {
             // There is no precision error
@@ -748,7 +624,9 @@ describe('PriceOracle', () => {
         })
 
         it('reverts', async () => {
-          await expect(oracle.getPrice(base.address, quote.address)).to.be.revertedWith('BASE_DECIMALS_TOO_BIG')
+          await expect(oracle.getPrice(provider.address, base.address, quote.address)).to.be.revertedWith(
+            'BASE_DECIMALS_TOO_BIG'
+          )
         })
       }
 
@@ -771,15 +649,15 @@ describe('PriceOracle', () => {
         beforeEach('set feed', async () => {
           const baseFeed = await deploy('FeedMock', [reportedBasePrice, baseFeedDecimals])
           const quoteFeed = await deploy('FeedMock', [reportedQuotePrice, quoteFeedDecimals])
-          await registry.connect(admin).register(await oracle.FEEDS_NAMESPACE(), baseFeed.address)
-          await registry.connect(admin).register(await oracle.FEEDS_NAMESPACE(), quoteFeed.address)
-          await oracle
-            .connect(admin)
-            .setFeeds([base.address, quote.address], [PIVOT, PIVOT], [baseFeed.address, quoteFeed.address])
+          await provider.setPriceFeeds(
+            [base.address, quote.address],
+            [PIVOT, PIVOT],
+            [baseFeed.address, quoteFeed.address]
+          )
         })
 
         it(`expresses the price with ${resultDecimals} decimals`, async () => {
-          expect(await oracle.getPrice(base.address, quote.address)).to.be.equal(expectedPrice)
+          expect(await oracle.getPrice(provider.address, base.address, quote.address)).to.be.equal(expectedPrice)
         })
       }
 

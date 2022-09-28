@@ -1429,6 +1429,87 @@ describe('Wallet', () => {
     })
   })
 
+  describe('setPriceFeeds', () => {
+    let feed: Contract, base: Contract, quote: Contract
+
+    beforeEach('deploy feed and tokens', async () => {
+      feed = await deploy('ContractMock')
+      base = await deploy('TokenMock', ['BASE'])
+      quote = await deploy('TokenMock', ['QUOTE'])
+    })
+
+    context('when the sender is authorized', () => {
+      beforeEach('set sender', async () => {
+        const setPriceFeedsRole = wallet.interface.getSighash('setPriceFeeds')
+        await wallet.connect(admin).authorize(admin.address, setPriceFeedsRole)
+        wallet = wallet.connect(admin)
+      })
+
+      context('when the input length is valid', () => {
+        const itCanBeSet = () => {
+          it('can be set', async () => {
+            const tx = await wallet.setPriceFeeds([base.address], [quote.address], [feed.address])
+
+            expect(await wallet.getPriceFeed(base.address, quote.address)).to.be.equal(feed.address)
+
+            await assertEvent(tx, 'PriceFeedSet', { base, quote, feed })
+          })
+        }
+
+        const itCanBeUnset = () => {
+          it('can be unset', async () => {
+            const tx = await wallet.setPriceFeeds([base.address], [quote.address], [ZERO_ADDRESS])
+
+            expect(await wallet.getPriceFeed(base.address, quote.address)).to.be.equal(ZERO_ADDRESS)
+
+            await assertEvent(tx, 'PriceFeedSet', { base, quote, feed: ZERO_ADDRESS })
+          })
+        }
+
+        context('when the feed is set', () => {
+          beforeEach('set feed', async () => {
+            await wallet.setPriceFeeds([base.address], [quote.address], [feed.address])
+            expect(await wallet.getPriceFeed(base.address, quote.address)).to.be.equal(feed.address)
+          })
+
+          itCanBeSet()
+          itCanBeUnset()
+        })
+
+        context('when the feed is not set', () => {
+          beforeEach('unset feed', async () => {
+            await wallet.setPriceFeeds([base.address], [quote.address], [ZERO_ADDRESS])
+            expect(await wallet.getPriceFeed(base.address, quote.address)).to.be.equal(ZERO_ADDRESS)
+          })
+
+          itCanBeSet()
+          itCanBeUnset()
+        })
+      })
+
+      context('when the input is invalid', () => {
+        it('reverts', async () => {
+          await expect(
+            wallet.setPriceFeeds([base.address], [quote.address, ZERO_ADDRESS], [ZERO_ADDRESS])
+          ).to.be.revertedWith('SET_FEEDS_INVALID_QUOTES_LENGTH')
+          await expect(
+            wallet.setPriceFeeds([base.address], [quote.address], [ZERO_ADDRESS, ZERO_ADDRESS])
+          ).to.be.revertedWith('SET_FEEDS_INVALID_FEEDS_LENGTH')
+        })
+      })
+    })
+
+    context('when the sender is not authorized', () => {
+      beforeEach('set sender', () => {
+        wallet = wallet.connect(other)
+      })
+
+      it('reverts', async () => {
+        await expect(wallet.setSwapFee(0, 0, ZERO_ADDRESS, 0)).to.be.revertedWith('AUTH_SENDER_NOT_ALLOWED')
+      })
+    })
+  })
+
   describe('call', () => {
     const value = fp(0.01)
     let target: Contract

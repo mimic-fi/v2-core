@@ -15,13 +15,14 @@
 pragma solidity ^0.8.0;
 
 import '@mimic-fi/v2-helpers/contracts/auth/IAuthorizer.sol';
+import '@mimic-fi/v2-price-oracle/contracts/feeds/IPriceFeedProvider.sol';
 import '@mimic-fi/v2-registry/contracts/implementations/IImplementation.sol';
 
 /**
  * @title IWallet
  * @dev Mimic Wallet interface to manage assets. It must support also `IImplementation` and `IAuthorizer`
  */
-interface IWallet is IImplementation, IAuthorizer {
+interface IWallet is IPriceFeedProvider, IImplementation, IAuthorizer {
     enum SwapLimit {
         Slippage,
         MinAmountOut
@@ -220,6 +221,13 @@ interface IWallet is IImplementation, IAuthorizer {
      * @param period New cap period length in seconds for the swap fee
      */
     function setSwapFee(uint256 pct, uint256 cap, address token, uint256 period) external;
+
+    /**
+     * @dev Tells the price of a token (base) in a given quote
+     * @param base Token to rate
+     * @param quote Token used for the price rate
+     */
+    function getPrice(address base, address quote) external view returns (uint256);
 
     /**
      * @dev Execute an arbitrary call from the Mimic Wallet

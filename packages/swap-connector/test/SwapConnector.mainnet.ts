@@ -1,6 +1,5 @@
 import { defaultAbiCoder } from '@ethersproject/abi'
-import { deploy, fp, getSigners, impersonate, instanceAt, pct, ZERO_ADDRESS } from '@mimic-fi/v2-helpers'
-import { createClone } from '@mimic-fi/v2-registry'
+import { deploy, fp, impersonate, instanceAt, pct, ZERO_ADDRESS } from '@mimic-fi/v2-helpers'
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/dist/src/signer-with-address'
 import { expect } from 'chai'
 import { BigNumber, Contract } from 'ethers'
@@ -29,16 +28,11 @@ const BALANCER_POOL_WETH_USDC_ID = '0x96646936b91d6b9d7d0c47c496afbf3d6ec7b6f800
 const BALANCER_POOL_WETH_WBTC_ID = '0xa6f548df93de924d73be7d25dc02554c6bd66db500020000000000000000000e'
 
 describe('SwapConnector', () => {
-  let connector: Contract, oracle: Contract
+  let connector: Contract, priceOracle: Contract, feedsProvider: Contract
   let weth: Contract, wbtc: Contract, usdc: Contract
-  let admin: SignerWithAddress, whale: SignerWithAddress
+  let whale: SignerWithAddress
 
   const SLIPPAGE = 0.025
-
-  before('set up signers', async () => {
-    // eslint-disable-next-line prettier/prettier
-    [, admin] = await getSigners()
-  })
 
   before('create swap connector', async () => {
     connector = await deploy('SwapConnector', [
@@ -51,25 +45,21 @@ describe('SwapConnector', () => {
   })
 
   before('create price oracle', async () => {
-    const registry = await deploy('@mimic-fi/v2-registry/artifacts/contracts/registry/Registry.sol/Registry', [
-      admin.address,
+    priceOracle = await deploy('@mimic-fi/v2-price-oracle/artifacts/contracts/oracle/PriceOracle.sol/PriceOracle', [
+      WETH,
+      ZERO_ADDRESS,
     ])
-    oracle = await createClone(
-      registry,
-      admin,
-      '@mimic-fi/v2-price-oracle/artifacts/contracts/PriceOracle.sol/PriceOracle',
-      [WETH, registry.address],
-      [admin.address]
+  })
+
+  before('create price feeds provider', async () => {
+    feedsProvider = await deploy(
+      '@mimic-fi/v2-price-oracle/artifacts/contracts/feeds/PriceFeedProvider.sol/PriceFeedProvider'
     )
-
-    await registry.connect(admin).register(await oracle.FEEDS_NAMESPACE(), CHAINLINK_ORACLE_USDC_ETH)
-    await registry.connect(admin).register(await oracle.FEEDS_NAMESPACE(), CHAINLINK_ORACLE_WBTC_ETH)
-
-    const setFeedsRole = oracle.interface.getSighash('setFeeds')
-    await oracle.connect(admin).authorize(admin.address, setFeedsRole)
-    await oracle
-      .connect(admin)
-      .setFeeds([USDC, WBTC], [WETH, WETH], [CHAINLINK_ORACLE_USDC_ETH, CHAINLINK_ORACLE_WBTC_ETH])
+    await feedsProvider.setPriceFeeds(
+      [USDC, WBTC],
+      [WETH, WETH],
+      [CHAINLINK_ORACLE_USDC_ETH, CHAINLINK_ORACLE_WBTC_ETH]
+    )
   })
 
   before('load tokens and accounts', async () => {
@@ -80,7 +70,7 @@ describe('SwapConnector', () => {
   })
 
   const getExpectedMinAmountOut = async (tokenIn: string, tokenOut: string, amountIn: BigNumber) => {
-    const price = await oracle.getPrice(tokenIn, tokenOut)
+    const price = await priceOracle.getPrice(feedsProvider.address, tokenIn, tokenOut)
     const expectedAmountOut = price.mul(amountIn).div(fp(1))
     return expectedAmountOut.sub(pct(expectedAmountOut, SLIPPAGE))
   }

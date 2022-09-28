@@ -22,7 +22,8 @@ import '@openzeppelin/contracts/utils/math/Math.sol';
 import '@mimic-fi/v2-helpers/contracts/math/FixedPoint.sol';
 import '@mimic-fi/v2-helpers/contracts/math/UncheckedMath.sol';
 import '@mimic-fi/v2-helpers/contracts/utils/Denominations.sol';
-import '@mimic-fi/v2-price-oracle/contracts/IPriceOracle.sol';
+import '@mimic-fi/v2-price-oracle/contracts/oracle/IPriceOracle.sol';
+import '@mimic-fi/v2-price-oracle/contracts/feeds/PriceFeedProvider.sol';
 import '@mimic-fi/v2-strategies/contracts/IStrategy.sol';
 import '@mimic-fi/v2-swap-connector/contracts/ISwapConnector.sol';
 import '@mimic-fi/v2-registry/contracts/implementations/InitializableAuthorizedImplementation.sol';
@@ -39,7 +40,7 @@ import './helpers/SwapConnectorLib.sol';
  * It inherits from InitializableAuthorizedImplementation which means it's implementation can be cloned
  * from the Mimic Registry and should be initialized depending on each case.
  */
-contract Wallet is IWallet, InitializableAuthorizedImplementation {
+contract Wallet is IWallet, PriceFeedProvider, InitializableAuthorizedImplementation {
     using SafeERC20 for IERC20;
     using FixedPoint for uint256;
     using UncheckedMath for uint256;
@@ -183,6 +184,29 @@ contract Wallet is IWallet, InitializableAuthorizedImplementation {
     function setSwapFee(uint256 pct, uint256 cap, address token, uint256 period) external override auth {
         _setFeeConfiguration(swapFee, pct, cap, token, period);
         emit SwapFeeSet(pct, cap, token, period);
+    }
+
+    /**
+     * @dev Sets a list of price feeds. Sender must be authorized.
+     * @param bases List of token bases to be set
+     * @param quotes List of token quotes to be set
+     * @param feeds List of price feeds to be set
+     */
+    function setPriceFeeds(address[] memory bases, address[] memory quotes, address[] memory feeds)
+        public
+        override(IPriceFeedProvider, PriceFeedProvider)
+        auth
+    {
+        super.setPriceFeeds(bases, quotes, feeds);
+    }
+
+    /**
+     * @dev Tells the price of a token (base) in a given quote
+     * @param base Token to rate
+     * @param quote Token used for the price rate
+     */
+    function getPrice(address base, address quote) public view override returns (uint256) {
+        return IPriceOracle(priceOracle).getPrice(address(this), base, quote);
     }
 
     /**
@@ -345,7 +369,7 @@ contract Wallet is IWallet, InitializableAuthorizedImplementation {
             minAmountOut = limitAmount;
         } else {
             require(limitAmount <= FixedPoint.ONE, 'SWAP_SLIPPAGE_ABOVE_ONE');
-            uint256 price = IPriceOracle(priceOracle).getPrice(tokenIn, tokenOut);
+            uint256 price = getPrice(tokenIn, tokenOut);
             // No need for checked math as we are checking it manually beforehand
             // Always round up the expected min amount out
             minAmountOut = amountIn.mulUp(price).mulUp(FixedPoint.ONE.uncheckedSub(limitAmount));
@@ -387,7 +411,7 @@ contract Wallet is IWallet, InitializableAuthorizedImplementation {
         }
 
         // Calc fee amount in the fee token used for the cap
-        uint256 feeTokenPrice = IPriceOracle(priceOracle).getPrice(token, fee.token);
+        uint256 feeTokenPrice = getPrice(token, fee.token);
         uint256 feeAmountInFeeToken = feeAmount.mulDown(feeTokenPrice);
 
         // Compute fee amount picking the minimum between the chargeable amount and the remaining part for the cap
@@ -510,7 +534,7 @@ contract Wallet is IWallet, InitializableAuthorizedImplementation {
 
             // If the cap token is being changed the total charged amount must be updated accordingly
             if (fee.token != token) {
-                uint256 newTokenPrice = IPriceOracle(priceOracle).getPrice(fee.token, token);
+                uint256 newTokenPrice = getPrice(fee.token, token);
                 fee.totalCharged = fee.totalCharged.mulDown(newTokenPrice);
             }
         }

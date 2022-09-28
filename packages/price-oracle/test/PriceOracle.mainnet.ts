@@ -1,6 +1,4 @@
-import { assertAlmostEqual, deploy, fp, getSigners } from '@mimic-fi/v2-helpers'
-import { createClone } from '@mimic-fi/v2-registry'
-import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/dist/src/signer-with-address'
+import { assertAlmostEqual, deploy, fp, ZERO_ADDRESS } from '@mimic-fi/v2-helpers'
 import { Contract } from 'ethers'
 
 /* eslint-disable no-secrets/no-secrets */
@@ -15,78 +13,68 @@ const CHAINLINK_ORACLE_USDC_ETH = '0x986b5E1e1755e3C2440e960477f25201B0a8bbD4'
 const CHAINLINK_ORACLE_WBTC_ETH = '0xdeb288F737066589598e9214E782fa5A8eD689e8'
 
 describe('PriceOracle', () => {
-  let oracle: Contract, registry: Contract, admin: SignerWithAddress
+  let oracle: Contract, provider: Contract
 
   const ERROR = 0.01
   const ETH_USD = 1610
   const ETH_BTC = 0.0754
   const BTC_USD = ETH_USD / ETH_BTC
 
-  before('set up signers', async () => {
-    // eslint-disable-next-line prettier/prettier
-    [, admin] = await getSigners()
-  })
-
   before('create price oracle', async () => {
-    registry = await deploy('@mimic-fi/v2-registry/artifacts/contracts/registry/Registry.sol/Registry', [admin.address])
-    oracle = await createClone(registry, admin, 'PriceOracle', [WETH, registry.address], [admin.address])
-    const setFeedsRole = oracle.interface.getSighash('setFeeds')
-    await oracle.connect(admin).authorize(admin.address, setFeedsRole)
+    oracle = await deploy('PriceOracle', [WETH, ZERO_ADDRESS])
+    provider = await deploy('PriceFeedProvider')
   })
 
   context('WETH - DAI', () => {
     before('set feed', async () => {
-      await registry.connect(admin).register(await oracle.FEEDS_NAMESPACE(), CHAINLINK_ORACLE_DAI_ETH)
-      await oracle.connect(admin).setFeeds([DAI], [WETH], [CHAINLINK_ORACLE_DAI_ETH])
+      await provider.setPriceFeeds([DAI], [WETH], [CHAINLINK_ORACLE_DAI_ETH])
     })
 
     it('quotes WETH/DAI correctly', async () => {
       const expectedPrice = fp(ETH_USD)
-      const price = await oracle.getPrice(WETH, DAI)
+      const price = await oracle.getPrice(provider.address, WETH, DAI)
       assertAlmostEqual(price, expectedPrice, ERROR)
     })
 
     it('quotes DAI/WETH correctly', async () => {
       const expectedPrice = fp(1 / ETH_USD)
-      const price = await oracle.getPrice(DAI, WETH)
+      const price = await oracle.getPrice(provider.address, DAI, WETH)
       assertAlmostEqual(price, expectedPrice, ERROR)
     })
   })
 
   context('WETH - USDC', () => {
     before('set feed', async () => {
-      await registry.connect(admin).register(await oracle.FEEDS_NAMESPACE(), CHAINLINK_ORACLE_USDC_ETH)
-      await oracle.connect(admin).setFeeds([USDC], [WETH], [CHAINLINK_ORACLE_USDC_ETH])
+      await provider.setPriceFeeds([USDC], [WETH], [CHAINLINK_ORACLE_USDC_ETH])
     })
 
     it('quotes WETH/USDC correctly', async () => {
       const expectedPrice = fp(ETH_USD).div(1e12) // 6 decimals => WETH * price / 1e18 = USDC
-      const price = await oracle.getPrice(WETH, USDC)
+      const price = await oracle.getPrice(provider.address, WETH, USDC)
       assertAlmostEqual(price, expectedPrice, ERROR)
     })
 
     it('quotes USDC/WETH correctly', async () => {
       const expectedPrice = fp(1 / ETH_USD).mul(1e12) // 30 decimals => USDC * price / 1e18 = WETH
-      const price = await oracle.getPrice(USDC, WETH)
+      const price = await oracle.getPrice(provider.address, USDC, WETH)
       assertAlmostEqual(price, expectedPrice, ERROR)
     })
   })
 
   context('WETH - WBTC', () => {
     before('set feed', async () => {
-      await registry.connect(admin).register(await oracle.FEEDS_NAMESPACE(), CHAINLINK_ORACLE_WBTC_ETH)
-      await oracle.connect(admin).setFeeds([WBTC], [WETH], [CHAINLINK_ORACLE_WBTC_ETH])
+      await provider.setPriceFeeds([WBTC], [WETH], [CHAINLINK_ORACLE_WBTC_ETH])
     })
 
     it('quotes WETH/WBTC correctly', async () => {
       const expectedPrice = fp(ETH_BTC).div(1e10) // 8 decimals => WETH * price / 1e18 = WBTC
-      const price = await oracle.getPrice(WETH, WBTC)
+      const price = await oracle.getPrice(provider.address, WETH, WBTC)
       assertAlmostEqual(price, expectedPrice, ERROR)
     })
 
     it('quotes WBTC/WETH correctly', async () => {
       const expectedPrice = fp(1 / ETH_BTC).mul(1e10) // 28 decimals => WBTC * price / 1e18 = WETH
-      const price = await oracle.getPrice(WBTC, WETH)
+      const price = await oracle.getPrice(provider.address, WBTC, WETH)
       assertAlmostEqual(price, expectedPrice, ERROR)
     })
   })
@@ -94,13 +82,13 @@ describe('PriceOracle', () => {
   context('WBTC - USDC', () => {
     it('quotes WBTC/USDC correctly', async () => {
       const expectedPrice = fp(BTC_USD).div(1e2) // 16 decimals => WBTC * price / 1e18 = USDC
-      const price = await oracle.getPrice(WBTC, USDC)
+      const price = await oracle.getPrice(provider.address, WBTC, USDC)
       assertAlmostEqual(price, expectedPrice, ERROR)
     })
 
     it('quotes USDC/WBTC correctly', async () => {
       const expectedPrice = fp(1 / BTC_USD).mul(1e2) // 20 decimals => USDC * price / 1e18 = WBTC
-      const price = await oracle.getPrice(USDC, WBTC)
+      const price = await oracle.getPrice(provider.address, USDC, WBTC)
       assertAlmostEqual(price, expectedPrice, ERROR)
     })
   })
@@ -108,13 +96,13 @@ describe('PriceOracle', () => {
   context('WBTC - DAI', () => {
     it('quotes WBTC/DAI correctly', async () => {
       const expectedPrice = fp(BTC_USD).mul(1e10) // 28 decimals => WBTC * price / 1e18 = DAI
-      const price = await oracle.getPrice(WBTC, DAI)
+      const price = await oracle.getPrice(provider.address, WBTC, DAI)
       assertAlmostEqual(price, expectedPrice, ERROR)
     })
 
     it('quotes DAI/WBTC correctly', async () => {
       const expectedPrice = fp(1 / BTC_USD).div(1e10) // 8 decimals => DAI * price / 1e18 = WBTC
-      const price = await oracle.getPrice(DAI, WBTC)
+      const price = await oracle.getPrice(provider.address, DAI, WBTC)
       assertAlmostEqual(price, expectedPrice, ERROR)
     })
   })
@@ -122,13 +110,13 @@ describe('PriceOracle', () => {
   context('DAI - USDC', () => {
     it('quotes DAI/USDC correctly', async () => {
       const expectedPrice = fp(1).div(1e12) // 6 decimals => DAI * price / 1e18 = USDC
-      const price = await oracle.getPrice(DAI, USDC)
+      const price = await oracle.getPrice(provider.address, DAI, USDC)
       assertAlmostEqual(price, expectedPrice, ERROR)
     })
 
     it('quotes USDC/DAI correctly', async () => {
       const expectedPrice = fp(1).mul(1e12) // 30 decimals => USDC * price / 1e18 = DAI
-      const price = await oracle.getPrice(USDC, DAI)
+      const price = await oracle.getPrice(provider.address, USDC, DAI)
       assertAlmostEqual(price, expectedPrice, ERROR)
     })
   })

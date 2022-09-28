@@ -14,34 +14,14 @@
 
 pragma solidity >=0.8.0;
 
-import '@mimic-fi/v2-helpers/contracts/auth/IAuthorizer.sol';
 import '@mimic-fi/v2-registry/contracts/implementations/IImplementation.sol';
 
 /**
  * @title IPriceOracle
  * @dev Oracle that interfaces with external feeds to provide quotes for tokens based on any other token.
- * It must support also `IImplementation` and `IAuthorizer`
+ * It must support also `IImplementation`.
  */
-interface IPriceOracle is IImplementation, IAuthorizer {
-    /**
-     * @dev Emitted every time a price feed is set for (base, quote) pair
-     */
-    event FeedSet(address indexed base, address indexed quote, address feed);
-
-    /**
-     * @dev Tells whether there is a price feed address set for a (base, quote) pair or not.
-     * @param base Token to be rated
-     * @param quote Token used for the price rate
-     */
-    function hasFeed(address base, address quote) external view returns (bool);
-
-    /**
-     * @dev Tells the price feed address for (base, quote) pair. It returns the zero address if there is no one set.
-     * @param base Token to be rated
-     * @param quote Token used for the price rate
-     */
-    function getFeed(address base, address quote) external view returns (address);
-
+interface IPriceOracle is IImplementation {
     /**
      * @dev Tells the price of a token (base) in a given quote. The response is expressed using the corresponding
      * number of decimals so that when performing a fixed point product of it by a `base` amount it results in
@@ -53,13 +33,5 @@ interface IPriceOracle is IImplementation, IAuthorizer {
      * @param base Token to rate
      * @param quote Token used for the price rate
      */
-    function getPrice(address base, address quote) external view returns (uint256);
-
-    /**
-     * @dev Sets a list of price feeds
-     * @param bases List of token bases to be set
-     * @param quotes List of token quotes to be set
-     * @param feeds List of price feeds to be set
-     */
-    function setFeeds(address[] memory bases, address[] memory quotes, address[] memory feeds) external;
+    function getPrice(address provider, address base, address quote) external view returns (uint256);
 }

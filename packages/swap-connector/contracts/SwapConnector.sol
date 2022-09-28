@@ -26,10 +26,13 @@ import './connectors/ParaswapV5Connector.sol';
  * @title SwapConnector
  * @dev Swap Connector implementation that interfaces with Uniswap V2, Uniswap V3, Balancer V2, and Paraswap V5.
  *
+ * It inherits from BaseImplementation which means it's implementation can be used directly from the Mimic Registry,
+ * it does not require initialization.
+ *
  * IMPORTANT! As many other implementations in this repo, this contract is intended to be used as a LIBRARY, not
  * a contract. Due to limitations of the Solidity compiler, it's not possible to work with immutable variables in
  * libraries yet. Therefore, we are relying on contracts without storage variables so they can be safely
- * delegate-called.
+ * delegate-called if desired.
  */
 contract SwapConnector is
     ISwapConnector,

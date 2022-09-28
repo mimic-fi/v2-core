@@ -3,9 +3,10 @@
 pragma solidity ^0.8.0;
 
 import '@mimic-fi/v2-helpers/contracts/math/FixedPoint.sol';
+import '@mimic-fi/v2-price-oracle/contracts/oracle/IPriceOracle.sol';
 import '@mimic-fi/v2-registry/contracts/implementations/BaseImplementation.sol';
 
-contract PriceOracleMock is BaseImplementation {
+contract PriceOracleMock is IPriceOracle, BaseImplementation {
     bytes32 public constant override NAMESPACE = keccak256('PRICE_ORACLE');
 
     mapping (address => mapping (address => uint256)) public mockedRates;
@@ -18,7 +19,7 @@ contract PriceOracleMock is BaseImplementation {
         mockedRates[base][quote] = newMockedRate;
     }
 
-    function getPrice(address base, address quote) external view returns (uint256) {
+    function getPrice(address, address base, address quote) external view override returns (uint256) {
         if (base == quote) return FixedPoint.ONE;
         return mockedRates[base][quote];
     }
