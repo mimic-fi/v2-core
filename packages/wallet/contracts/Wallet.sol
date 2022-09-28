@@ -220,8 +220,7 @@ contract Wallet is IWallet, InitializableAuthorizedImplementation {
         require(amount > 0, 'WITHDRAW_AMOUNT_ZERO');
         require(recipient != address(0), 'RECIPIENT_ZERO');
 
-        uint256 withdrawFeeAmount = _calcFeeAmountToCharge(token, amount, withdrawFee);
-        _safeTransfer(token, feeCollector, withdrawFeeAmount);
+        uint256 withdrawFeeAmount = _payFee(token, amount, withdrawFee);
         uint256 amountAfterFees = amount - withdrawFeeAmount;
         _safeTransfer(token, recipient, amountAfterFees);
         emit Withdraw(token, recipient, amountAfterFees, withdrawFeeAmount, data);
@@ -307,8 +306,7 @@ contract Wallet is IWallet, InitializableAuthorizedImplementation {
             // the taxable amount is the entire exited amount, otherwise it should be the equivalent gains ratio of it.
             uint256 valueGains = valueBeforeExit - investedValue;
             uint256 taxableAmount = valueGains > exitValue ? amount : ((amount * valueGains) / exitValue);
-            performanceFeeAmount = _calcFeeAmountToCharge(token, taxableAmount, performanceFee);
-            _safeTransfer(token, feeCollector, performanceFeeAmount);
+            performanceFeeAmount = _payFee(token, taxableAmount, performanceFee);
             // If the exit value is greater than the value gains, the invested value should be reduced by the portion
             // of the invested value being exited. Otherwise, it's still the same, only gains are being withdrawn.
             // No need for checked math as we are checking it manually beforehand
@@ -360,29 +358,27 @@ contract Wallet is IWallet, InitializableAuthorizedImplementation {
         uint256 postBalanceOut = IERC20(tokenOut).balanceOf(address(this));
         require(postBalanceOut >= preBalanceOut + amountOutBeforeFees, 'SWAP_INVALID_AMOUNT_OUT');
 
-        uint256 swapFeeAmount = _calcFeeAmountToCharge(tokenOut, amountOutBeforeFees, swapFee);
-        _safeTransfer(tokenOut, feeCollector, swapFeeAmount);
-
+        uint256 swapFeeAmount = _payFee(tokenOut, amountOutBeforeFees, swapFee);
         amountOut = amountOutBeforeFees - swapFeeAmount;
         emit Swap(source, tokenIn, tokenOut, amountIn, amountOut, minAmountOut, swapFeeAmount, data);
     }
 
     /**
-     * @dev Internal function to compute the amount of fees to be charged based on a fee configuration
+     * @dev Internal function to pay the amount of fees to be charged based on a fee configuration to the fee collector
      * @param token Token being charged
      * @param amount Token amount to be taxed with fees
      * @param fee Fee configuration to be applied
-     * @return amountToCharge Amount of fees to be charged
+     * @return paidAmount Amount of fees paid to the fee collector
      */
-    function _calcFeeAmountToCharge(address token, uint256 amount, Fee storage fee)
-        internal
-        returns (uint256 amountToCharge)
-    {
+    function _payFee(address token, uint256 amount, Fee storage fee) internal returns (uint256 paidAmount) {
         // Fee amounts are always rounded down
         uint256 feeAmount = amount.mulDown(fee.pct);
 
         // If cap amount or cap period are not set, charge the entire amount
-        if (fee.token == address(0) || fee.cap == 0 || fee.period == 0) return feeAmount;
+        if (fee.token == address(0) || fee.cap == 0 || fee.period == 0) {
+            _safeTransfer(token, feeCollector, feeAmount);
+            return feeAmount;
+        }
 
         // Reset cap totalizator if necessary
         if (block.timestamp >= fee.nextResetTime) {
@@ -396,12 +392,15 @@ contract Wallet is IWallet, InitializableAuthorizedImplementation {
 
         // Compute fee amount picking the minimum between the chargeable amount and the remaining part for the cap
         if (fee.totalCharged + feeAmountInFeeToken <= fee.cap) {
-            amountToCharge = feeAmount;
+            paidAmount = feeAmount;
             fee.totalCharged += feeAmountInFeeToken;
         } else {
-            amountToCharge = ((fee.cap - fee.totalCharged) * feeAmount) / feeAmountInFeeToken;
+            paidAmount = ((fee.cap - fee.totalCharged) * feeAmount) / feeAmountInFeeToken;
             fee.totalCharged = fee.cap;
         }
+
+        // Pay fee amount to the fee collector
+        _safeTransfer(token, feeCollector, paidAmount);
     }
 
     /**
