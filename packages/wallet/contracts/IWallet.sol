@@ -31,7 +31,7 @@ interface IWallet is IPriceFeedProvider, IImplementation, IAuthorizer {
     /**
      * @dev Emitted every time a new strategy is set for the Mimic Wallet
      */
-    event StrategySet(address strategy);
+    event StrategySet(address strategy, bool allowed);
 
     /**
      * @dev Emitted every time a new price oracle is set for the Mimic Wallet
@@ -91,17 +91,17 @@ interface IWallet is IPriceFeedProvider, IImplementation, IAuthorizer {
     /**
      * @dev Emitted every time `claim` is called
      */
-    event Claim(bytes data);
+    event Claim(address strategy, bytes data);
 
     /**
      * @dev Emitted every time `join` is called
      */
-    event Join(uint256 amount, uint256 value, uint256 slippage, bytes data);
+    event Join(address strategy, uint256 amount, uint256 value, uint256 slippage, bytes data);
 
     /**
      * @dev Emitted every time `exit` is called
      */
-    event Exit(uint256 amount, uint256 value, uint256 fee, uint256 slippage, bytes data);
+    event Exit(address strategy, uint256 amount, uint256 value, uint256 fee, uint256 slippage, bytes data);
 
     /**
      * @dev Emitted every time `swap` is called
@@ -118,9 +118,22 @@ interface IWallet is IPriceFeedProvider, IImplementation, IAuthorizer {
     );
 
     /**
-     * @dev Tells the strategy associated to a Mimic Wallet
+     * @dev Tells a strategy is allowed or not
+     * @param strategy Address of the strategy being queried
      */
-    function strategy() external view returns (address);
+    function isStrategyAllowed(address strategy) external view returns (bool);
+
+    /**
+     * @dev Tells the invested value for a strategy
+     * @param strategy Address of the strategy querying the invested value of
+     */
+    function investedValue(address strategy) external view returns (uint256);
+
+    /**
+     * @dev Tells the last value accrued for a strategy. Note this value can be outdated.
+     * @param strategy Address of the strategy querying the last value of
+     */
+    function lastValue(address strategy) external view returns (uint256);
 
     /**
      * @dev Tells the price oracle associated to a Mimic Wallet
@@ -131,11 +144,6 @@ interface IWallet is IPriceFeedProvider, IImplementation, IAuthorizer {
      * @dev Tells the swap connector associated to a Mimic Wallet
      */
     function swapConnector() external view returns (address);
-
-    /**
-     * @dev Tells the current invested value
-     */
-    function investedValue() external view returns (uint256);
 
     /**
      * @dev Tells the address where fees will be deposited
@@ -172,10 +180,11 @@ interface IWallet is IPriceFeedProvider, IImplementation, IAuthorizer {
     function wrappedNativeToken() external view returns (address);
 
     /**
-     * @dev Sets a new strategy to the Mimic Wallet
-     * @param newStrategy Address of the new strategy to be set
+     * @dev Sets a new strategy as allowed or not for the Mimic Wallet
+     * @param strategy Address of the strategy to be set
+     * @param allowed Whether the strategy is allowed or not
      */
-    function setStrategy(address newStrategy) external;
+    function setStrategy(address strategy, bool allowed) external;
 
     /**
      * @dev Sets a new price oracle to the Mimic Wallet
@@ -257,12 +266,6 @@ interface IWallet is IPriceFeedProvider, IImplementation, IAuthorizer {
     function withdraw(address token, uint256 amount, address recipient, bytes memory data) external;
 
     /**
-     * @dev Claim strategy rewards
-     * @param data Extra data that may enable or not different behaviors depending on the implementation
-     */
-    function claim(bytes memory data) external;
-
-    /**
      * @dev Wrap an amount of native tokens to the wrapped ERC20 version of it
      * @param amount Amount of native tokens to be wrapped
      * @param data Extra data that may enable or not different behaviors depending on the implementation
@@ -277,20 +280,31 @@ interface IWallet is IPriceFeedProvider, IImplementation, IAuthorizer {
     function unwrap(uint256 amount, bytes memory data) external;
 
     /**
-     * @dev Join the Mimic Wallet strategy with an amount of tokens
+     * @dev Claim strategy rewards
+     * @param strategy Address of the strategy to claim rewards
+     * @param data Extra data that may enable or not different behaviors depending on the implementation
+     */
+    function claim(address strategy, bytes memory data) external;
+
+    /**
+     * @dev Join a strategy with an amount of tokens
+     * @param strategy Address of the strategy to join
      * @param amount Amount of strategy tokens to join with
      * @param slippage Slippage that will be used to compute the join
      * @param data Extra data that may enable or not different behaviors depending on the implementation
      */
-    function join(uint256 amount, uint256 slippage, bytes memory data) external;
+    function join(address strategy, uint256 amount, uint256 slippage, bytes memory data) external;
 
     /**
-     * @dev Exit the Mimic Wallet strategy
+     * @dev Exit a strategy
+     * @param strategy Address of the strategy to exit
      * @param ratio Percentage of the current position that will be exited
      * @param slippage Slippage that will be used to compute the exit
      * @param data Extra data that may enable or not different behaviors depending on the implementation
      */
-    function exit(uint256 ratio, uint256 slippage, bytes memory data) external returns (uint256 received);
+    function exit(address strategy, uint256 ratio, uint256 slippage, bytes memory data)
+        external
+        returns (uint256 received);
 
     /**
      * @dev Swaps two tokens

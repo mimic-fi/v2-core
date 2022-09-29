@@ -27,25 +27,19 @@ interface IStrategy is IImplementation {
     function token() external view returns (address);
 
     /**
-     * @dev Tells the last stored value the strategy has over time. Note this value could be outdated.
-     * For example, if a strategy has a value of 100 in T0, and then it has a value of 120 in T1,
-     * it means it gained a 20% between T0 and T1.
-     */
-    function lastValue() external view returns (uint256);
-
-    /**
-     * @dev Tells how current value the strategy has over time.
-     * For example, if a strategy has a value of 100 in T0, and then it has a value of 120 in T1,
-     * it means it gained a 20% between T0 and T1.
-     */
-    function currentValue() external returns (uint256);
-
-    /**
      * @dev Tells how much a value unit means expressed in the strategy token.
      * For example, if a strategy has a value of 100 in T0, and then it has a value of 120 in T1,
      * and the value rate is 1.5, it means the strategy has earned 30 strategy tokens between T0 and T1.
      */
     function valueRate() external view returns (uint256);
+
+    /**
+     * @dev Tells the last value an account has over time. Note this value can be outdated: there could be rewards to
+     * be claimed that will affect the accrued value. For example, if an account has a value of 100 in T0, and then it
+     * has a value of 120 in T1, it means it gained a 20% between T0 and T1.
+     * @param account Address of the account querying the last value of
+     */
+    function lastValue(address account) external view returns (uint256);
 
     /**
      * @dev Claim any existing rewards

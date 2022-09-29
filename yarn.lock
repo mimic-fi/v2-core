@@ -569,27 +569,6 @@
     tweetnacl "^1.0.3"
     tweetnacl-util "^0.15.1"
 
-"@mimic-fi/v2-helpers@0.0.1":
-  version "0.0.1"
-  resolved "https://registry.yarnpkg.com/@mimic-fi/v2-helpers/-/v2-helpers-0.0.1.tgz#a0893370ad57fbe73bffff01eb36fb0d393353ff"
-  integrity sha512-BBGgo6AdKhqi8U/yGzGZElUPIkGbq4AfEySX+V6N4PQGkYNxFuUDdF7wO8tBRT9PcIjk58bwRtEjO1IbCARmRQ==
-  dependencies:
-    "@nomiclabs/hardhat-ethers" "^2.0.2"
-    "@nomiclabs/hardhat-waffle" "^2.0.1"
-    "@types/chai" "^4.2.18"
-    "@types/mocha" "^8.2.2"
-    chai "^4.2.0"
-    decimal.js "^10.3.1"
-    ethers "^5.0.8"
-
-"@mimic-fi/v2-strategies@0.0.1":
-  version "0.0.1"
-  resolved "https://registry.yarnpkg.com/@mimic-fi/v2-strategies/-/v2-strategies-0.0.1.tgz#8dc93258df4daaca3d146712415494b2b9e23568"
-  integrity sha512-zKsnDPNZDF1twzWnT6aUaSQF1vXAKVnRkwAJ7UXuBauLRJB9GL2unQo6xPaBqne7JR+8RP1o5o92BvagvYhafw==
-  dependencies:
-    "@mimic-fi/v2-helpers" "0.0.1"
-    "@openzeppelin/contracts" "4.7.0"
-
 "@noble/hashes@1.1.2", "@noble/hashes@~1.1.1":
   version "1.1.2"
   resolved "https://registry.yarnpkg.com/@noble/hashes/-/hashes-1.1.2.tgz#e9e035b9b166ca0af657a7848eb2718f0f22f183"

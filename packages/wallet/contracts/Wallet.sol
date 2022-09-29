@@ -30,6 +30,7 @@ import '@mimic-fi/v2-registry/contracts/implementations/InitializableAuthorizedI
 
 import './IWallet.sol';
 import './IWrappedNativeToken.sol';
+import './helpers/StrategyLib.sol';
 import './helpers/SwapConnectorLib.sol';
 
 /**
@@ -44,6 +45,7 @@ contract Wallet is IWallet, PriceFeedProvider, InitializableAuthorizedImplementa
     using SafeERC20 for IERC20;
     using FixedPoint for uint256;
     using UncheckedMath for uint256;
+    using StrategyLib for address;
     using SwapConnectorLib for address;
 
     // Namespace under which the Wallet is registered in the Mimic Registry
@@ -67,17 +69,17 @@ contract Wallet is IWallet, PriceFeedProvider, InitializableAuthorizedImplementa
         uint256 nextResetTime;
     }
 
-    // Strategy reference
-    address public override strategy;
-
     // Price oracle reference
     address public override priceOracle;
 
     // Swap connector reference
     address public override swapConnector;
 
-    // Current invested value
-    uint256 public override investedValue;
+    // List of allowed strategies indexed by strategy address
+    mapping (address => bool) public override isStrategyAllowed;
+
+    // List of invested values indexed by strategy address
+    mapping (address => uint256) public override investedValue;
 
     // Fee collector address where fees will be deposited
     address public override feeCollector;
@@ -119,11 +121,12 @@ contract Wallet is IWallet, PriceFeedProvider, InitializableAuthorizedImplementa
     }
 
     /**
-     * @dev Sets a new strategy to the Mimic Wallet. Sender must be authorized. It can only be set once.
-     * @param newStrategy Address of the new strategy to be set
+     * @dev Sets a new strategy as allowed or not for the Mimic Wallet. Sender must be authorized.
+     * @param strategy Address of the strategy to be set
+     * @param allowed Whether the strategy is allowed or not
      */
-    function setStrategy(address newStrategy) external override auth {
-        _setStrategy(newStrategy);
+    function setStrategy(address strategy, bool allowed) external override auth {
+        _setStrategy(strategy, allowed);
     }
 
     /**
@@ -210,6 +213,14 @@ contract Wallet is IWallet, PriceFeedProvider, InitializableAuthorizedImplementa
     }
 
     /**
+     * @dev Tells the last value accrued for a strategy. Note this value can be outdated.
+     * @param strategy Address of the strategy querying the last value of
+     */
+    function lastValue(address strategy) public view override returns (uint256) {
+        return IStrategy(strategy).lastValue(address(this));
+    }
+
+    /**
      * @dev Execute an arbitrary call from the Mimic Wallet. Sender must be authorized.
      * @param target Address where the call will be sent
      * @param data Calldata to be used for the call
@@ -273,73 +284,74 @@ contract Wallet is IWallet, PriceFeedProvider, InitializableAuthorizedImplementa
 
     /**
      * @dev Claim strategy rewards. Sender must be authorized.
+     * @param strategy Address of the strategy to claim rewards
      * @param data Extra data passed to the strategy and logged
      */
-    function claim(bytes memory data) external override auth {
+    function claim(address strategy, bytes memory data) external override auth {
+        require(isStrategyAllowed[strategy], 'STRATEGY_NOT_ALLOWED');
         IStrategy(strategy).claim(data);
-        emit Claim(data);
+        emit Claim(strategy, data);
     }
 
     /**
-     * @dev Join the Mimic Wallet strategy with an amount of tokens. Sender must be authorized.
+     * @dev Join a strategy with an amount of tokens. Sender must be authorized.
+     * @param strategy Address of the strategy to join
      * @param amount Amount of strategy tokens to join with
      * @param slippage Slippage that will be used to compute the join
      * @param data Extra data passed to the strategy and logged
      */
-    function join(uint256 amount, uint256 slippage, bytes memory data) external override auth {
+    function join(address strategy, uint256 amount, uint256 slippage, bytes memory data) external override auth {
         require(amount > 0, 'JOIN_AMOUNT_ZERO');
         require(slippage <= FixedPoint.ONE, 'JOIN_SLIPPAGE_ABOVE_ONE');
+        require(isStrategyAllowed[strategy], 'STRATEGY_NOT_ALLOWED');
 
-        address token = IStrategy(strategy).token();
-        _safeTransfer(token, strategy, amount);
-        uint256 value = IStrategy(strategy).join(amount, slippage, data);
-        investedValue = investedValue + value;
-        emit Join(amount, value, slippage, data);
+        uint256 value = strategy.join(amount, slippage, data);
+        investedValue[strategy] = investedValue[strategy] + value;
+        emit Join(strategy, amount, value, slippage, data);
     }
 
     /**
-     * @dev Exit the Mimic Wallet strategy. Sender must be authorized.
+     * @dev Exit a strategy. Sender must be authorized.
+     * @param strategy Address of the strategy to exit
      * @param ratio Percentage of the current position that will be exited
      * @param slippage Slippage that will be used to compute the exit
      * @param data Extra data passed to the strategy and logged
      */
-    function exit(uint256 ratio, uint256 slippage, bytes memory data)
+    function exit(address strategy, uint256 ratio, uint256 slippage, bytes memory data)
         external
         override
         auth
         returns (uint256 received)
     {
-        require(investedValue > 0, 'EXIT_NO_INVESTED_VALUE');
         require(ratio > 0 && ratio <= FixedPoint.ONE, 'EXIT_INVALID_RATIO');
         require(slippage <= FixedPoint.ONE, 'EXIT_SLIPPAGE_ABOVE_ONE');
-
-        (uint256 amount, uint256 exitValue) = IStrategy(strategy).exit(ratio, slippage, data);
-        address token = IStrategy(strategy).token();
-        _safeTransferFrom(token, strategy, address(this), amount);
+        require(investedValue[strategy] > 0, 'EXIT_NO_INVESTED_VALUE');
 
         uint256 performanceFeeAmount;
+        (uint256 amount, uint256 exitValue) = strategy.exit(ratio, slippage, data);
         // It can rely on the last updated value since we have just exited, no need to compute current value
-        uint256 valueBeforeExit = IStrategy(strategy).lastValue() + exitValue;
-        if (valueBeforeExit <= investedValue) {
+        uint256 valueBeforeExit = lastValue(strategy) + exitValue;
+        if (valueBeforeExit <= investedValue[strategy]) {
             // There where losses, invested value is simply reduced using the exited ratio
             // No need for checked math as we are checking it manually beforehand
             // Invested value is round up to avoid interpreting losses due to rounding errors
-            investedValue = investedValue.mulUp(FixedPoint.ONE.uncheckedSub(ratio));
+            investedValue[strategy] = investedValue[strategy].mulUp(FixedPoint.ONE.uncheckedSub(ratio));
         } else {
+            address token = IStrategy(strategy).token();
             // If value gains are greater than the exit value, it means only gains are being withdrawn. In that case
             // the taxable amount is the entire exited amount, otherwise it should be the equivalent gains ratio of it.
-            uint256 valueGains = valueBeforeExit - investedValue;
+            uint256 valueGains = valueBeforeExit - investedValue[strategy];
             uint256 taxableAmount = valueGains > exitValue ? amount : ((amount * valueGains) / exitValue);
             performanceFeeAmount = _payFee(token, taxableAmount, performanceFee);
             // If the exit value is greater than the value gains, the invested value should be reduced by the portion
             // of the invested value being exited. Otherwise, it's still the same, only gains are being withdrawn.
             // No need for checked math as we are checking it manually beforehand
             uint256 decrement = exitValue > valueGains ? (exitValue.uncheckedSub(valueGains)) : 0;
-            investedValue = investedValue - decrement;
+            investedValue[strategy] = investedValue[strategy] - decrement;
         }
 
         received = amount - performanceFeeAmount;
-        emit Exit(received, exitValue, performanceFeeAmount, slippage, data);
+        emit Exit(strategy, received, exitValue, performanceFeeAmount, slippage, data);
     }
 
     /**
@@ -452,14 +464,14 @@ contract Wallet is IWallet, PriceFeedProvider, InitializableAuthorizedImplementa
     }
 
     /**
-     * @dev Sets a new strategy.
-     * @param newStrategy New strategy to be set
+     * @dev Sets a new strategy as allowed or not
+     * @param strategy Address of the strategy to be set
+     * @param allowed Whether the strategy is allowed or not
      */
-    function _setStrategy(address newStrategy) internal {
-        require(strategy == address(0), 'WALLET_STRATEGY_ALREADY_SET');
-        _validateDependency(strategy, newStrategy);
-        strategy = newStrategy;
-        emit StrategySet(newStrategy);
+    function _setStrategy(address strategy, bool allowed) internal {
+        if (allowed) _validateDependency(address(0), strategy);
+        isStrategyAllowed[strategy] = allowed;
+        emit StrategySet(strategy, allowed);
     }
 
     /**

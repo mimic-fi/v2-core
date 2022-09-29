@@ -6,59 +6,53 @@ import '@openzeppelin/contracts/token/ERC20/IERC20.sol';
 
 import '@mimic-fi/v2-helpers/contracts/math/FixedPoint.sol';
 import '@mimic-fi/v2-strategies/contracts/IStrategy.sol';
-import '@mimic-fi/v2-registry/contracts/implementations/InitializableImplementation.sol';
+import '@mimic-fi/v2-registry/contracts/implementations/BaseImplementation.sol';
 
 import '../samples/TokenMock.sol';
 
-contract StrategyMock is IStrategy, InitializableImplementation {
+contract StrategyMock is IStrategy, BaseImplementation {
     using FixedPoint for uint256;
 
     bytes32 public constant override NAMESPACE = keccak256('STRATEGY');
 
-    address public override token;
+    address public immutable lpt;
+    address public immutable override token;
 
     event Claimed(bytes data);
     event Joined(uint256 amount, uint256 slippage, bytes data);
     event Exited(uint256 ratio, uint256 slippage, bytes data);
 
-    constructor(address registry) InitializableImplementation(registry) {
-        // solhint-disable-previous-line no-empty-blocks
+    constructor(address registry) BaseImplementation(registry) {
+        lpt = address(new TokenMock('LPT'));
+        token = address(new TokenMock('TKN'));
     }
 
-    function initialize() external initializer {
-        _initialize();
-        token = address(new TokenMock('STR'));
+    function mockGains(address account, uint256 multiplier) external {
+        uint256 balance = IERC20(lpt).balanceOf(account);
+        TokenMock(lpt).mint(account, balance * (multiplier - 1));
     }
 
-    function mockGains(uint256 multiplier) external {
-        uint256 balance = IERC20(token).balanceOf(address(this));
-        TokenMock(token).mint(address(this), balance * (multiplier - 1));
-    }
-
-    function mockLosses(uint256 divisor) external {
-        uint256 balance = IERC20(token).balanceOf(address(this));
-        TokenMock(token).burn(address(this), balance / divisor);
-    }
-
-    function lastValue() public view override returns (uint256) {
-        return IERC20(token).balanceOf(address(this));
-    }
-
-    function currentValue() public override returns (uint256) {
-        claim(new bytes(0));
-        return lastValue();
+    function mockLosses(address account, uint256 divisor) external {
+        uint256 balance = IERC20(lpt).balanceOf(account);
+        TokenMock(lpt).burn(account, balance / divisor);
     }
 
     function valueRate() public pure override returns (uint256) {
         return FixedPoint.ONE;
     }
 
-    function claim(bytes memory data) public override {
+    function lastValue(address account) public view override returns (uint256) {
+        return IERC20(lpt).balanceOf(account);
+    }
+
+    function claim(bytes memory data) external override {
         emit Claimed(data);
     }
 
     function join(uint256 amount, uint256 slippage, bytes memory data) external override returns (uint256 value) {
         value = amount;
+        TokenMock(token).burn(address(this), amount);
+        TokenMock(lpt).mint(address(this), amount);
         emit Joined(amount, slippage, data);
     }
 
@@ -67,9 +61,10 @@ contract StrategyMock is IStrategy, InitializableImplementation {
         override
         returns (uint256 amount, uint256 value)
     {
-        value = currentValue().mulDown(ratio);
+        value = lastValue(address(this)).mulDown(ratio);
         amount = value.mulDown(valueRate());
-        IERC20(token).approve(msg.sender, amount);
+        TokenMock(lpt).burn(address(this), amount);
+        TokenMock(token).mint(address(this), amount);
         emit Exited(ratio, slippage, data);
     }
 }
