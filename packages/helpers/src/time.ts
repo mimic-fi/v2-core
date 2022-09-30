@@ -8,6 +8,7 @@ export const HOUR = MINUTE * 60
 export const DAY = HOUR * 24
 export const WEEK = DAY * 7
 export const MONTH = DAY * 30
+export const YEAR = MONTH * 12
 
 export const currentTimestamp = async (): Promise<BigNumber> => {
   const { network } = await import('hardhat')
