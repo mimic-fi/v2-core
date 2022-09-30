@@ -49,19 +49,19 @@ describe('Wallet', () => {
     const setStrategyRole = wallet.interface.getSighash('setStrategy')
     await wallet.connect(admin).authorize(admin.address, setStrategyRole)
     strategy = await deploy('StrategyMock', [registry.address])
-    await registry.connect(admin).register(await strategy.NAMESPACE(), strategy.address)
+    await registry.connect(admin).register(await strategy.NAMESPACE(), strategy.address, true)
     await wallet.connect(admin).setStrategy(strategy.address, true)
 
     const setPriceOracleRole = wallet.interface.getSighash('setPriceOracle')
     await wallet.connect(admin).authorize(admin.address, setPriceOracleRole)
     priceOracle = await deploy('PriceOracleMock', [registry.address])
-    await registry.connect(admin).register(await priceOracle.NAMESPACE(), priceOracle.address)
+    await registry.connect(admin).register(await priceOracle.NAMESPACE(), priceOracle.address, true)
     await wallet.connect(admin).setPriceOracle(priceOracle.address)
 
     const setSwapConnectorRole = wallet.interface.getSighash('setSwapConnector')
     await wallet.connect(admin).authorize(admin.address, setSwapConnectorRole)
     swapConnector = await deploy('SwapConnectorMock', [registry.address])
-    await registry.connect(admin).register(await swapConnector.NAMESPACE(), swapConnector.address)
+    await registry.connect(admin).register(await swapConnector.NAMESPACE(), swapConnector.address, true)
     await wallet.connect(admin).setSwapConnector(swapConnector.address)
   })
 
@@ -73,15 +73,18 @@ describe('Wallet', () => {
     })
 
     it('its implementation is already initialized', async () => {
-      const implementation = await instanceAt('Wallet', await registry.getImplementation(wallet.address))
+      const implementation = await instanceAt('Wallet', await registry.implementationOf(wallet.address))
       await expect(implementation.initialize(admin.address)).to.be.revertedWith(
         'Initializable: contract is already initialized'
       )
     })
 
     it('is properly registered in the registry', async () => {
-      const implementation = await registry.getImplementation(wallet.address)
-      expect(await registry.isRegistered(await wallet.NAMESPACE(), implementation)).to.be.true
+      const implementation = await registry.implementationOf(wallet.address)
+      const implementationData = await registry.implementationData(implementation)
+
+      expect(implementationData.deprecated).to.be.false
+      expect(implementationData.namespace).to.be.equal(await wallet.NAMESPACE())
     })
   })
 
@@ -115,7 +118,7 @@ describe('Wallet', () => {
 
       context('when the implementation is registered', () => {
         beforeEach('register implementation', async () => {
-          await registry.connect(admin).register(await anotherStrategy.NAMESPACE(), anotherStrategy.address)
+          await registry.connect(admin).register(await anotherStrategy.NAMESPACE(), anotherStrategy.address, true)
         })
 
         context('when the allowing the strategy', () => {
@@ -166,7 +169,7 @@ describe('Wallet', () => {
       context('when the implementation is registered', async () => {
         beforeEach('deploy implementation', async () => {
           newOracle = await deploy('PriceOracleMock', [registry.address])
-          await registry.connect(admin).register(await newOracle.NAMESPACE(), newOracle.address)
+          await registry.connect(admin).register(await newOracle.NAMESPACE(), newOracle.address, true)
         })
 
         it('sets the implementation', async () => {
@@ -217,7 +220,7 @@ describe('Wallet', () => {
       context('when the implementation is registered', async () => {
         beforeEach('deploy implementation', async () => {
           newSwapConnector = await deploy('SwapConnectorMock', [registry.address])
-          await registry.connect(admin).register(await newSwapConnector.NAMESPACE(), newSwapConnector.address)
+          await registry.connect(admin).register(await newSwapConnector.NAMESPACE(), newSwapConnector.address, true)
         })
 
         it('sets the implementation', async () => {

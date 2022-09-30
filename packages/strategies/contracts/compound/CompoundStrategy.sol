@@ -26,6 +26,14 @@ import '../IStrategy.sol';
 /**
  * @title CompoundStrategy
  * @dev This strategy invests tokens in Compound in exchange for a cToken to accrue value and earn COMP over time
+ *
+ * It inherits from BaseImplementation which means it's implementation can be used directly from the Mimic Registry,
+ * it does not require initialization.
+ *
+ * IMPORTANT! As many other implementations in this repo, this contract is intended to be used as a LIBRARY, not
+ * a contract. Due to limitations of the Solidity compiler, it's not possible to work with immutable variables in
+ * libraries yet. Therefore, we are relying on contracts without storage variables so they can be safely
+ * delegate-called if desired.
  */
 contract CompoundStrategy is IStrategy, BaseImplementation {
     using FixedPoint for uint256;

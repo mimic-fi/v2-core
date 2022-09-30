@@ -1,15 +1,13 @@
-import { assertEvent, deploy, getSigners, instanceAt, ZERO_ADDRESS } from '@mimic-fi/v2-helpers'
+import { assertEvent, deploy, getSigners, instanceAt, ZERO_BYTES32 } from '@mimic-fi/v2-helpers'
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/dist/src/signer-with-address'
 import { expect } from 'chai'
 import { Contract } from 'ethers'
 
 describe('Registry', () => {
-  let registry: Contract
+  let registry: Contract, implementation: Contract
   let admin: SignerWithAddress, other: SignerWithAddress
-  let implementation: Contract, anotherImplementation: Contract
 
   const NAMESPACE = '0x0000000000000000000000000000000000000000000000000000000000000001'
-  const ANOTHER_NAMESPACE = '0x0000000000000000000000000000000000000000000000000000000000000002'
 
   before('set up signers', async () => {
     // eslint-disable-next-line prettier/prettier
@@ -19,7 +17,6 @@ describe('Registry', () => {
   beforeEach('create registry', async () => {
     registry = await deploy('Registry', [admin.address])
     implementation = await deploy('InitializableImplementationMock', [registry.address])
-    anotherImplementation = await deploy('InitializableImplementationMock', [registry.address])
   })
 
   describe('initialization', () => {
@@ -53,6 +50,8 @@ describe('Registry', () => {
   })
 
   describe('register', () => {
+    const stateless = true
+
     context('when the sender is authorized', () => {
       beforeEach('set sender', () => {
         registry = registry.connect(admin)
@@ -60,33 +59,29 @@ describe('Registry', () => {
 
       context('when the requested implementation is not registered', () => {
         it('registers the requested implementation', async () => {
-          await registry.register(NAMESPACE, implementation.address)
+          await registry.register(NAMESPACE, implementation.address, stateless)
 
-          expect(await registry.getNamespace(implementation.address)).to.be.equal(NAMESPACE)
-          expect(await registry.getImplementation(implementation.address)).to.be.equal(ZERO_ADDRESS)
-
-          expect(await registry.isActive(implementation.address)).to.be.true
-          expect(await registry.isRegistered(NAMESPACE, implementation.address)).to.be.true
-
-          expect(await registry.isRegistered(ANOTHER_NAMESPACE, implementation.address)).to.be.false
-          expect(await registry.isRegistered(NAMESPACE, anotherImplementation.address)).to.be.false
+          const implementationData = await registry.implementationData(implementation.address)
+          expect(implementationData.stateless).to.be.equal(stateless)
+          expect(implementationData.deprecated).to.be.equal(false)
+          expect(implementationData.namespace).to.be.equal(NAMESPACE)
         })
 
         it('emits an event', async () => {
-          const tx = await registry.register(NAMESPACE, implementation.address)
+          const tx = await registry.register(NAMESPACE, implementation.address, stateless)
 
-          await assertEvent(tx, 'Registered', { namespace: NAMESPACE, implementation })
+          await assertEvent(tx, 'Registered', { namespace: NAMESPACE, implementation, stateless })
         })
       })
 
       context('when the requested implementation is registered', () => {
         beforeEach('register', async () => {
-          await registry.register(NAMESPACE, implementation.address)
+          await registry.register(NAMESPACE, implementation.address, stateless)
         })
 
         context('when the implementation is not deprecated', () => {
           it('reverts', async () => {
-            await expect(registry.register(NAMESPACE, implementation.address)).to.be.revertedWith(
+            await expect(registry.register(NAMESPACE, implementation.address, stateless)).to.be.revertedWith(
               'REGISTERED_IMPLEMENTATION'
             )
           })
@@ -98,7 +93,7 @@ describe('Registry', () => {
           })
 
           it('reverts', async () => {
-            await expect(registry.register(NAMESPACE, implementation.address)).to.be.revertedWith(
+            await expect(registry.register(NAMESPACE, implementation.address, stateless)).to.be.revertedWith(
               'REGISTERED_IMPLEMENTATION'
             )
           })
@@ -112,7 +107,9 @@ describe('Registry', () => {
       })
 
       it('reverts', async () => {
-        await expect(registry.register(NAMESPACE, implementation.address)).to.be.revertedWith('AUTH_SENDER_NOT_ALLOWED')
+        await expect(registry.register(NAMESPACE, implementation.address, stateless)).to.be.revertedWith(
+          'AUTH_SENDER_NOT_ALLOWED'
+        )
       })
     })
   })
@@ -125,19 +122,19 @@ describe('Registry', () => {
 
       context('when the implementation is registered', () => {
         beforeEach('register', async () => {
-          await registry.register(NAMESPACE, implementation.address)
+          await registry.register(NAMESPACE, implementation.address, true)
         })
 
         context('when the implementation is not deprecated', () => {
           it('deprecates the requested implementation', async () => {
+            const previousData = await registry.implementationData(implementation.address)
+
             await registry.deprecate(implementation.address)
 
-            expect(await registry.getNamespace(implementation.address)).to.be.equal(NAMESPACE)
-            expect(await registry.getImplementation(implementation.address)).to.be.equal(ZERO_ADDRESS)
-            expect(await registry.isRegistered(NAMESPACE, implementation.address)).to.be.false
-
-            expect(await registry.isRegistered(ANOTHER_NAMESPACE, implementation.address)).to.be.false
-            expect(await registry.isRegistered(NAMESPACE, anotherImplementation.address)).to.be.false
+            const currentData = await registry.implementationData(implementation.address)
+            expect(currentData.stateless).to.be.equal(previousData.stateless)
+            expect(currentData.deprecated).to.be.equal(true)
+            expect(currentData.namespace).to.be.equal(previousData.namespace)
           })
 
           it('emits an event', async () => {
@@ -185,7 +182,7 @@ describe('Registry', () => {
 
     context('when the implementation is registered', () => {
       beforeEach('register', async () => {
-        await registry.connect(admin).register(NAMESPACE, implementation.address)
+        await registry.connect(admin).register(NAMESPACE, implementation.address, true)
       })
 
       context('when the implementation is registered with another namespace', () => {
@@ -216,7 +213,7 @@ describe('Registry', () => {
         beforeEach('deploy another implementation and register', async () => {
           implementation = await deploy('InitializableImplementationMock', [registry.address])
           namespace = await implementation.NAMESPACE()
-          await registry.connect(admin).register(namespace, implementation.address)
+          await registry.connect(admin).register(namespace, implementation.address, true)
         })
 
         context('when the implementation is not deprecated', () => {
@@ -231,21 +228,23 @@ describe('Registry', () => {
           it('clones the implementation properly', async () => {
             expect(await instance.registry()).to.be.equal(registry.address)
             expect(await instance.NAMESPACE()).to.be.equal(namespace)
-            expect(await registry.getImplementation(instance.address)).to.be.equal(implementation.address)
+            expect(await registry.implementationOf(instance.address)).to.be.equal(implementation.address)
           })
 
           it('initializes the new instance', async () => {
             await expect(instance.initialize()).to.be.revertedWith('Initializable: contract is already initialized')
           })
 
-          it('does not mark it as registered nor active', async () => {
-            expect(await registry.isActive(instance.address)).to.be.false
-            expect(await registry.isRegistered(namespace, instance.address)).to.be.false
+          it('does not register the instance', async () => {
+            const implementationData = await registry.implementationData(instance.address)
+            expect(implementationData.stateless).to.be.equal(false)
+            expect(implementationData.deprecated).to.be.equal(false)
+            expect(implementationData.namespace).to.be.equal(ZERO_BYTES32)
           })
 
           it('cannot be registered', async () => {
-            await expect(registry.connect(admin).register(namespace, instance.address)).to.be.revertedWith(
-              'CANNOT_REGISTER_CLONE'
+            await expect(registry.connect(admin).register(namespace, instance.address, true)).to.be.revertedWith(
+              'CANNOT_REGISTER_INSTANCE'
             )
           })
         })

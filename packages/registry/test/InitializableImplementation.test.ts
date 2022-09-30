@@ -35,7 +35,7 @@ describe('InitializableImplementation', () => {
     context('when initializing a new instance', () => {
       context('when the implementation is registered', () => {
         beforeEach('register implementation', async () => {
-          await registry.connect(admin).register(await implementation.NAMESPACE(), implementation.address)
+          await registry.connect(admin).register(await implementation.NAMESPACE(), implementation.address, true)
         })
 
         it('can be initialized through the registry', async () => {
@@ -44,7 +44,7 @@ describe('InitializableImplementation', () => {
           const event = await assertEvent(tx, 'Cloned', { implementation })
 
           const instance = await instanceAt('InitializableImplementationMock', event.args.instance)
-          expect(await registry.getImplementation(instance.address)).to.be.equal(implementation.address)
+          expect(await registry.implementationOf(instance.address)).to.be.equal(implementation.address)
           await expect(implementation.initialize()).to.be.revertedWith('Initializable: contract is already initialized')
         })
       })

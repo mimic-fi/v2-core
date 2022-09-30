@@ -44,17 +44,12 @@ abstract contract BaseImplementation is IImplementation {
      * @param newDependency New address to replace the current one
      */
     function _validateDependency(address currentDependency, address newDependency) internal view {
-        address newImplementation = IRegistry(registry).getImplementation(newDependency);
-        if (newImplementation != address(0)) {
-            // If there is an implementation registered for the new dependency, it means it's a new instance
-            _validateDependencyInstance(currentDependency, newImplementation);
-        } else {
-            // Otherwise, check if the new dependency is actually an implementation
-            // If that's the case there must be a namespace registered for it
-            bytes32 newDependencyNamespace = IRegistry(registry).getNamespace(newDependency);
-            require(newDependencyNamespace != bytes32(0), 'NEW_DEPENDENCY_NOT_REGISTERED');
-            _validateDependencyImplementation(currentDependency, newDependency);
-        }
+        // If there is an implementation registered for the new dependency, check the new dependency as an instance.
+        // Otherwise, validate the new dependency as an implementation
+        address newImplementation = IRegistry(registry).implementationOf(newDependency);
+        newImplementation != address(0)
+            ? _validateDependencyInstance(currentDependency, newImplementation)
+            : _validateDependencyImplementation(currentDependency, newDependency);
     }
 
     /**
@@ -64,15 +59,21 @@ abstract contract BaseImplementation is IImplementation {
      * @param newImplementation Address of the new dependency's implementation
      */
     function _validateDependencyInstance(address currentDependency, address newImplementation) private view {
+        // Make sure the new implementation is registered and not deprecated
+        (bool newStateless, bool newDeprecated, bytes32 newNamespace) = _getImplementationData(newImplementation);
+        require(newNamespace != bytes32(0), 'NEW_DEPENDENCY_NOT_REGISTERED');
+        require(!newDeprecated, 'NEW_DEPENDENCY_DEPRECATED');
+
+        // If the current dependency is not set, there is nothing else to be checked
         if (currentDependency != address(0)) {
             // Make sure the current dependency is an instance too
-            address currentImplementation = IRegistry(registry).getImplementation(currentDependency);
+            address currentImplementation = IRegistry(registry).implementationOf(currentDependency);
             require(currentImplementation != address(0), 'NEW_DEPENDENCY_MUST_BE_IMPL');
 
-            // Make sure namespaces match
-            bytes32 currentNamespace = IRegistry(registry).getNamespace(currentImplementation);
-            bool isRegisteredWithSameNamespace = IRegistry(registry).isRegistered(currentNamespace, newImplementation);
-            require(isRegisteredWithSameNamespace, 'INVALID_NEW_DEPENDENCY_NAMESPACE');
+            // Make sure namespaces and stateless conditions match
+            (bool currentStateless, , bytes32 currentNamespace) = _getImplementationData(currentImplementation);
+            require(currentNamespace == newNamespace, 'INVALID_NEW_DEPENDENCY_NAMESPACE');
+            require(currentStateless == newStateless, 'INVALID_NEW_DEPENDENCY_STATELESS');
         }
     }
 
@@ -83,14 +84,24 @@ abstract contract BaseImplementation is IImplementation {
      * @param newImplementation Address of the new dependency's implementation
      */
     function _validateDependencyImplementation(address currentDependency, address newImplementation) private view {
+        // Make sure the new implementation is registered and not deprecated
+        (bool newStateless, bool newDeprecated, bytes32 newNamespace) = _getImplementationData(newImplementation);
+        require(newNamespace != bytes32(0), 'NEW_DEPENDENCY_NOT_REGISTERED');
+        require(!newDeprecated, 'NEW_DEPENDENCY_DEPRECATED');
+
+        // If the current dependency is not set, there is nothing else to be checked
         if (currentDependency != address(0)) {
             // Make sure the current dependency is an implementation too
-            bytes32 currentNamespace = IRegistry(registry).getNamespace(currentDependency);
+            (bool currentStateless, , bytes32 currentNamespace) = _getImplementationData(currentDependency);
             require(currentNamespace != bytes32(0), 'NEW_DEPENDENCY_MUST_BE_INSTANCE');
 
-            // Make sure namespaces match
-            bool isRegisteredWithSameNamespace = IRegistry(registry).isRegistered(currentNamespace, newImplementation);
-            require(isRegisteredWithSameNamespace, 'INVALID_NEW_DEPENDENCY_NAMESPACE');
+            // Make sure namespaces and stateless conditions match
+            require(currentNamespace == newNamespace, 'INVALID_NEW_DEPENDENCY_NAMESPACE');
+            require(currentStateless == newStateless, 'INVALID_NEW_DEPENDENCY_STATELESS');
         }
+    }
+
+    function _getImplementationData(address implementation) private view returns (bool, bool, bytes32) {
+        return IRegistry(registry).implementationData(implementation);
     }
 }

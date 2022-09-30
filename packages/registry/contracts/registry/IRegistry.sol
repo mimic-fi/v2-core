@@ -24,7 +24,7 @@ interface IRegistry is IAuthorizer {
     /**
      * @dev Emitted every time a new implementation is registered
      */
-    event Registered(bytes32 indexed namespace, address indexed implementation);
+    event Registered(bytes32 indexed namespace, address indexed implementation, bool stateless);
 
     /**
      * @dev Emitted every time an implementation is deprecated
@@ -37,36 +37,27 @@ interface IRegistry is IAuthorizer {
     event Cloned(bytes32 indexed namespace, address indexed implementation, address instance, bytes initResult);
 
     /**
-     * @dev Tells if an implementation is active: registered and not-deprecated
-     * @param implementation Address of the implementation to be checked
+     * @dev Tells the implementation associated to a contract instance
+     * @param instance Address of the instance to request it's implementation
      */
-    function isActive(address implementation) external view returns (bool);
+    function implementationOf(address instance) external view returns (address);
 
     /**
-     * @dev Tells the namespace under a requested implementation is registered
-     * @param implementation Address of the implementation requesting the namespace of
+     * @dev Tells the data of an implementation:
+     * @param implementation Address of the implementation to request it's data
      */
-    function getNamespace(address implementation) external view returns (bytes32);
-
-    /**
-     * @dev Tells the implementation used for a contract instance
-     * @param cloned Address of the instance to request it's implementation
-     */
-    function getImplementation(address cloned) external view returns (address);
-
-    /**
-     * @dev Tells if a specific implementation is registered under a certain namespace
-     * @param namespace Namespace asking for
-     * @param implementation Address of the implementation to be checked
-     */
-    function isRegistered(bytes32 namespace, address implementation) external view returns (bool);
+    function implementationData(address implementation)
+        external
+        view
+        returns (bool stateless, bool deprecated, bytes32 namespace);
 
     /**
      * @dev Registers a new implementation for a given namespace
      * @param namespace Namespace to be used for the implementation
      * @param implementation Address of the implementation to be registered
+     * @param stateless Whether the implementation is stateless or not
      */
-    function register(bytes32 namespace, address implementation) external;
+    function register(bytes32 namespace, address implementation, bool stateless) external;
 
     /**
      * @dev Deprecates a registered implementation

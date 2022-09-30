@@ -33,24 +33,17 @@ import './IRegistry.sol';
 contract Registry is IRegistry, Authorizer {
     using Address for address;
 
-    // Mapping of active implementations
-    mapping (address => bool) public override isActive;
-
-    // List of namespaces indexed by implementation address
-    mapping (address => bytes32) public override getNamespace;
-
-    // List of implementations indexed by instance address
-    mapping (address => address) public override getImplementation;
-
-    /**
-     * @dev Modifier to make sure an implementation is active: registered and not deprecated.
-     */
-    modifier active(address implementation) {
-        require(implementation != address(0), 'INVALID_IMPLEMENTATION');
-        require(getNamespace[implementation] != bytes32(0), 'UNREGISTERED_IMPLEMENTATION');
-        require(isActive[implementation], 'DEPRECATED_IMPLEMENTATION');
-        _;
+    struct ImplementationData {
+        bool stateless;
+        bool deprecated;
+        bytes32 namespace;
     }
+
+    // List of instances' implementations indexed by instance address
+    mapping (address => address) public override implementationOf;
+
+    // List of implementations indexed by address
+    mapping (address => ImplementationData) public override implementationData;
 
     /**
      * @dev Initializes the registry contract
@@ -64,56 +57,59 @@ contract Registry is IRegistry, Authorizer {
     }
 
     /**
-     * @dev Tells if a specific implementation is registered under a certain namespace
-     * @param namespace Namespace asking for
-     * @param implementation Address of the implementation to be checked
-     */
-    function isRegistered(bytes32 namespace, address implementation) public view override returns (bool) {
-        return isActive[implementation] && getNamespace[implementation] == namespace;
-    }
-
-    /**
      * @dev Registers a new implementation for a given namespace. Sender must be authorized.
      * @param namespace Namespace to be used for the implementation
      * @param implementation Address of the implementation to be registered
+     * @param stateless Whether the implementation is stateless or not
      */
-    function register(bytes32 namespace, address implementation) external override auth {
+    function register(bytes32 namespace, address implementation, bool stateless) external override auth {
         require(namespace != bytes32(0), 'INVALID_NAMESPACE');
         require(implementation != address(0), 'INVALID_IMPLEMENTATION');
-        require(getNamespace[implementation] == bytes32(0), 'REGISTERED_IMPLEMENTATION');
-        require(getImplementation[implementation] == address(0), 'CANNOT_REGISTER_CLONE');
 
-        isActive[implementation] = true;
-        getNamespace[implementation] = namespace;
-        emit Registered(namespace, implementation);
+        ImplementationData storage data = implementationData[implementation];
+        require(data.namespace == bytes32(0), 'REGISTERED_IMPLEMENTATION');
+        require(implementationOf[implementation] == address(0), 'CANNOT_REGISTER_INSTANCE');
+
+        data.deprecated = false;
+        data.stateless = stateless;
+        data.namespace = namespace;
+        emit Registered(namespace, implementation, stateless);
     }
 
     /**
      * @dev Deprecates a registered implementation. Sender must be authorized.
-     * @param implementation Address of the implementation to be deprecated. It must be active.
+     * @param implementation Address of the implementation to be deprecated. It must be registered and active.
      */
-    function deprecate(address implementation) external override auth active(implementation) {
-        isActive[implementation] = false;
-        emit Deprecated(getNamespace[implementation], implementation);
+    function deprecate(address implementation) external override auth {
+        require(implementation != address(0), 'IMPLEMENTATION_ADDRESS_ZERO');
+
+        ImplementationData storage data = implementationData[implementation];
+        require(data.namespace != bytes32(0), 'UNREGISTERED_IMPLEMENTATION');
+        require(!data.deprecated, 'DEPRECATED_IMPLEMENTATION');
+
+        data.deprecated = true;
+        emit Deprecated(data.namespace, implementation);
     }
 
     /**
      * @dev Clones a registered implementation
-     * @param implementation Address of the implementation to be cloned. It must be active.
+     * @param implementation Address of the implementation to be cloned. It must be registered and active.
      * @param initializeData Arbitrary data to be sent after deployment. It can be used to initialize the new instance.
      * @return instance Address of the new instance created
      */
-    function clone(address implementation, bytes memory initializeData)
-        external
-        override
-        active(implementation)
-        returns (address instance)
-    {
+    function clone(address implementation, bytes memory initializeData) external override returns (address instance) {
+        require(implementation != address(0), 'IMPLEMENTATION_ADDRESS_ZERO');
+
+        ImplementationData storage data = implementationData[implementation];
+        require(data.namespace != bytes32(0), 'UNREGISTERED_IMPLEMENTATION');
+        require(!data.deprecated, 'DEPRECATED_IMPLEMENTATION');
+
         instance = Clones.clone(address(implementation));
-        getImplementation[instance] = implementation;
+        implementationOf[instance] = implementation;
         bytes memory result = initializeData.length == 0
             ? new bytes(0)
             : instance.functionCall(initializeData, 'CLONE_INIT_FAILED');
-        emit Cloned(getNamespace[implementation], implementation, instance, result);
+
+        emit Cloned(data.namespace, implementation, instance, result);
     }
 }
