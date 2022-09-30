@@ -26,12 +26,13 @@ library StrategyLib {
     /**
      * @dev Delegate-calls a claim to a strategy and decodes de expected data
      */
-    function claim(address strategy, bytes memory data) internal {
+    function claim(address strategy, bytes memory data) internal returns (address[] memory, uint256[] memory) {
         bytes memory claimData = abi.encodeWithSelector(IStrategy.claim.selector, data);
 
         // solhint-disable-next-line avoid-low-level-calls
         (bool success, bytes memory returndata) = strategy.delegatecall(claimData);
         Address.verifyCallResult(success, returndata, 'CLAIM_CALL_REVERTED');
+        return abi.decode(returndata, (address[], uint256[]));
     }
 
     /**

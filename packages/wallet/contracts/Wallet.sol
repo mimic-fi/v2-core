@@ -225,11 +225,16 @@ contract Wallet is IWallet, PriceFeedProvider, InitializableAuthorizedImplementa
      * @param target Address where the call will be sent
      * @param data Calldata to be used for the call
      * @param value Value in wei that will be attached to the call
-     * @return res Call response if it was successful, otherwise it reverts
+     * @return result Call response if it was successful, otherwise it reverts
      */
-    function call(address target, bytes memory data, uint256 value) external override auth returns (bytes memory res) {
-        res = Address.functionCallWithValue(target, data, value, 'WALLET_ARBITRARY_CALL_FAILED');
-        emit Call(target, data, value, res);
+    function call(address target, bytes memory callData, uint256 value, bytes memory data)
+        external
+        override
+        auth
+        returns (bytes memory result)
+    {
+        result = Address.functionCallWithValue(target, callData, value, 'WALLET_ARBITRARY_CALL_FAILED');
+        emit Call(target, callData, value, result, data);
     }
 
     /**
@@ -238,10 +243,22 @@ contract Wallet is IWallet, PriceFeedProvider, InitializableAuthorizedImplementa
      * @param from Address where the tokens will be transfer from
      * @param amount Amount of tokens to be transferred
      * @param data Extra data only logged
+     * @return collected Amount of tokens collected
      */
-    function collect(address token, address from, uint256 amount, bytes memory data) external override auth {
-        _safeTransferFrom(token, from, address(this), amount);
-        emit Collect(token, from, amount, data);
+    function collect(address token, address from, uint256 amount, bytes memory data)
+        external
+        override
+        auth
+        returns (uint256 collected)
+    {
+        require(amount > 0, 'COLLECT_AMOUNT_ZERO');
+
+        uint256 previousBalance = IERC20(token).balanceOf(address(this));
+        IERC20(token).safeTransferFrom(from, address(this), amount);
+        uint256 currentBalance = IERC20(token).balanceOf(address(this));
+
+        collected = currentBalance - previousBalance;
+        emit Collect(token, from, collected, data);
     }
 
     /**
@@ -250,47 +267,75 @@ contract Wallet is IWallet, PriceFeedProvider, InitializableAuthorizedImplementa
      * @param amount Amount of tokens to withdraw
      * @param recipient Address where the tokens will be transferred to
      * @param data Extra data only logged
+     * @return withdrawn Amount of tokens transferred to the recipient address
      */
-    function withdraw(address token, uint256 amount, address recipient, bytes memory data) external override auth {
+    function withdraw(address token, uint256 amount, address recipient, bytes memory data)
+        external
+        override
+        auth
+        returns (uint256 withdrawn)
+    {
         require(amount > 0, 'WITHDRAW_AMOUNT_ZERO');
         require(recipient != address(0), 'RECIPIENT_ZERO');
 
         uint256 withdrawFeeAmount = _payFee(token, amount, withdrawFee);
-        uint256 amountAfterFees = amount - withdrawFeeAmount;
-        _safeTransfer(token, recipient, amountAfterFees);
-        emit Withdraw(token, recipient, amountAfterFees, withdrawFeeAmount, data);
+        withdrawn = amount - withdrawFeeAmount;
+        _safeTransfer(token, recipient, withdrawn);
+        emit Withdraw(token, recipient, withdrawn, withdrawFeeAmount, data);
     }
 
     /**
      * @dev Wrap an amount of native tokens to the wrapped ERC20 version of it. Sender must be authorized.
      * @param amount Amount of native tokens to be wrapped
      * @param data Extra data only logged
+     * @return wrapped Amount of tokens wrapped
      */
-    function wrap(uint256 amount, bytes memory data) external override auth {
+    function wrap(uint256 amount, bytes memory data) external override auth returns (uint256 wrapped) {
+        require(amount > 0, 'WRAP_AMOUNT_ZERO');
         require(address(this).balance >= amount, 'WRAP_INSUFFICIENT_AMOUNT');
-        IWrappedNativeToken(wrappedNativeToken).deposit{ value: amount }();
-        emit Wrap(amount, data);
+
+        IWrappedNativeToken wrappedToken = IWrappedNativeToken(wrappedNativeToken);
+        uint256 previousBalance = wrappedToken.balanceOf(address(this));
+        wrappedToken.deposit{ value: amount }();
+        uint256 currentBalance = wrappedToken.balanceOf(address(this));
+
+        wrapped = currentBalance - previousBalance;
+        emit Wrap(wrapped, data);
     }
 
     /**
      * @dev Unwrap an amount of wrapped native tokens. Sender must be authorized.
      * @param amount Amount of wrapped native tokens to unwrapped
      * @param data Extra data only logged
+     * @return unwrapped Amount of tokens unwrapped
      */
-    function unwrap(uint256 amount, bytes memory data) external override auth {
+    function unwrap(uint256 amount, bytes memory data) external override auth returns (uint256 unwrapped) {
+        require(amount > 0, 'UNWRAP_AMOUNT_ZERO');
+
+        uint256 previousBalance = address(this).balance;
         IWrappedNativeToken(wrappedNativeToken).withdraw(amount);
-        emit Unwrap(amount, data);
+        uint256 currentBalance = address(this).balance;
+
+        unwrapped = currentBalance - previousBalance;
+        emit Unwrap(unwrapped, data);
     }
 
     /**
      * @dev Claim strategy rewards. Sender must be authorized.
      * @param strategy Address of the strategy to claim rewards
      * @param data Extra data passed to the strategy and logged
+     * @return tokens Addresses of the tokens received as rewards
+     * @return amounts Amounts of the tokens received as rewards
      */
-    function claim(address strategy, bytes memory data) external override auth {
+    function claim(address strategy, bytes memory data)
+        external
+        override
+        auth
+        returns (address[] memory tokens, uint256[] memory amounts)
+    {
         require(isStrategyAllowed[strategy], 'STRATEGY_NOT_ALLOWED');
-        IStrategy(strategy).claim(data);
-        emit Claim(strategy, data);
+        (tokens, amounts) = strategy.claim(data);
+        emit Claim(strategy, tokens, amounts, data);
     }
 
     /**
@@ -299,15 +344,22 @@ contract Wallet is IWallet, PriceFeedProvider, InitializableAuthorizedImplementa
      * @param amount Amount of strategy tokens to join with
      * @param slippage Slippage that will be used to compute the join
      * @param data Extra data passed to the strategy and logged
+     * @return invested Amount of tokens invested in the strategy
      */
-    function join(address strategy, uint256 amount, uint256 slippage, bytes memory data) external override auth {
+    function join(address strategy, uint256 amount, uint256 slippage, bytes memory data)
+        external
+        override
+        auth
+        returns (uint256 invested)
+    {
         require(amount > 0, 'JOIN_AMOUNT_ZERO');
         require(slippage <= FixedPoint.ONE, 'JOIN_SLIPPAGE_ABOVE_ONE');
         require(isStrategyAllowed[strategy], 'STRATEGY_NOT_ALLOWED');
 
+        invested = amount;
         uint256 value = strategy.join(amount, slippage, data);
         investedValue[strategy] = investedValue[strategy] + value;
-        emit Join(strategy, amount, value, slippage, data);
+        emit Join(strategy, invested, value, slippage, data);
     }
 
     /**
@@ -316,6 +368,7 @@ contract Wallet is IWallet, PriceFeedProvider, InitializableAuthorizedImplementa
      * @param ratio Percentage of the current position that will be exited
      * @param slippage Slippage that will be used to compute the exit
      * @param data Extra data passed to the strategy and logged
+     * @return received Amount of tokens received from the exit
      */
     function exit(address strategy, uint256 ratio, uint256 slippage, bytes memory data)
         external
@@ -326,6 +379,7 @@ contract Wallet is IWallet, PriceFeedProvider, InitializableAuthorizedImplementa
         require(ratio > 0 && ratio <= FixedPoint.ONE, 'EXIT_INVALID_RATIO');
         require(slippage <= FixedPoint.ONE, 'EXIT_SLIPPAGE_ABOVE_ONE');
         require(investedValue[strategy] > 0, 'EXIT_NO_INVESTED_VALUE');
+        require(isStrategyAllowed[strategy], 'STRATEGY_NOT_ALLOWED');
 
         uint256 performanceFeeAmount;
         (uint256 amount, uint256 exitValue) = strategy.exit(ratio, slippage, data);
@@ -437,18 +491,6 @@ contract Wallet is IWallet, PriceFeedProvider, InitializableAuthorizedImplementa
 
         // Pay fee amount to the fee collector
         _safeTransfer(token, feeCollector, paidAmount);
-    }
-
-    /**
-     * @dev Internal method to transfer ERC20 tokens from another account using Mimic's wallet allowance
-     * @param token Address of the ERC20 token to transfer
-     * @param from Address transferring the tokens from
-     * @param to Address transferring the tokens to
-     * @param amount Amount of tokens to transfer
-     */
-    function _safeTransferFrom(address token, address from, address to, uint256 amount) internal {
-        if (amount == 0) return;
-        IERC20(token).safeTransferFrom(from, to, amount);
     }
 
     /**

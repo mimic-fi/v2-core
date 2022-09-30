@@ -1515,6 +1515,7 @@ describe('Wallet', () => {
 
   describe('call', () => {
     const value = fp(0.01)
+    const data = '0xabcd'
     let target: Contract
 
     beforeEach('deploy target', async () => {
@@ -1529,10 +1530,10 @@ describe('Wallet', () => {
       })
 
       context('when the call succeeds', () => {
-        let data: string
+        let callData: string
 
         beforeEach('encode call', async () => {
-          data = target.interface.encodeFunctionData('call')
+          callData = target.interface.encodeFunctionData('call')
         })
 
         it('calls the target contract', async () => {
@@ -1540,8 +1541,8 @@ describe('Wallet', () => {
           const previousWalletBalance = await ethers.provider.getBalance(wallet.address)
           const previousTargetBalance = await ethers.provider.getBalance(target.address)
 
-          const tx = await wallet.call(target.address, data, value)
-          await assertEvent(tx, 'Call', { target, value, data })
+          const tx = await wallet.call(target.address, callData, value, data)
+          await assertEvent(tx, 'Call', { target, value, callData, data })
           await assertIndirectEvent(tx, target.interface, 'Received', { sender: wallet, value })
 
           const currentWalletBalance = await ethers.provider.getBalance(wallet.address)
@@ -1553,11 +1554,13 @@ describe('Wallet', () => {
       })
 
       context('when the call does not succeeds', () => {
-        const data = '0xabcdef12' // random
+        const callData = '0xabcdef12' // random
 
         it('reverts', async () => {
           await admin.sendTransaction({ to: wallet.address, value })
-          await expect(wallet.call(target.address, data, value)).to.be.revertedWith('WALLET_ARBITRARY_CALL_FAILED')
+          await expect(wallet.call(target.address, callData, value, data)).to.be.revertedWith(
+            'WALLET_ARBITRARY_CALL_FAILED'
+          )
         })
       })
     })
@@ -1568,7 +1571,7 @@ describe('Wallet', () => {
       })
 
       it('reverts', async () => {
-        await expect(wallet.call(target.address, '0x', value)).to.be.revertedWith('AUTH_SENDER_NOT_ALLOWED')
+        await expect(wallet.call(target.address, '0x', value, data)).to.be.revertedWith('AUTH_SENDER_NOT_ALLOWED')
       })
     })
   })
@@ -1614,7 +1617,7 @@ describe('Wallet', () => {
         it('emits an event', async () => {
           const tx = await wallet.collect(token.address, from.address, amount, data)
 
-          await assertEvent(tx, 'Collect', { token, from, amount, data })
+          await assertEvent(tx, 'Collect', { token, from, collected: amount, data })
         })
       })
 
@@ -1685,7 +1688,7 @@ describe('Wallet', () => {
             it('emits an event', async () => {
               const tx = await wallet.withdraw(token.address, amount, other.address, data)
 
-              await assertEvent(tx, 'Withdraw', { token, amount, recipient: other, fee: 0, data })
+              await assertEvent(tx, 'Withdraw', { token, withdrawn: amount, recipient: other, fee: 0, data })
             })
           })
 
@@ -1723,7 +1726,7 @@ describe('Wallet', () => {
 
                 await assertEvent(tx, 'Withdraw', {
                   token,
-                  amount: amountAfterFees,
+                  withdrawn: amountAfterFees,
                   recipient: other,
                   fee: expectedChargedFees,
                   data,
@@ -1878,7 +1881,7 @@ describe('Wallet', () => {
             it('emits an event', async () => {
               const tx = await wallet.withdraw(token, amount, other.address, data)
 
-              await assertEvent(tx, 'Withdraw', { token, amount, recipient: other, fee: 0, data })
+              await assertEvent(tx, 'Withdraw', { token, withdrawn: amount, recipient: other, fee: 0, data })
             })
           })
 
@@ -1916,7 +1919,7 @@ describe('Wallet', () => {
 
                 await assertEvent(tx, 'Withdraw', {
                   token,
-                  amount: amountAfterFees,
+                  withdrawn: amountAfterFees,
                   recipient: other,
                   fee: expectedChargedFees,
                   data,
@@ -2087,7 +2090,7 @@ describe('Wallet', () => {
 
         it('emits an event', async () => {
           const tx = await wallet.wrap(amount, data)
-          await assertEvent(tx, 'Wrap', { amount, data })
+          await assertEvent(tx, 'Wrap', { wrapped: amount, data })
         })
       })
 
@@ -2143,7 +2146,7 @@ describe('Wallet', () => {
 
         it('emits an event', async () => {
           const tx = await wallet.unwrap(amount, data)
-          await assertEvent(tx, 'Unwrap', { amount })
+          await assertEvent(tx, 'Unwrap', { unwrapped: amount, data })
         })
       })
 
@@ -2166,7 +2169,60 @@ describe('Wallet', () => {
   })
 
   describe('claim', () => {
-    // TODO: implement
+    const amount = fp(5)
+    const data = ethers.utils.defaultAbiCoder.encode(['uint256'], [amount])
+
+    context('when the sender is authorized', () => {
+      beforeEach('set sender', async () => {
+        const claimRole = wallet.interface.getSighash('claim')
+        await wallet.connect(admin).authorize(admin.address, claimRole)
+        wallet = wallet.connect(admin)
+      })
+
+      context('when the strategy is allowed', () => {
+        let rewardToken: Contract
+
+        beforeEach('allow strategy', async () => {
+          await wallet.connect(admin).setStrategy(strategy.address, true)
+          rewardToken = await instanceAt('IERC20', await strategy.rewardToken())
+        })
+
+        it('receives the rewards', async () => {
+          const previousBalance = await rewardToken.balanceOf(wallet.address)
+
+          await wallet.claim(strategy.address, data)
+
+          const currentBalance = await rewardToken.balanceOf(wallet.address)
+          expect(currentBalance).to.be.equal(previousBalance.add(amount))
+        })
+
+        it('emits an event', async () => {
+          const tx = await wallet.claim(strategy.address, data)
+
+          await assertEvent(tx, 'Claim', { strategy, tokens: [rewardToken.address], amounts: [amount] })
+        })
+      })
+
+      context('when the strategy is not allowed', () => {
+        beforeEach('disallow strategy', async () => {
+          await wallet.connect(admin).setStrategy(strategy.address, false)
+        })
+
+        it('reverts', async () => {
+          await expect(wallet.claim(strategy.address, data)).to.be.revertedWith('STRATEGY_NOT_ALLOWED')
+        })
+      })
+    })
+
+    context('when the sender is not authorized', () => {
+      beforeEach('set sender', async () => {
+        wallet = wallet.connect(other)
+      })
+
+      it('reverts', async () => {
+        await expect(wallet.claim(strategy.address, data)).to.be.revertedWith('AUTH_SENDER_NOT_ALLOWED')
+      })
+    })
   })
 
   describe('join', () => {
@@ -2192,34 +2248,54 @@ describe('Wallet', () => {
         context('when the slippage is valid', async () => {
           const slippage = fp(0.01)
 
-          context('when the wallet has enough balance', async () => {
-            beforeEach('mint tokens', async () => {
-              await token.mint(wallet.address, amount)
+          context('when the strategy is allowed', () => {
+            beforeEach('allow strategy', async () => {
+              await wallet.connect(admin).setStrategy(strategy.address, true)
             })
 
-            it('receives lp tokens in exchange of strategy tokens', async () => {
-              const previousLptBalance = await lpt.balanceOf(wallet.address)
-              const previousTokenBalance = await token.balanceOf(wallet.address)
+            context('when the wallet has enough balance', async () => {
+              beforeEach('mint tokens', async () => {
+                await token.mint(wallet.address, amount)
+              })
 
-              await wallet.join(strategy.address, amount, slippage, data)
+              it('receives lp tokens in exchange of strategy tokens', async () => {
+                const previousLptBalance = await lpt.balanceOf(wallet.address)
+                const previousTokenBalance = await token.balanceOf(wallet.address)
 
-              const currentLptBalance = await lpt.balanceOf(wallet.address)
-              expect(currentLptBalance).to.be.equal(previousLptBalance.add(amount))
+                await wallet.join(strategy.address, amount, slippage, data)
 
-              const currentTokenBalance = await token.balanceOf(wallet.address)
-              expect(currentTokenBalance).to.be.equal(previousTokenBalance.sub(amount))
+                const currentLptBalance = await lpt.balanceOf(wallet.address)
+                expect(currentLptBalance).to.be.equal(previousLptBalance.add(amount))
+
+                const currentTokenBalance = await token.balanceOf(wallet.address)
+                expect(currentTokenBalance).to.be.equal(previousTokenBalance.sub(amount))
+              })
+
+              it('emits an event', async () => {
+                const tx = await wallet.join(strategy.address, amount, slippage, data)
+
+                await assertEvent(tx, 'Join', { strategy, invested: amount, slippage, data })
+              })
             })
 
-            it('emits an event', async () => {
-              const tx = await wallet.join(strategy.address, amount, slippage, data)
-
-              await assertEvent(tx, 'Join', { strategy, amount, slippage, data })
+            context('when the wallet does not have enough tokens', async () => {
+              it('reverts', async () => {
+                await expect(wallet.join(strategy.address, amount, slippage, data)).to.be.revertedWith(
+                  'exceeds balance'
+                )
+              })
             })
           })
 
-          context('when the wallet does not have enough tokens', async () => {
+          context('when the strategy is not allowed', () => {
+            beforeEach('disallow strategy', async () => {
+              await wallet.connect(admin).setStrategy(strategy.address, false)
+            })
+
             it('reverts', async () => {
-              await expect(wallet.join(strategy.address, amount, slippage, data)).to.be.revertedWith('exceeds balance')
+              await expect(wallet.join(strategy.address, amount, slippage, data)).to.be.revertedWith(
+                'STRATEGY_NOT_ALLOWED'
+              )
             })
           })
         })
@@ -2286,318 +2362,336 @@ describe('Wallet', () => {
           const slippage = fp(0.01)
 
           context('when the given ratio is valid', async () => {
-            async function computeExitAmount(ratio: BigNumber): Promise<BigNumber> {
-              const currentValue = await strategy.lastValue(wallet.address)
-              const exitValue = currentValue.mul(ratio).div(fp(1))
-              const valueRate = await strategy.valueRate()
-              return exitValue.mul(valueRate).div(fp(1))
-            }
-
-            async function computeInvestedValueAfterExit(ratio: BigNumber): Promise<BigNumber> {
-              const investedValue = await wallet.investedValue(strategy.address)
-              const currentValue = await strategy.lastValue(wallet.address)
-              const valueGains = currentValue.gt(investedValue) ? currentValue.sub(investedValue) : bn(0)
-
-              // If there are no gains, the invested value is reduced by the exit ratio
-              if (valueGains.eq(0)) return investedValue.mul(fp(1).sub(ratio)).div(fp(1))
-
-              // If there are gains but the exit value is less than that, the invested value is still the same.
-              // Otherwise, it should be reduced only by the portion of exit value that doesn't represent gains.
-              const exitValue = currentValue.mul(ratio).div(fp(1))
-              const decrement = exitValue.lte(valueGains) ? bn(0) : exitValue.sub(valueGains)
-              return investedValue.sub(decrement)
-            }
-
-            const itDoesNotAffectTheInvestedValue = (ratio: BigNumber) => {
-              it('does not affect the invested value', async () => {
-                const previousInvestedValue = await wallet.investedValue(strategy.address)
-
-                await wallet.exit(strategy.address, ratio, slippage, data)
-
-                const currentInvestedValue = await wallet.investedValue(strategy.address)
-                expect(currentInvestedValue).to.be.equal(previousInvestedValue)
-              })
-            }
-
-            const itDecreasesTheInvestedValue = (ratio: BigNumber) => {
-              it('decreases the invested value', async () => {
-                const expectedInvestedValue = await computeInvestedValueAfterExit(ratio)
-
-                await wallet.exit(strategy.address, ratio, slippage, data)
-
-                const currentInvestmentValue = await wallet.investedValue(strategy.address)
-                expect(currentInvestmentValue).to.be.equal(expectedInvestedValue)
-              })
-            }
-
-            const itDoesNotPayPerformanceFees = (ratio: BigNumber) => {
-              it('does not pay performance fees', async () => {
-                const previousBalance = await token.balanceOf(feeCollector.address)
-
-                await wallet.exit(strategy.address, ratio, slippage, data)
-
-                const currentBalance = await token.balanceOf(feeCollector.address)
-                expect(currentBalance).to.be.equal(previousBalance)
-              })
-            }
-
-            context('with performance fee', async () => {
-              const performanceFee = fp(0.02)
-
-              beforeEach('set performance fee', async () => {
-                const setPerformanceFeeRole = wallet.interface.getSighash('setPerformanceFee')
-                await wallet.connect(admin).authorize(admin.address, setPerformanceFeeRole)
-                await wallet.connect(admin).setPerformanceFee(performanceFee, fp(1000), token.address, MONTH)
+            context('when the strategy is allowed', () => {
+              beforeEach('allow strategy', async () => {
+                await wallet.connect(admin).setStrategy(strategy.address, true)
               })
 
-              async function computePerformanceFeeAmount(ratio: BigNumber): Promise<BigNumber> {
+              async function computeExitAmount(ratio: BigNumber): Promise<BigNumber> {
+                const currentValue = await strategy.lastValue(wallet.address)
+                const exitValue = currentValue.mul(ratio).div(fp(1))
+                const valueRate = await strategy.valueRate()
+                return exitValue.mul(valueRate).div(fp(1))
+              }
+
+              async function computeInvestedValueAfterExit(ratio: BigNumber): Promise<BigNumber> {
                 const investedValue = await wallet.investedValue(strategy.address)
                 const currentValue = await strategy.lastValue(wallet.address)
                 const valueGains = currentValue.gt(investedValue) ? currentValue.sub(investedValue) : bn(0)
-                if (valueGains.eq(0)) return bn(0)
 
+                // If there are no gains, the invested value is reduced by the exit ratio
+                if (valueGains.eq(0)) return investedValue.mul(fp(1).sub(ratio)).div(fp(1))
+
+                // If there are gains but the exit value is less than that, the invested value is still the same.
+                // Otherwise, it should be reduced only by the portion of exit value that doesn't represent gains.
                 const exitValue = currentValue.mul(ratio).div(fp(1))
-                const taxableValue = exitValue.gt(valueGains) ? valueGains : exitValue
-
-                const valueRate = await strategy.valueRate()
-                const taxableAmount = taxableValue.mul(valueRate).div(fp(1))
-                return taxableAmount.mul(performanceFee).div(fp(1))
+                const decrement = exitValue.lte(valueGains) ? bn(0) : exitValue.sub(valueGains)
+                return investedValue.sub(decrement)
               }
 
-              const itTransfersTheTokensToTheWallet = (ratio: BigNumber) => {
-                it('receives strategy tokens in exchange of lp tokens', async () => {
-                  const exitAmount = await computeExitAmount(ratio)
-                  const performanceFeeAmount = await computePerformanceFeeAmount(ratio)
-                  const expectedAmountAfterFees = exitAmount.sub(performanceFeeAmount)
-                  const previousLptBalance = await lpt.balanceOf(wallet.address)
-                  const previousTokenBalance = await token.balanceOf(wallet.address)
+              const itDoesNotAffectTheInvestedValue = (ratio: BigNumber) => {
+                it('does not affect the invested value', async () => {
+                  const previousInvestedValue = await wallet.investedValue(strategy.address)
 
                   await wallet.exit(strategy.address, ratio, slippage, data)
 
-                  const currentTokenBalance = await token.balanceOf(wallet.address)
-                  const expectedTokenBalance = previousTokenBalance.add(expectedAmountAfterFees)
-                  expect(currentTokenBalance).to.be.at.least(expectedTokenBalance.sub(1))
-                  expect(currentTokenBalance).to.be.at.most(expectedTokenBalance.add(1))
-
-                  const currentLptBalance = await lpt.balanceOf(wallet.address)
-                  expect(currentLptBalance).to.be.equal(previousLptBalance.sub(exitAmount))
-                })
-
-                it('emits an event', async () => {
-                  const exitAmount = await computeExitAmount(ratio)
-                  const performanceFeeAmount = await computePerformanceFeeAmount(ratio)
-                  const expectedAmountAfterFees = exitAmount.sub(performanceFeeAmount)
-
-                  const tx = await wallet.exit(strategy.address, ratio, slippage, data)
-
-                  await assertEvent(tx, 'Exit', {
-                    strategy,
-                    amount: expectedAmountAfterFees,
-                    value: exitAmount, // rate 1
-                    fee: performanceFeeAmount,
-                  })
+                  const currentInvestedValue = await wallet.investedValue(strategy.address)
+                  expect(currentInvestedValue).to.be.equal(previousInvestedValue)
                 })
               }
 
-              const itPaysPerformanceFees = (ratio: BigNumber) => {
-                it('pays performance fees to the fee collector', async () => {
+              const itDecreasesTheInvestedValue = (ratio: BigNumber) => {
+                it('decreases the invested value', async () => {
+                  const expectedInvestedValue = await computeInvestedValueAfterExit(ratio)
+
+                  await wallet.exit(strategy.address, ratio, slippage, data)
+
+                  const currentInvestmentValue = await wallet.investedValue(strategy.address)
+                  expect(currentInvestmentValue).to.be.equal(expectedInvestedValue)
+                })
+              }
+
+              const itDoesNotPayPerformanceFees = (ratio: BigNumber) => {
+                it('does not pay performance fees', async () => {
                   const previousBalance = await token.balanceOf(feeCollector.address)
-                  const expectedPerformanceFeeAmount = await computePerformanceFeeAmount(ratio)
 
                   await wallet.exit(strategy.address, ratio, slippage, data)
 
                   const currentBalance = await token.balanceOf(feeCollector.address)
-                  const expectedBalance = previousBalance.add(expectedPerformanceFeeAmount)
-                  expect(currentBalance).to.be.at.least(expectedBalance.sub(1))
-                  expect(currentBalance).to.be.at.most(expectedBalance.add(1))
-                })
-
-                it('updates the total charged fees', async () => {
-                  const previousData = await wallet.performanceFee()
-                  const expectedPerformanceFeeAmount = await computePerformanceFeeAmount(ratio)
-
-                  await wallet.exit(strategy.address, ratio, slippage, data)
-
-                  const currentData = await wallet.performanceFee()
-                  expect(currentData.pct).to.be.equal(previousData.pct)
-                  expect(currentData.cap).to.be.equal(previousData.cap)
-                  expect(currentData.token).to.be.equal(previousData.token)
-                  expect(currentData.period).to.be.equal(previousData.period)
-                  expect(currentData.totalCharged).to.be.equal(expectedPerformanceFeeAmount)
-                  expect(currentData.nextResetTime).to.be.equal(previousData.nextResetTime)
+                  expect(currentBalance).to.be.equal(previousBalance)
                 })
               }
 
-              context('when the strategy is even', async () => {
-                context('when withdraws half', async () => {
-                  const ratio = fp(0.5)
+              context('with performance fee', async () => {
+                const performanceFee = fp(0.02)
 
-                  itTransfersTheTokensToTheWallet(ratio)
-                  itDecreasesTheInvestedValue(ratio)
-                  itDoesNotPayPerformanceFees(ratio)
+                beforeEach('set performance fee', async () => {
+                  const setPerformanceFeeRole = wallet.interface.getSighash('setPerformanceFee')
+                  await wallet.connect(admin).authorize(admin.address, setPerformanceFeeRole)
+                  await wallet.connect(admin).setPerformanceFee(performanceFee, fp(1000), token.address, MONTH)
                 })
 
-                context('when withdraws all', async () => {
-                  const ratio = fp(1)
+                async function computePerformanceFeeAmount(ratio: BigNumber): Promise<BigNumber> {
+                  const investedValue = await wallet.investedValue(strategy.address)
+                  const currentValue = await strategy.lastValue(wallet.address)
+                  const valueGains = currentValue.gt(investedValue) ? currentValue.sub(investedValue) : bn(0)
+                  if (valueGains.eq(0)) return bn(0)
 
-                  itTransfersTheTokensToTheWallet(ratio)
-                  itDecreasesTheInvestedValue(ratio)
-                  itDoesNotPayPerformanceFees(ratio)
+                  const exitValue = currentValue.mul(ratio).div(fp(1))
+                  const taxableValue = exitValue.gt(valueGains) ? valueGains : exitValue
+
+                  const valueRate = await strategy.valueRate()
+                  const taxableAmount = taxableValue.mul(valueRate).div(fp(1))
+                  return taxableAmount.mul(performanceFee).div(fp(1))
+                }
+
+                const itTransfersTheTokensToTheWallet = (ratio: BigNumber) => {
+                  it('receives strategy tokens in exchange of lp tokens', async () => {
+                    const exitAmount = await computeExitAmount(ratio)
+                    const performanceFeeAmount = await computePerformanceFeeAmount(ratio)
+                    const expectedAmountAfterFees = exitAmount.sub(performanceFeeAmount)
+                    const previousLptBalance = await lpt.balanceOf(wallet.address)
+                    const previousTokenBalance = await token.balanceOf(wallet.address)
+
+                    await wallet.exit(strategy.address, ratio, slippage, data)
+
+                    const currentTokenBalance = await token.balanceOf(wallet.address)
+                    const expectedTokenBalance = previousTokenBalance.add(expectedAmountAfterFees)
+                    expect(currentTokenBalance).to.be.at.least(expectedTokenBalance.sub(1))
+                    expect(currentTokenBalance).to.be.at.most(expectedTokenBalance.add(1))
+
+                    const currentLptBalance = await lpt.balanceOf(wallet.address)
+                    expect(currentLptBalance).to.be.equal(previousLptBalance.sub(exitAmount))
+                  })
+
+                  it('emits an event', async () => {
+                    const exitAmount = await computeExitAmount(ratio)
+                    const performanceFeeAmount = await computePerformanceFeeAmount(ratio)
+                    const expectedAmountAfterFees = exitAmount.sub(performanceFeeAmount)
+
+                    const tx = await wallet.exit(strategy.address, ratio, slippage, data)
+
+                    await assertEvent(tx, 'Exit', {
+                      strategy,
+                      received: expectedAmountAfterFees,
+                      value: exitAmount, // rate 1
+                      fee: performanceFeeAmount,
+                    })
+                  })
+                }
+
+                const itPaysPerformanceFees = (ratio: BigNumber) => {
+                  it('pays performance fees to the fee collector', async () => {
+                    const previousBalance = await token.balanceOf(feeCollector.address)
+                    const expectedPerformanceFeeAmount = await computePerformanceFeeAmount(ratio)
+
+                    await wallet.exit(strategy.address, ratio, slippage, data)
+
+                    const currentBalance = await token.balanceOf(feeCollector.address)
+                    const expectedBalance = previousBalance.add(expectedPerformanceFeeAmount)
+                    expect(currentBalance).to.be.at.least(expectedBalance.sub(1))
+                    expect(currentBalance).to.be.at.most(expectedBalance.add(1))
+                  })
+
+                  it('updates the total charged fees', async () => {
+                    const previousData = await wallet.performanceFee()
+                    const expectedPerformanceFeeAmount = await computePerformanceFeeAmount(ratio)
+
+                    await wallet.exit(strategy.address, ratio, slippage, data)
+
+                    const currentData = await wallet.performanceFee()
+                    expect(currentData.pct).to.be.equal(previousData.pct)
+                    expect(currentData.cap).to.be.equal(previousData.cap)
+                    expect(currentData.token).to.be.equal(previousData.token)
+                    expect(currentData.period).to.be.equal(previousData.period)
+                    expect(currentData.totalCharged).to.be.equal(expectedPerformanceFeeAmount)
+                    expect(currentData.nextResetTime).to.be.equal(previousData.nextResetTime)
+                  })
+                }
+
+                context('when the strategy is even', async () => {
+                  context('when withdraws half', async () => {
+                    const ratio = fp(0.5)
+
+                    itTransfersTheTokensToTheWallet(ratio)
+                    itDecreasesTheInvestedValue(ratio)
+                    itDoesNotPayPerformanceFees(ratio)
+                  })
+
+                  context('when withdraws all', async () => {
+                    const ratio = fp(1)
+
+                    itTransfersTheTokensToTheWallet(ratio)
+                    itDecreasesTheInvestedValue(ratio)
+                    itDoesNotPayPerformanceFees(ratio)
+                  })
+                })
+
+                context('when the strategy reports some gains (2x)', async () => {
+                  beforeEach('mock gains', async () => {
+                    await strategy.mockGains(wallet.address, 2)
+                  })
+
+                  context('when withdraws only gains', async () => {
+                    const ratio = fp(0.5)
+
+                    itTransfersTheTokensToTheWallet(ratio)
+                    itDoesNotAffectTheInvestedValue(ratio)
+                    itPaysPerformanceFees(ratio)
+                  })
+
+                  context('when withdraws more than gains', async () => {
+                    const ratio = fp(0.75)
+
+                    itTransfersTheTokensToTheWallet(ratio)
+                    itDecreasesTheInvestedValue(ratio)
+                    itPaysPerformanceFees(ratio)
+                  })
+
+                  context('when withdraws all', async () => {
+                    const ratio = fp(1)
+
+                    itTransfersTheTokensToTheWallet(ratio)
+                    itDecreasesTheInvestedValue(ratio)
+                    itPaysPerformanceFees(ratio)
+                  })
+                })
+
+                context('when the strategy reports losses (0.5x)', async () => {
+                  beforeEach('mock losses', async () => {
+                    await strategy.mockLosses(wallet.address, 2)
+                  })
+
+                  context('when withdraws half', async () => {
+                    const ratio = fp(0.5)
+
+                    itTransfersTheTokensToTheWallet(ratio)
+                    itDecreasesTheInvestedValue(ratio)
+                    itDoesNotPayPerformanceFees(ratio)
+                  })
+
+                  context('when withdraws all', async () => {
+                    const ratio = fp(1)
+
+                    itTransfersTheTokensToTheWallet(ratio)
+                    itDecreasesTheInvestedValue(ratio)
+                    itDoesNotPayPerformanceFees(ratio)
+                  })
                 })
               })
 
-              context('when the strategy reports some gains (2x)', async () => {
-                beforeEach('mock gains', async () => {
-                  await strategy.mockGains(wallet.address, 2)
+              context('without performance fee', async () => {
+                const itTransfersTheTokensToTheWallet = (ratio: BigNumber) => {
+                  it('receives strategy tokens in exchange of lp tokens', async () => {
+                    const exitAmount = await computeExitAmount(ratio)
+                    const previousLptBalance = await lpt.balanceOf(wallet.address)
+                    const previousTokenBalance = await token.balanceOf(wallet.address)
+
+                    await wallet.exit(strategy.address, ratio, slippage, data)
+
+                    const currentTokenBalance = await token.balanceOf(wallet.address)
+                    const expectedTokenBalance = previousTokenBalance.add(exitAmount)
+                    expect(currentTokenBalance).to.be.at.least(expectedTokenBalance.sub(1))
+                    expect(currentTokenBalance).to.be.at.most(expectedTokenBalance.add(1))
+
+                    const currentLptBalance = await lpt.balanceOf(wallet.address)
+                    expect(currentLptBalance).to.be.equal(previousLptBalance.sub(exitAmount))
+                  })
+
+                  it('emits an event', async () => {
+                    const exitAmount = await computeExitAmount(ratio)
+
+                    const tx = await wallet.exit(strategy.address, ratio, slippage, data)
+
+                    await assertEvent(tx, 'Exit', {
+                      received: exitAmount,
+                      value: exitAmount, // rate 1
+                      fee: 0,
+                    })
+                  })
+                }
+
+                context('when the strategy is even', async () => {
+                  context('when withdraws half', async () => {
+                    const ratio = fp(0.5)
+
+                    itTransfersTheTokensToTheWallet(ratio)
+                    itDecreasesTheInvestedValue(ratio)
+                    itDoesNotPayPerformanceFees(ratio)
+                  })
+
+                  context('when withdraws all', async () => {
+                    const ratio = fp(1)
+
+                    itTransfersTheTokensToTheWallet(ratio)
+                    itDecreasesTheInvestedValue(ratio)
+                    itDoesNotPayPerformanceFees(ratio)
+                  })
                 })
 
-                context('when withdraws only gains', async () => {
-                  const ratio = fp(0.5)
+                context('when the strategy reports some gains (2x)', async () => {
+                  beforeEach('mock gains', async () => {
+                    await strategy.mockGains(wallet.address, 2)
+                  })
 
-                  itTransfersTheTokensToTheWallet(ratio)
-                  itDoesNotAffectTheInvestedValue(ratio)
-                  itPaysPerformanceFees(ratio)
+                  context('when withdraws only gains', async () => {
+                    const ratio = fp(0.5)
+
+                    itTransfersTheTokensToTheWallet(ratio)
+                    itDoesNotAffectTheInvestedValue(ratio)
+                    itDoesNotPayPerformanceFees(ratio)
+                  })
+
+                  context('when withdraws more than gains', async () => {
+                    const ratio = fp(0.75)
+
+                    itTransfersTheTokensToTheWallet(ratio)
+                    itDecreasesTheInvestedValue(ratio)
+                    itDoesNotPayPerformanceFees(ratio)
+                  })
+
+                  context('when withdraws all', async () => {
+                    const ratio = fp(1)
+
+                    itTransfersTheTokensToTheWallet(ratio)
+                    itDecreasesTheInvestedValue(ratio)
+                    itDoesNotPayPerformanceFees(ratio)
+                  })
                 })
 
-                context('when withdraws more than gains', async () => {
-                  const ratio = fp(0.75)
+                context('when the strategy reports losses (0.5x)', async () => {
+                  beforeEach('mock losses', async () => {
+                    await strategy.mockLosses(wallet.address, 2)
+                  })
 
-                  itTransfersTheTokensToTheWallet(ratio)
-                  itDecreasesTheInvestedValue(ratio)
-                  itPaysPerformanceFees(ratio)
-                })
+                  context('when withdraws half', async () => {
+                    const ratio = fp(0.5)
 
-                context('when withdraws all', async () => {
-                  const ratio = fp(1)
+                    itTransfersTheTokensToTheWallet(ratio)
+                    itDecreasesTheInvestedValue(ratio)
+                    itDoesNotPayPerformanceFees(ratio)
+                  })
 
-                  itTransfersTheTokensToTheWallet(ratio)
-                  itDecreasesTheInvestedValue(ratio)
-                  itPaysPerformanceFees(ratio)
-                })
-              })
+                  context('when withdraws all', async () => {
+                    const ratio = fp(1)
 
-              context('when the strategy reports losses (0.5x)', async () => {
-                beforeEach('mock losses', async () => {
-                  await strategy.mockLosses(wallet.address, 2)
-                })
-
-                context('when withdraws half', async () => {
-                  const ratio = fp(0.5)
-
-                  itTransfersTheTokensToTheWallet(ratio)
-                  itDecreasesTheInvestedValue(ratio)
-                  itDoesNotPayPerformanceFees(ratio)
-                })
-
-                context('when withdraws all', async () => {
-                  const ratio = fp(1)
-
-                  itTransfersTheTokensToTheWallet(ratio)
-                  itDecreasesTheInvestedValue(ratio)
-                  itDoesNotPayPerformanceFees(ratio)
+                    itTransfersTheTokensToTheWallet(ratio)
+                    itDecreasesTheInvestedValue(ratio)
+                    itDoesNotPayPerformanceFees(ratio)
+                  })
                 })
               })
             })
 
-            context('without performance fee', async () => {
-              const itTransfersTheTokensToTheWallet = (ratio: BigNumber) => {
-                it('receives strategy tokens in exchange of lp tokens', async () => {
-                  const exitAmount = await computeExitAmount(ratio)
-                  const previousLptBalance = await lpt.balanceOf(wallet.address)
-                  const previousTokenBalance = await token.balanceOf(wallet.address)
-
-                  await wallet.exit(strategy.address, ratio, slippage, data)
-
-                  const currentTokenBalance = await token.balanceOf(wallet.address)
-                  const expectedTokenBalance = previousTokenBalance.add(exitAmount)
-                  expect(currentTokenBalance).to.be.at.least(expectedTokenBalance.sub(1))
-                  expect(currentTokenBalance).to.be.at.most(expectedTokenBalance.add(1))
-
-                  const currentLptBalance = await lpt.balanceOf(wallet.address)
-                  expect(currentLptBalance).to.be.equal(previousLptBalance.sub(exitAmount))
-                })
-
-                it('emits an event', async () => {
-                  const exitAmount = await computeExitAmount(ratio)
-
-                  const tx = await wallet.exit(strategy.address, ratio, slippage, data)
-
-                  await assertEvent(tx, 'Exit', {
-                    amount: exitAmount,
-                    value: exitAmount, // rate 1
-                    fee: 0,
-                  })
-                })
-              }
-
-              context('when the strategy is even', async () => {
-                context('when withdraws half', async () => {
-                  const ratio = fp(0.5)
-
-                  itTransfersTheTokensToTheWallet(ratio)
-                  itDecreasesTheInvestedValue(ratio)
-                  itDoesNotPayPerformanceFees(ratio)
-                })
-
-                context('when withdraws all', async () => {
-                  const ratio = fp(1)
-
-                  itTransfersTheTokensToTheWallet(ratio)
-                  itDecreasesTheInvestedValue(ratio)
-                  itDoesNotPayPerformanceFees(ratio)
-                })
+            context('when the strategy is not allowed', () => {
+              beforeEach('disallow strategy', async () => {
+                await wallet.connect(admin).setStrategy(strategy.address, false)
               })
 
-              context('when the strategy reports some gains (2x)', async () => {
-                beforeEach('mock gains', async () => {
-                  await strategy.mockGains(wallet.address, 2)
-                })
-
-                context('when withdraws only gains', async () => {
-                  const ratio = fp(0.5)
-
-                  itTransfersTheTokensToTheWallet(ratio)
-                  itDoesNotAffectTheInvestedValue(ratio)
-                  itDoesNotPayPerformanceFees(ratio)
-                })
-
-                context('when withdraws more than gains', async () => {
-                  const ratio = fp(0.75)
-
-                  itTransfersTheTokensToTheWallet(ratio)
-                  itDecreasesTheInvestedValue(ratio)
-                  itDoesNotPayPerformanceFees(ratio)
-                })
-
-                context('when withdraws all', async () => {
-                  const ratio = fp(1)
-
-                  itTransfersTheTokensToTheWallet(ratio)
-                  itDecreasesTheInvestedValue(ratio)
-                  itDoesNotPayPerformanceFees(ratio)
-                })
-              })
-
-              context('when the strategy reports losses (0.5x)', async () => {
-                beforeEach('mock losses', async () => {
-                  await strategy.mockLosses(wallet.address, 2)
-                })
-
-                context('when withdraws half', async () => {
-                  const ratio = fp(0.5)
-
-                  itTransfersTheTokensToTheWallet(ratio)
-                  itDecreasesTheInvestedValue(ratio)
-                  itDoesNotPayPerformanceFees(ratio)
-                })
-
-                context('when withdraws all', async () => {
-                  const ratio = fp(1)
-
-                  itTransfersTheTokensToTheWallet(ratio)
-                  itDecreasesTheInvestedValue(ratio)
-                  itDoesNotPayPerformanceFees(ratio)
-                })
+              it('reverts', async () => {
+                await expect(wallet.exit(strategy.address, fp(1), slippage, data)).to.be.revertedWith(
+                  'STRATEGY_NOT_ALLOWED'
+                )
               })
             })
           })

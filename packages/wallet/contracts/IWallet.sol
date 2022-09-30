@@ -66,42 +66,42 @@ interface IWallet is IPriceFeedProvider, IImplementation, IAuthorizer {
     /**
      * @dev Emitted every time `call` is called
      */
-    event Call(address indexed target, bytes data, uint256 value, bytes result);
+    event Call(address indexed target, bytes callData, uint256 value, bytes result, bytes data);
 
     /**
      * @dev Emitted every time `collect` is called
      */
-    event Collect(address indexed token, address indexed from, uint256 amount, bytes data);
+    event Collect(address indexed token, address indexed from, uint256 collected, bytes data);
 
     /**
      * @dev Emitted every time `withdraw` is called
      */
-    event Withdraw(address indexed token, address indexed recipient, uint256 amount, uint256 fee, bytes data);
+    event Withdraw(address indexed token, address indexed recipient, uint256 withdrawn, uint256 fee, bytes data);
 
     /**
      * @dev Emitted every time `wrap` is called
      */
-    event Wrap(uint256 amount, bytes data);
+    event Wrap(uint256 wrapped, bytes data);
 
     /**
      * @dev Emitted every time `unwrap` is called
      */
-    event Unwrap(uint256 amount, bytes data);
+    event Unwrap(uint256 unwrapped, bytes data);
 
     /**
      * @dev Emitted every time `claim` is called
      */
-    event Claim(address strategy, bytes data);
+    event Claim(address strategy, address[] tokens, uint256[] amounts, bytes data);
 
     /**
      * @dev Emitted every time `join` is called
      */
-    event Join(address strategy, uint256 amount, uint256 value, uint256 slippage, bytes data);
+    event Join(address strategy, uint256 invested, uint256 value, uint256 slippage, bytes data);
 
     /**
      * @dev Emitted every time `exit` is called
      */
-    event Exit(address strategy, uint256 amount, uint256 value, uint256 fee, uint256 slippage, bytes data);
+    event Exit(address strategy, uint256 received, uint256 value, uint256 fee, uint256 slippage, bytes data);
 
     /**
      * @dev Emitted every time `swap` is called
@@ -241,11 +241,14 @@ interface IWallet is IPriceFeedProvider, IImplementation, IAuthorizer {
     /**
      * @dev Execute an arbitrary call from the Mimic Wallet
      * @param target Address where the call will be sent
-     * @param data Calldata to be used for the call
+     * @param callData Calldata to be used for the call
      * @param value Value in wei that will be attached to the call
+     * @param data Extra data that may enable or not different behaviors depending on the implementation
      * @return result Call response if it was successful, otherwise it reverts
      */
-    function call(address target, bytes memory data, uint256 value) external returns (bytes memory result);
+    function call(address target, bytes memory callData, uint256 value, bytes memory data)
+        external
+        returns (bytes memory result);
 
     /**
      * @dev Collect tokens from a sender to the Mimic Wallet
@@ -253,8 +256,11 @@ interface IWallet is IPriceFeedProvider, IImplementation, IAuthorizer {
      * @param from Address where the tokens will be transfer from
      * @param amount Amount of tokens to be transferred
      * @param data Extra data that may enable or not different behaviors depending on the implementation
+     * @return collected Amount of tokens assigned to the wallet
      */
-    function collect(address token, address from, uint256 amount, bytes memory data) external;
+    function collect(address token, address from, uint256 amount, bytes memory data)
+        external
+        returns (uint256 collected);
 
     /**
      * @dev Withdraw tokens to an external account
@@ -262,29 +268,38 @@ interface IWallet is IPriceFeedProvider, IImplementation, IAuthorizer {
      * @param amount Amount of tokens to withdraw
      * @param recipient Address where the tokens will be transferred to
      * @param data Extra data that may enable or not different behaviors depending on the implementation
+     * @return withdrawn Amount of tokens transferred to the recipient address
      */
-    function withdraw(address token, uint256 amount, address recipient, bytes memory data) external;
+    function withdraw(address token, uint256 amount, address recipient, bytes memory data)
+        external
+        returns (uint256 withdrawn);
 
     /**
      * @dev Wrap an amount of native tokens to the wrapped ERC20 version of it
      * @param amount Amount of native tokens to be wrapped
      * @param data Extra data that may enable or not different behaviors depending on the implementation
+     * @return wrapped Amount of tokens wrapped
      */
-    function wrap(uint256 amount, bytes memory data) external;
+    function wrap(uint256 amount, bytes memory data) external returns (uint256 wrapped);
 
     /**
      * @dev Unwrap an amount of wrapped native tokens
      * @param amount Amount of wrapped native tokens to unwrapped
      * @param data Extra data that may enable or not different behaviors depending on the implementation
+     * @return unwrapped Amount of tokens unwrapped
      */
-    function unwrap(uint256 amount, bytes memory data) external;
+    function unwrap(uint256 amount, bytes memory data) external returns (uint256 unwrapped);
 
     /**
      * @dev Claim strategy rewards
      * @param strategy Address of the strategy to claim rewards
      * @param data Extra data that may enable or not different behaviors depending on the implementation
+     * @return tokens Addresses of the tokens received as rewards
+     * @return amounts Amounts of the tokens received as rewards
      */
-    function claim(address strategy, bytes memory data) external;
+    function claim(address strategy, bytes memory data)
+        external
+        returns (address[] memory tokens, uint256[] memory amounts);
 
     /**
      * @dev Join a strategy with an amount of tokens
@@ -292,8 +307,11 @@ interface IWallet is IPriceFeedProvider, IImplementation, IAuthorizer {
      * @param amount Amount of strategy tokens to join with
      * @param slippage Slippage that will be used to compute the join
      * @param data Extra data that may enable or not different behaviors depending on the implementation
+     * @return invested Amount of tokens invested in the strategy
      */
-    function join(address strategy, uint256 amount, uint256 slippage, bytes memory data) external;
+    function join(address strategy, uint256 amount, uint256 slippage, bytes memory data)
+        external
+        returns (uint256 invested);
 
     /**
      * @dev Exit a strategy
@@ -301,6 +319,7 @@ interface IWallet is IPriceFeedProvider, IImplementation, IAuthorizer {
      * @param ratio Percentage of the current position that will be exited
      * @param slippage Slippage that will be used to compute the exit
      * @param data Extra data that may enable or not different behaviors depending on the implementation
+     * @return received Amount of tokens received from the exit
      */
     function exit(address strategy, uint256 ratio, uint256 slippage, bytes memory data)
         external

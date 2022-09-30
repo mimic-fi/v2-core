@@ -16,6 +16,7 @@ contract StrategyMock is IStrategy, BaseImplementation {
     bytes32 public constant override NAMESPACE = keccak256('STRATEGY');
 
     address public immutable lpt;
+    address public immutable rewardToken;
     address public immutable override token;
 
     event Claimed(bytes data);
@@ -25,6 +26,7 @@ contract StrategyMock is IStrategy, BaseImplementation {
     constructor(address registry) BaseImplementation(registry) {
         lpt = address(new TokenMock('LPT'));
         token = address(new TokenMock('TKN'));
+        rewardToken = address(new TokenMock('REW'));
     }
 
     function mockGains(address account, uint256 multiplier) external {
@@ -47,7 +49,13 @@ contract StrategyMock is IStrategy, BaseImplementation {
 
     function claim(bytes memory data) external override returns (address[] memory tokens, uint256[] memory amounts) {
         emit Claimed(data);
-        return (new address[](0), new uint256[](0));
+        uint256 amount = abi.decode(data, (uint256));
+        TokenMock(rewardToken).mint(address(this), amount);
+
+        tokens = new address[](1);
+        tokens[0] = rewardToken;
+        amounts = new uint256[](1);
+        amounts[0] = amount;
     }
 
     function join(uint256 amount, uint256 slippage, bytes memory data) external override returns (uint256 value) {
