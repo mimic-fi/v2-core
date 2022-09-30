@@ -44,8 +44,10 @@ interface IStrategy is IImplementation {
     /**
      * @dev Claim any existing rewards
      * @param data Arbitrary extra data
+     * @return tokens Addresses of the tokens received as rewards
+     * @return amounts Amounts of the tokens received as rewards
      */
-    function claim(bytes memory data) external;
+    function claim(bytes memory data) external returns (address[] memory tokens, uint256[] memory amounts);
 
     /**
      * @dev Join the interfaced DeFi protocol

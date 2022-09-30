@@ -45,8 +45,9 @@ contract StrategyMock is IStrategy, BaseImplementation {
         return IERC20(lpt).balanceOf(account);
     }
 
-    function claim(bytes memory data) external override {
+    function claim(bytes memory data) external override returns (address[] memory tokens, uint256[] memory amounts) {
         emit Claimed(data);
+        return (new address[](0), new uint256[](0));
     }
 
     function join(uint256 amount, uint256 slippage, bytes memory data) external override returns (uint256 value) {
