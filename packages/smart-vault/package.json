@@ -21,7 +21,7 @@
     "prepare": "yarn build"
   },
   "dependencies": {
-    "@mimic-fi/v2-helpers": "0.0.6",
+    "@mimic-fi/v2-helpers": "0.0.7",
     "@mimic-fi/v2-registry": "0.0.3"
   },
   "devDependencies": {
