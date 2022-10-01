@@ -52,6 +52,13 @@ interface IRegistry is IAuthorizer {
         returns (bool stateless, bool deprecated, bytes32 namespace);
 
     /**
+     * @dev Tells if a specific implementation is registered under a certain namespace and it's not deprecated
+     * @param namespace Namespace asking for
+     * @param implementation Address of the implementation to be checked
+     */
+    function isActive(bytes32 namespace, address implementation) external view returns (bool);
+
+    /**
      * @dev Registers a new implementation for a given namespace
      * @param namespace Namespace to be used for the implementation
      * @param implementation Address of the implementation to be registered

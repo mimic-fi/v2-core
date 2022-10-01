@@ -57,6 +57,16 @@ contract Registry is IRegistry, Authorizer {
     }
 
     /**
+     * @dev Tells if a specific implementation is registered under a certain namespace and it's not deprecated
+     * @param namespace Namespace asking for
+     * @param implementation Address of the implementation to be checked
+     */
+    function isActive(bytes32 namespace, address implementation) external view override returns (bool) {
+        ImplementationData storage data = implementationData[implementation];
+        return !data.deprecated && data.namespace == namespace;
+    }
+
+    /**
      * @dev Registers a new implementation for a given namespace. Sender must be authorized.
      * @param namespace Namespace to be used for the implementation
      * @param implementation Address of the implementation to be registered
