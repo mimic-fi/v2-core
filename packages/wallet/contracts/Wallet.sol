@@ -190,17 +190,17 @@ contract Wallet is IWallet, PriceFeedProvider, InitializableAuthorizedImplementa
     }
 
     /**
-     * @dev Sets a list of price feeds. Sender must be authorized.
-     * @param bases List of token bases to be set
-     * @param quotes List of token quotes to be set
-     * @param feeds List of price feeds to be set
+     * @dev Sets a of price feed
+     * @param base Token base to be set
+     * @param quote Token quote to be set
+     * @param feed Price feed to be set
      */
-    function setPriceFeeds(address[] memory bases, address[] memory quotes, address[] memory feeds)
+    function setPriceFeed(address base, address quote, address feed)
         public
         override(IPriceFeedProvider, PriceFeedProvider)
         auth
     {
-        super.setPriceFeeds(bases, quotes, feeds);
+        super.setPriceFeed(base, quote, feed);
     }
 
     /**

@@ -38,6 +38,17 @@ contract PriceFeedProvider is IPriceFeedProvider {
     }
 
     /**
+     * @dev Sets a of price feed
+     * @param base Token base to be set
+     * @param quote Token quote to be set
+     * @param feed Price feed to be set
+     */
+    function setPriceFeed(address base, address quote, address feed) public virtual override {
+        _priceFeeds[base][quote] = feed;
+        emit PriceFeedSet(base, quote, feed);
+    }
+
+    /**
      * @dev Sets a list of price feeds. Sender must be authorized.
      * @param bases List of token bases to be set
      * @param quotes List of token quotes to be set
@@ -50,17 +61,6 @@ contract PriceFeedProvider is IPriceFeedProvider {
     {
         require(bases.length == quotes.length, 'SET_FEEDS_INVALID_QUOTES_LENGTH');
         require(bases.length == feeds.length, 'SET_FEEDS_INVALID_FEEDS_LENGTH');
-        for (uint256 i = 0; i < bases.length; i = i.uncheckedAdd(1)) _setPriceFeed(bases[i], quotes[i], feeds[i]);
-    }
-
-    /**
-     * @dev Internal function to set a price feed
-     * @param base Token base to be set
-     * @param quote Token quote to be set
-     * @param feed Price feeds to be set
-     */
-    function _setPriceFeed(address base, address quote, address feed) internal {
-        _priceFeeds[base][quote] = feed;
-        emit PriceFeedSet(base, quote, feed);
+        for (uint256 i = 0; i < bases.length; i = i.uncheckedAdd(1)) setPriceFeed(bases[i], quotes[i], feeds[i]);
     }
 }

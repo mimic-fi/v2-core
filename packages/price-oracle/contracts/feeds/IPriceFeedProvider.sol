@@ -32,6 +32,14 @@ interface IPriceFeedProvider {
     function getPriceFeed(address base, address quote) external view returns (address);
 
     /**
+     * @dev Sets a of price feed
+     * @param base Token base to be set
+     * @param quote Token quote to be set
+     * @param feed Price feed to be set
+     */
+    function setPriceFeed(address base, address quote, address feed) external;
+
+    /**
      * @dev Sets a list of price feeds
      * @param bases List of token bases to be set
      * @param quotes List of token quotes to be set
