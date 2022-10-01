@@ -22,7 +22,7 @@
   },
   "dependencies": {
     "@mimic-fi/v2-helpers": "0.0.7",
-    "@mimic-fi/v2-registry": "0.0.4"
+    "@mimic-fi/v2-registry": "0.0.5"
   },
   "devDependencies": {
     "@mimic-fi/v2-wallet": "0.0.5",
