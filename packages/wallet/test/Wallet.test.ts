@@ -606,6 +606,7 @@ describe('Wallet', () => {
             await newToken.mint(wallet.address, amount)
             const withdrawRole = wallet.interface.getSighash('withdraw')
             await wallet.connect(admin).authorize(admin.address, withdrawRole)
+            await priceOracle.mockRate(newToken.address, token, fp(1))
             await wallet.withdraw(newToken.address, amount, other.address, '0x')
           })
 
@@ -977,10 +978,11 @@ describe('Wallet', () => {
             await wallet.connect(admin).authorize(admin.address, exitRole)
 
             const amount = fp(50)
-            const token = await instanceAt('TokenMock', await strategy.token())
-            await token.mint(wallet.address, amount)
+            const strategyToken = await instanceAt('TokenMock', await strategy.token())
+            await strategyToken.mint(wallet.address, amount)
             await wallet.join(strategy.address, amount, 0, '0x')
             await strategy.mockGains(wallet.address, 2)
+            await priceOracle.mockRate(strategyToken.address, token, fp(1))
             await wallet.exit(strategy.address, fp(1), 0, '0x')
           })
 
@@ -1364,6 +1366,7 @@ describe('Wallet', () => {
             await anotherToken.mint(wallet.address, amount)
             await newToken.mint(await swapConnector.dex(), amount)
             await swapConnector.mockRate(fp(1))
+            await priceOracle.mockRate(newToken.address, token, fp(1))
             await wallet.swap(0, anotherToken.address, newToken.address, amount, 1, 0, '0x')
           })
 

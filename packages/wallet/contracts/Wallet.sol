@@ -33,6 +33,8 @@ import './IWrappedNativeToken.sol';
 import './helpers/StrategyLib.sol';
 import './helpers/SwapConnectorLib.sol';
 
+import 'hardhat/console.sol';
+
 /**
  * @title Wallet
  * @dev Mimic Wallet contract where funds are being held offering a bunch of primitives to allow users model any
@@ -582,12 +584,10 @@ contract Wallet is IWallet, PriceFeedProvider, InitializableAuthorizedImplementa
             fee.nextResetTime = 0;
         } else {
             // If cap values are not zero, set the next reset time if it wasn't set already
+            // Otherwise, if the cap token is being changed the total charged amount must be updated accordingly
             if (fee.nextResetTime == 0) {
                 fee.nextResetTime = block.timestamp + period;
-            }
-
-            // If the cap token is being changed the total charged amount must be updated accordingly
-            if (fee.token != token) {
+            } else if (fee.token != token) {
                 uint256 newTokenPrice = getPrice(fee.token, token);
                 fee.totalCharged = fee.totalCharged.mulDown(newTokenPrice);
             }
