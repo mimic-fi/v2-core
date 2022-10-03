@@ -33,8 +33,6 @@ import './IWrappedNativeToken.sol';
 import './helpers/StrategyLib.sol';
 import './helpers/SwapConnectorLib.sol';
 
-import 'hardhat/console.sol';
-
 /**
  * @title Wallet
  * @dev Mimic Wallet contract where funds are being held offering a bunch of primitives to allow users model any
