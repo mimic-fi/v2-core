@@ -20,24 +20,6 @@ pragma solidity ^0.8.0;
  */
 library UncheckedMath {
     /**
-     * @dev Unsafely increments an unsigned integer by one
-     */
-    function uncheckedIncrement(uint256 a) internal pure returns (uint256) {
-        unchecked {
-            return a++;
-        }
-    }
-
-    /**
-     * @dev Unsafely decrements an unsigned integer by one
-     */
-    function uncheckedDecrement(uint256 a) internal pure returns (uint256) {
-        unchecked {
-            return a--;
-        }
-    }
-
-    /**
      * @dev Unsafely adds two unsigned integers
      */
     function uncheckedAdd(uint256 a, uint256 b) internal pure returns (uint256) {
