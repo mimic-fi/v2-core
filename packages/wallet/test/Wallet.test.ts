@@ -65,7 +65,11 @@ describe('Wallet', () => {
     await wallet.connect(admin).setSwapConnector(swapConnector.address)
   })
 
-  describe('initialize', async () => {
+  describe('initialization', async () => {
+    it('has a registry reference', async () => {
+      expect(await wallet.registry()).to.be.equal(registry.address)
+    })
+
     it('cannot be initialized twice', async () => {
       await expect(wallet.initialize(admin.address)).to.be.revertedWith(
         'Initializable: contract is already initialized'
@@ -85,6 +89,14 @@ describe('Wallet', () => {
 
       expect(implementationData.deprecated).to.be.false
       expect(implementationData.namespace).to.be.equal(await wallet.NAMESPACE())
+    })
+
+    it('has the proper wrapped native token reference', async () => {
+      expect(await wallet.wrappedNativeToken()).to.be.equal(wrappedNativeToken.address)
+    })
+
+    it('has the expected namespace', async () => {
+      expect(await wallet.NAMESPACE()).to.be.equal(ethers.utils.solidityKeccak256(['string'], ['WALLET']))
     })
   })
 
