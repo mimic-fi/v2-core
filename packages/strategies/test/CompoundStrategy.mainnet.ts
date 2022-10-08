@@ -1,7 +1,8 @@
-import { assertAlmostEqual, deploy, fp, getSigner, impersonate, instanceAt, ZERO_ADDRESS } from '@mimic-fi/v2-helpers'
+import { assertAlmostEqual, deploy, fp, getSigner, impersonate, instanceAt } from '@mimic-fi/v2-helpers'
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/dist/src/signer-with-address'
 import { expect } from 'chai'
 import { Contract } from 'ethers'
+import { ethers } from 'hardhat'
 
 /* eslint-disable no-secrets/no-secrets */
 
@@ -37,6 +38,9 @@ describe('CompoundStrategy - DAI', function () {
     expect(await strategy.cToken()).to.be.equal(CDAI)
     expect(await strategy.valueRate()).to.be.equal(fp(1))
     expect(await strategy.lastValue(strategy.address)).to.be.equal(0)
+
+    expect(await strategy.registry()).to.be.equal(registry.address)
+    expect(await strategy.NAMESPACE()).to.be.equal(ethers.utils.solidityKeccak256(['string'], ['STRATEGY']))
   })
 
   it('joins the strategy', async () => {
