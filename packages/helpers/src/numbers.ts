@@ -7,7 +7,7 @@ export type BigNumberish = string | number | BigNumber
 
 export const decimal = (x: BigNumberish | Decimal): Decimal => new Decimal(x.toString())
 
-export const fp = (x: number | Decimal): BigNumber => bn(decimal(x).mul(SCALING_FACTOR))
+export const fp = (x: number | string | Decimal): BigNumber => bn(decimal(x).mul(SCALING_FACTOR))
 
 export const pct = (x: BigNumber, p: number): BigNumber => x.mul(fp(p)).div(fp(1))
 

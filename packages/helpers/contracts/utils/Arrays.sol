@@ -24,16 +24,6 @@ library Arrays {
     using UncheckedMath for uint256;
 
     /**
-     * @dev Builds an array of true booleans
-     */
-    function trues(uint256 size) internal pure returns (bool[] memory array) {
-        array = new bool[](size);
-        for (uint256 i = 0; i < size; i = i.uncheckedAdd(1)) {
-            array[i] = true;
-        }
-    }
-
-    /**
      * @dev Tells if an array of addresses includes the given ones
      */
     function includes(address[] memory arr, address a, address b) internal pure returns (bool) {
