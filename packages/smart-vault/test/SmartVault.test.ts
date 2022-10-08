@@ -1,8 +1,9 @@
-import { assertEvent, deploy, getSigners, ZERO_ADDRESS } from '@mimic-fi/v2-helpers'
+import { assertEvent, deploy, getSigners, instanceAt, ZERO_ADDRESS } from '@mimic-fi/v2-helpers'
 import { createClone } from '@mimic-fi/v2-registry'
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/dist/src/signer-with-address'
 import { expect } from 'chai'
 import { Contract } from 'ethers'
+import { ethers } from 'hardhat'
 
 describe('SmartVault', () => {
   let smartVault: Contract, registry: Contract
@@ -15,6 +16,41 @@ describe('SmartVault', () => {
 
   before('deploy registry', async () => {
     registry = await deploy('@mimic-fi/v2-registry/artifacts/contracts/registry/Registry.sol/Registry', [admin.address])
+  })
+
+  describe('initialization', async () => {
+    beforeEach('deploy smart vault', async () => {
+      smartVault = await createClone(registry, admin, 'SmartVault', [registry.address], [admin.address])
+    })
+
+    it('has a registry reference', async () => {
+      expect(await smartVault.registry()).to.be.equal(registry.address)
+    })
+
+    it('cannot be initialized twice', async () => {
+      await expect(smartVault.initialize(admin.address)).to.be.revertedWith(
+        'Initializable: contract is already initialized'
+      )
+    })
+
+    it('its implementation is already initialized', async () => {
+      const implementation = await instanceAt('SmartVault', await registry.implementationOf(smartVault.address))
+      await expect(implementation.initialize(admin.address)).to.be.revertedWith(
+        'Initializable: contract is already initialized'
+      )
+    })
+
+    it('is properly registered in the registry', async () => {
+      const implementation = await registry.implementationOf(smartVault.address)
+      const implementationData = await registry.implementationData(implementation)
+
+      expect(implementationData.deprecated).to.be.false
+      expect(implementationData.namespace).to.be.equal(await smartVault.NAMESPACE())
+    })
+
+    it('has the expected namespace', async () => {
+      expect(await smartVault.NAMESPACE()).to.be.equal(ethers.utils.solidityKeccak256(['string'], ['SMART_VAULT']))
+    })
   })
 
   describe('setWallet', () => {
