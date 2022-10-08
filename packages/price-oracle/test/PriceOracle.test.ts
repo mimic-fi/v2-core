@@ -1,14 +1,27 @@
-import { bn, deploy, ZERO_ADDRESS } from '@mimic-fi/v2-helpers'
+import { bn, deploy, getSigner } from '@mimic-fi/v2-helpers'
 import { expect } from 'chai'
 import { Contract } from 'ethers'
+import { ethers } from 'hardhat'
 
 describe('PriceOracle', () => {
-  let oracle: Contract
+  let oracle: Contract, registry: Contract
 
   const PIVOT = '0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE' // ETH
 
   beforeEach('create oracle', async () => {
-    oracle = await deploy('PriceOracle', [PIVOT, ZERO_ADDRESS])
+    const admin = await getSigner()
+    registry = await deploy('@mimic-fi/v2-registry/artifacts/contracts/registry/Registry.sol/Registry', [admin.address])
+    oracle = await deploy('PriceOracle', [PIVOT, registry.address])
+  })
+
+  describe('initialization', async () => {
+    it('has a registry reference', async () => {
+      expect(await oracle.registry()).to.be.equal(registry.address)
+    })
+
+    it('has the expected namespace', async () => {
+      expect(await oracle.NAMESPACE()).to.be.equal(ethers.utils.solidityKeccak256(['string'], ['PRICE_ORACLE']))
+    })
   })
 
   describe('getPrice', () => {
