@@ -1,4 +1,4 @@
-import { assertAlmostEqual, deploy, fp, impersonate, instanceAt, ZERO_ADDRESS } from '@mimic-fi/v2-helpers'
+import { assertAlmostEqual, deploy, fp, getSigner, impersonate, instanceAt, ZERO_ADDRESS } from '@mimic-fi/v2-helpers'
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/dist/src/signer-with-address'
 import { expect } from 'chai'
 import { Contract } from 'ethers'
@@ -10,8 +10,8 @@ const CDAI = '0x5d3a536E4D6DbD6114cc1Ead35777bAB948E3643'
 const WHALE = '0x075e72a5edf65f0a5f44699c7654c1a76941ddc8'
 
 describe('CompoundStrategy - DAI', function () {
+  let strategy: Contract, dai: Contract, cDai: Contract, comp: Contract, registry: Contract
   let whale: SignerWithAddress
-  let strategy: Contract, dai: Contract, cDai: Contract, comp: Contract
 
   const ERROR = 0.000001
   const JOIN_AMOUNT = fp(50)
@@ -21,7 +21,9 @@ describe('CompoundStrategy - DAI', function () {
   })
 
   before('deploy strategy', async () => {
-    strategy = await deploy('CompoundStrategy', [ZERO_ADDRESS, DAI, CDAI])
+    const admin = await getSigner()
+    registry = await deploy('@mimic-fi/v2-registry/artifacts/contracts/registry/Registry.sol/Registry', [admin.address])
+    strategy = await deploy('CompoundStrategy', [DAI, CDAI, registry.address])
   })
 
   before('load tokens', async () => {
