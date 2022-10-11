@@ -1,5 +1,6 @@
 import { BigNumber } from 'ethers'
 
+import { currentBlock } from './blocks'
 import { BigNumberish, bn } from './numbers'
 
 export const SECOND = 1
@@ -11,8 +12,7 @@ export const MONTH = DAY * 30
 export const YEAR = MONTH * 12
 
 export const currentTimestamp = async (): Promise<BigNumber> => {
-  const { network } = await import('hardhat')
-  const { timestamp } = await network.provider.send('eth_getBlockByNumber', ['latest', true])
+  const { timestamp } = await currentBlock()
   return bn(timestamp)
 }
 
