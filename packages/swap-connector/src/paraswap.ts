@@ -1,3 +1,4 @@
+import { bn, pct } from '@mimic-fi/v2-helpers'
 import axios, { AxiosError } from 'axios'
 import { BigNumber, Contract } from 'ethers'
 import { ethers } from 'hardhat'
@@ -14,20 +15,21 @@ export async function getSwapData(
   tokenOut: Contract,
   amountIn: BigNumber,
   slippage: number
-): Promise<string> {
+): Promise<{ minAmountOut: BigNumber; data: string }> {
   const prices = await getPrices(sender, tokenIn, tokenOut, amountIn)
   const priceRoute = prices.data.priceRoute
 
   try {
     const transactions = await postTransactions(sender, tokenIn, tokenOut, amountIn, slippage, priceRoute)
-    return transactions.data.data
+    const minAmountOut = bn(priceRoute.destAmount).sub(pct(bn(priceRoute.destAmount), slippage))
+    return { data: transactions.data.data, minAmountOut }
   } catch (error) {
     if (error instanceof AxiosError) throw Error(error.toString() + ' - ' + error.response?.data?.error)
     else throw error
   }
 }
 
-async function getPrices(
+export async function getPrices(
   sender: Contract,
   tokenIn: Contract,
   tokenOut: Contract,
@@ -51,7 +53,7 @@ async function getPrices(
   })
 }
 
-async function postTransactions(
+export async function postTransactions(
   sender: Contract,
   tokenIn: Contract,
   tokenOut: Contract,

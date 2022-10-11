@@ -195,8 +195,8 @@ describe('SwapConnector', () => {
       const previousBalance = await weth.balanceOf(WHALE)
       await usdc.connect(whale).transfer(connector.address, amountIn)
 
-      const data = await getParaSwapData(connector, usdc, weth, amountIn, SLIPPAGE)
-      await connector.connect(whale).swap(source, USDC, WETH, amountIn, 0, data)
+      const { minAmountOut, data } = await getParaSwapData(connector, usdc, weth, amountIn, SLIPPAGE)
+      await connector.connect(whale).swap(source, USDC, WETH, amountIn, minAmountOut, data)
 
       const currentBalance = await weth.balanceOf(WHALE)
       const expectedMinAmountOut = await getExpectedMinAmountOut(USDC, WETH, amountIn)
@@ -209,8 +209,8 @@ describe('SwapConnector', () => {
 
       await weth.connect(whale).transfer(connector.address, amountIn)
 
-      const data = await getParaSwapData(connector, weth, usdc, amountIn, SLIPPAGE)
-      await connector.connect(whale).swap(source, WETH, USDC, amountIn, 0, data)
+      const { minAmountOut, data } = await getParaSwapData(connector, weth, usdc, amountIn, SLIPPAGE)
+      await connector.connect(whale).swap(source, WETH, USDC, amountIn, minAmountOut, data)
 
       const currentBalance = await usdc.balanceOf(WHALE)
       const expectedMinAmountOut = await getExpectedMinAmountOut(WETH, USDC, amountIn)
@@ -222,8 +222,8 @@ describe('SwapConnector', () => {
       const previousBalance = await wbtc.balanceOf(WHALE)
       await usdc.connect(whale).transfer(connector.address, amountIn)
 
-      const data = await getParaSwapData(connector, usdc, wbtc, amountIn, SLIPPAGE)
-      await connector.connect(whale).swap(source, USDC, WBTC, amountIn, 0, data)
+      const { minAmountOut, data } = await getParaSwapData(connector, usdc, wbtc, amountIn, SLIPPAGE)
+      await connector.connect(whale).swap(source, USDC, WBTC, amountIn, minAmountOut, data)
 
       const currentBalance = await wbtc.balanceOf(WHALE)
       const expectedMinAmountOut = await getExpectedMinAmountOut(USDC, WBTC, amountIn)
@@ -235,8 +235,8 @@ describe('SwapConnector', () => {
       const previousBalance = await usdc.balanceOf(WHALE)
       await wbtc.connect(whale).transfer(connector.address, amountIn)
 
-      const data = await getParaSwapData(connector, wbtc, usdc, amountIn, SLIPPAGE)
-      await connector.connect(whale).swap(source, WBTC, USDC, amountIn, 0, data)
+      const { minAmountOut, data } = await getParaSwapData(connector, wbtc, usdc, amountIn, SLIPPAGE)
+      await connector.connect(whale).swap(source, WBTC, USDC, amountIn, minAmountOut, data)
 
       const currentBalance = await usdc.balanceOf(WHALE)
       const expectedMinAmountOut = await getExpectedMinAmountOut(WBTC, USDC, amountIn)
