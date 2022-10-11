@@ -31,7 +31,7 @@ async function readFixture(
   network: string,
   blockNumber: string
 ): Promise<{ tokenIn: string; tokenOut: string; amountIn: string; minAmountOut: string; data: string } | undefined> {
-  const swapPath = `${await tokenIn.symbol()}-${await tokenOut.symbol()}`
+  const swapPath = `${await tokenIn.symbol()}-${await tokenOut.symbol()}.json`
   const fixturePath = path.join(__dirname, 'fixtures', network, blockNumber, swapPath)
   if (fs.existsSync(fixturePath)) return JSON.parse(fs.readFileSync(fixturePath).toString())
 }

@@ -53,13 +53,14 @@ contract ParaswapV5Connector {
         uint256 minAmountOut,
         bytes memory data
     ) internal returns (uint256 amountOut) {
+        uint256 preBalanceOut = IERC20(tokenOut).balanceOf(address(this));
+
         address tokenTransferProxy = paraswapV5Augustus.getTokenTransferProxy();
         IERC20(tokenIn).safeApprove(tokenTransferProxy, amountIn);
-
         Address.functionCall(address(paraswapV5Augustus), data, 'PARASWAP_V5_SWAP_FAILED');
 
-        amountOut = IERC20(tokenOut).balanceOf(address(this));
+        uint256 postBalanceOut = IERC20(tokenOut).balanceOf(address(this));
+        amountOut = postBalanceOut - preBalanceOut;
         require(amountOut >= minAmountOut, 'PARASWAP_V5_MIN_AMOUNT');
-        IERC20(tokenOut).safeTransfer(msg.sender, amountOut);
     }
 }
