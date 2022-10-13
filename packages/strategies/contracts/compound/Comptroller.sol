@@ -19,9 +19,5 @@ import '@openzeppelin/contracts/token/ERC20/IERC20.sol';
 interface Comptroller {
     function getCompAddress() external view returns (IERC20);
 
-    function compAccrued(address holder) external view returns (uint256);
-
-    function claimComp(address holder) external;
-
     function claimComp(address holder, address[] memory cToken) external;
 }

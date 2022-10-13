@@ -26,6 +26,4 @@ interface ICToken is IERC20 {
     function redeem(uint256 redeemTokens) external returns (uint256);
 
     function exchangeRateStored() external view returns (uint256);
-
-    function exchangeRateCurrent() external returns (uint256);
 }

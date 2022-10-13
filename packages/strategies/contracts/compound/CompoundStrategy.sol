@@ -78,7 +78,7 @@ contract CompoundStrategy is IStrategy, BaseImplementation {
     /**
      * @dev Tells how much value the strategy has over time.
      * For example, if a strategy has a value of 100 in T0, and then it has a value of 120 in T1,
-     * It means it gained a 20% between T0 and T1 due to the appreciation of the C token and comp rewards.
+     * It means it gained a 20% between T0 and T1 due to the appreciation of the cToken and COMP rewards.
      * Note: This function only tells the total value until the last claim
      */
     function lastValue(address account) public view override returns (uint256) {
@@ -94,7 +94,6 @@ contract CompoundStrategy is IStrategy, BaseImplementation {
         uint256 initialCompBalance = comp.balanceOf(address(this));
         address[] memory cTokens = new address[](1);
         cTokens[0] = address(cToken);
-        comptroller.claimComp(address(this));
         comptroller.claimComp(address(this), cTokens);
         uint256 finalCompBalance = comp.balanceOf(address(this));
 
