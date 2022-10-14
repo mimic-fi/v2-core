@@ -1,5 +1,5 @@
 import { defaultAbiCoder } from '@ethersproject/abi'
-import { currentTimestamp, deploy, fp, impersonate, instanceAt, MINUTE, pct, ZERO_ADDRESS } from '@mimic-fi/v2-helpers'
+import { deploy, fp, impersonate, instanceAt, pct, ZERO_ADDRESS } from '@mimic-fi/v2-helpers'
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/dist/src/signer-with-address'
 import { expect } from 'chai'
 import { BigNumber, Contract } from 'ethers'
