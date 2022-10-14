@@ -5,7 +5,7 @@ import hre from 'hardhat'
 import { HardhatNetworkConfig } from 'hardhat/types'
 import path from 'path'
 
-import { getSwapData } from '../../../src/paraswap'
+import { getSwapData, SwapData } from '../../../src/paraswap'
 
 export async function getParaSwapData(
   sender: Contract,
@@ -13,35 +13,43 @@ export async function getParaSwapData(
   tokenOut: Contract,
   amountIn: BigNumber,
   slippage: number
-): Promise<{ minAmountOut: BigNumber; data: string }> {
+): Promise<SwapData> {
   const network = getForkedNetwork(hre)
   const config = hre.network.config as HardhatNetworkConfig
   const blockNumber = config?.forking?.blockNumber?.toString() || (await currentBlockNumber()).toString()
-  const fixture = await readFixture(tokenIn, tokenOut, network, blockNumber)
-  if (fixture) return { data: fixture.data, minAmountOut: bn(fixture.minAmountOut) }
 
-  const { data, minAmountOut } = await getSwapData(sender, tokenIn, tokenOut, amountIn, slippage)
-  await saveFixture(tokenIn, tokenOut, amountIn, minAmountOut, data, network, blockNumber)
-  return { data, minAmountOut }
+  let swapData = await readSwapData(tokenIn, tokenOut, network, blockNumber)
+  if (swapData) return swapData
+
+  swapData = await getSwapData(sender, tokenIn, tokenOut, amountIn, slippage)
+  await saveSwapData(tokenIn, tokenOut, amountIn, swapData, network, blockNumber)
+  return swapData
 }
 
-async function readFixture(
+async function readSwapData(
   tokenIn: Contract,
   tokenOut: Contract,
   network: string,
   blockNumber: string
-): Promise<{ tokenIn: string; tokenOut: string; amountIn: string; minAmountOut: string; data: string } | undefined> {
+): Promise<SwapData | undefined> {
   const swapPath = `${await tokenIn.symbol()}-${await tokenOut.symbol()}.json`
   const fixturePath = path.join(__dirname, 'fixtures', network, blockNumber, swapPath)
-  if (fs.existsSync(fixturePath)) return JSON.parse(fs.readFileSync(fixturePath).toString())
+  if (!fs.existsSync(fixturePath)) return undefined
+
+  const fixture = JSON.parse(fs.readFileSync(fixturePath).toString())
+  return {
+    minAmountOut: bn(fixture.minAmountOut),
+    data: fixture.data,
+    sig: fixture.sig,
+    signer: fixture.signer,
+  }
 }
 
-async function saveFixture(
+async function saveSwapData(
   tokenIn: Contract,
   tokenOut: Contract,
   amountIn: BigNumber,
-  minAmountOut: BigNumber,
-  data: string,
+  swapData: SwapData,
   network: string,
   blockNumber: string
 ): Promise<void> {
@@ -49,8 +57,10 @@ async function saveFixture(
     tokenIn: tokenIn.address,
     tokenOut: tokenOut.address,
     amountIn: amountIn.toString(),
-    minAmountOut: minAmountOut.toString(),
-    data,
+    minAmountOut: swapData.minAmountOut.toString(),
+    data: swapData.data,
+    sig: swapData.sig,
+    signer: swapData.signer,
   }
 
   const fixturesPath = path.join(__dirname, 'fixtures')

@@ -1,13 +1,15 @@
-import { bn, pct } from '@mimic-fi/v2-helpers'
+import { bn, currentTimestamp, MINUTE, pct } from '@mimic-fi/v2-helpers'
 import axios, { AxiosError } from 'axios'
 import { BigNumber, Contract } from 'ethers'
 import { ethers } from 'hardhat'
 
 const PARASWAP_URL = 'https://apiv5.paraswap.io'
 
-type PricesResponse = { data: { priceRoute: { [key: string]: string } } }
+export type PricesResponse = { data: { priceRoute: { [key: string]: string } } }
 
-type TransactionsResponse = { data: { data: string } }
+export type TransactionsResponse = { data: { data: string; sig: string; signer: string } }
+
+export type SwapData = { minAmountOut: BigNumber; data: string; sig: string; signer: string }
 
 export async function getSwapData(
   sender: Contract,
@@ -15,14 +17,14 @@ export async function getSwapData(
   tokenOut: Contract,
   amountIn: BigNumber,
   slippage: number
-): Promise<{ minAmountOut: BigNumber; data: string }> {
+): Promise<SwapData> {
   const prices = await getPrices(sender, tokenIn, tokenOut, amountIn)
   const priceRoute = prices.data.priceRoute
 
   try {
     const transactions = await postTransactions(sender, tokenIn, tokenOut, amountIn, slippage, priceRoute)
     const minAmountOut = bn(priceRoute.destAmount).sub(pct(bn(priceRoute.destAmount), slippage))
-    return { data: transactions.data.data, minAmountOut }
+    return { data: transactions.data.data, minAmountOut, sig: transactions.data.sig, signer: transactions.data.signer }
   } catch (error) {
     if (error instanceof AxiosError) throw Error(error.toString() + ' - ' + error.response?.data?.error)
     else throw error
@@ -72,6 +74,7 @@ export async function postTransactions(
       slippage: slippage * 10000,
       userAddress: sender.address,
       receiver: sender.address,
+      deadline: (await currentTimestamp()).add(MINUTE).toString(),
       priceRoute,
     },
     {
@@ -81,6 +84,7 @@ export async function postTransactions(
       },
       params: {
         gasPrice: (await ethers.provider.getGasPrice()).toString(),
+        signCalldata: true,
         ignoreChecks: true,
       },
     }
