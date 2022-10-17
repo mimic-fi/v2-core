@@ -146,7 +146,7 @@ describe('Wallet', () => {
         context('when the allowing the strategy', () => {
           it('reverts', async () => {
             await expect(wallet.setStrategy(anotherStrategy.address, true)).to.be.revertedWith(
-              'NEW_DEPENDENCY_NOT_REGISTERED'
+              'DEPENDENCY_NOT_REGISTERED'
             )
           })
         })
@@ -203,7 +203,7 @@ describe('Wallet', () => {
         })
 
         it('reverts', async () => {
-          await expect(wallet.setPriceOracle(newOracle.address)).to.be.revertedWith('NEW_DEPENDENCY_NOT_REGISTERED')
+          await expect(wallet.setPriceOracle(newOracle.address)).to.be.revertedWith('DEPENDENCY_NOT_REGISTERED')
         })
       })
     })
@@ -255,7 +255,7 @@ describe('Wallet', () => {
 
         it('reverts', async () => {
           await expect(wallet.setSwapConnector(newSwapConnector.address)).to.be.revertedWith(
-            'NEW_DEPENDENCY_NOT_REGISTERED'
+            'DEPENDENCY_NOT_REGISTERED'
           )
         })
       })

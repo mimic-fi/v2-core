@@ -511,7 +511,7 @@ contract Wallet is IWallet, PriceFeedProvider, InitializableAuthorizedImplementa
      * @param allowed Whether the strategy is allowed or not
      */
     function _setStrategy(address strategy, bool allowed) internal {
-        if (allowed) _validateDependency(address(0), strategy);
+        if (allowed) _validateStatelessDependency(strategy);
         isStrategyAllowed[strategy] = allowed;
         emit StrategySet(strategy, allowed);
     }
@@ -521,7 +521,7 @@ contract Wallet is IWallet, PriceFeedProvider, InitializableAuthorizedImplementa
      * @param newPriceOracle New price oracle to be set
      */
     function _setPriceOracle(address newPriceOracle) internal {
-        _validateDependency(priceOracle, newPriceOracle);
+        _validateStatelessDependency(newPriceOracle);
         priceOracle = newPriceOracle;
         emit PriceOracleSet(newPriceOracle);
     }
@@ -531,7 +531,7 @@ contract Wallet is IWallet, PriceFeedProvider, InitializableAuthorizedImplementa
      * @param newSwapConnector New swap connector to be set
      */
     function _setSwapConnector(address newSwapConnector) internal {
-        _validateDependency(swapConnector, newSwapConnector);
+        _validateStatelessDependency(newSwapConnector);
         swapConnector = newSwapConnector;
         emit SwapConnectorSet(newSwapConnector);
     }

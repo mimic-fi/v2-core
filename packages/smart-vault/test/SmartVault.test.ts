@@ -108,7 +108,7 @@ describe('SmartVault', () => {
           })
 
           it('reverts', async () => {
-            await expect(smartVault.setWallet(newWallet.address)).to.be.revertedWith('NEW_DEPENDENCY_NOT_REGISTERED')
+            await expect(smartVault.setWallet(newWallet.address)).to.be.revertedWith('DEPENDENCY_NOT_REGISTERED')
           })
         })
       })
