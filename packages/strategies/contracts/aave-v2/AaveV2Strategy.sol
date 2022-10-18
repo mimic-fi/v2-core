@@ -75,6 +75,7 @@ contract AaveV2Strategy is IStrategy, BaseImplementation {
      * @dev Tells how much value the strategy has over time.
      * For example, if a strategy has a value of 100 in T0, and then it has a value of 120 in T1,
      * It means it gained a 20% between T0 and T1 due to the appreciation of the aToken and AAVE rewards.
+     * @param account Address of the account querying the last value of
      */
     function lastValue(address account) public view override returns (uint256) {
         return aToken.balanceOf(account);

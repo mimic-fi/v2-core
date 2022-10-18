@@ -37,6 +37,7 @@ interface IAaveV2IncentivesController {
 
     /**
      * @dev Claims reward for an user, on all the assets of the lending pool, accumulating the pending rewards
+     * @param assets List of cTokens claiming rewards for
      * @param amount Amount of rewards to claim
      * @param to Address that will be receiving the rewards
      * @return Rewards claimed
