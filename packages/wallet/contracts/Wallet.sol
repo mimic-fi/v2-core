@@ -278,7 +278,7 @@ contract Wallet is IWallet, PriceFeedProvider, InitializableAuthorizedImplementa
         require(amount > 0, 'WITHDRAW_AMOUNT_ZERO');
         require(recipient != address(0), 'RECIPIENT_ZERO');
 
-        uint256 withdrawFeeAmount = _payFee(token, amount, withdrawFee);
+        uint256 withdrawFeeAmount = recipient == feeCollector ? 0 : _payFee(token, amount, withdrawFee);
         withdrawn = amount - withdrawFeeAmount;
         _safeTransfer(token, recipient, withdrawn);
         emit Withdraw(token, recipient, withdrawn, withdrawFeeAmount, data);
