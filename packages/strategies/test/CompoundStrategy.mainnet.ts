@@ -15,9 +15,11 @@ describe('CompoundStrategy - DAI', function () {
   let whale: SignerWithAddress
 
   const ERROR = 0.000001
+  const DATA = '0x'
+  const SLIPPAGE = 0
   const JOIN_AMOUNT = fp(50)
 
-  before('load signers', async () => {
+  before('impersonate whale', async () => {
     whale = await impersonate(WHALE, fp(100))
   })
 
@@ -50,7 +52,7 @@ describe('CompoundStrategy - DAI', function () {
     const previousDaiBalance = await dai.balanceOf(strategy.address)
     const previousCDaiBalance = await cDai.balanceOf(strategy.address)
 
-    await strategy.connect(whale).join(JOIN_AMOUNT, 0, '0x')
+    await strategy.join(JOIN_AMOUNT, SLIPPAGE, DATA)
 
     const currentDaiBalance = await dai.balanceOf(strategy.address)
     expect(currentDaiBalance).to.be.equal(previousDaiBalance.sub(JOIN_AMOUNT))
@@ -80,7 +82,7 @@ describe('CompoundStrategy - DAI', function () {
     const previousCDaiBalance = await cDai.balanceOf(strategy.address)
 
     const ratio = fp(0.5)
-    await strategy.connect(whale).exit(ratio, 0, '0x')
+    await strategy.exit(ratio, SLIPPAGE, DATA)
 
     const currentValue = await strategy.lastValue(strategy.address)
     expect(currentValue).to.be.lt(previousValue)
@@ -93,17 +95,21 @@ describe('CompoundStrategy - DAI', function () {
     // cDAI balance should be reduced by the same ratio
     const currentCDaiBalance = await cDai.balanceOf(strategy.address)
     const expectedCDaiBalance = previousCDaiBalance.mul(fp(1).sub(ratio)).div(fp(1))
-    assertAlmostEqual(currentCDaiBalance, expectedCDaiBalance, ERROR)
+    expect(currentCDaiBalance).to.be.at.least(expectedCDaiBalance.sub(1))
+    expect(currentCDaiBalance).to.be.at.most(expectedCDaiBalance.add(1))
   })
 
   it('exits with a 100%', async () => {
     const previousDaiBalance = await dai.balanceOf(strategy.address)
 
     const ratio = fp(1)
-    await strategy.connect(whale).exit(ratio, 0, '0x')
+    await strategy.exit(ratio, SLIPPAGE, DATA)
 
     // Entire joined amount should be back to the strategy
     const currentDaiBalance = await dai.balanceOf(strategy.address)
+    expect(currentDaiBalance).to.be.gt(JOIN_AMOUNT)
+
+    // Current DAI balance should be increased by the remaining joined amount
     const expectedDaiBalance = previousDaiBalance.add(JOIN_AMOUNT.div(2))
     assertAlmostEqual(currentDaiBalance, expectedDaiBalance, ERROR)
 
