@@ -10,11 +10,12 @@ jobs:
   lint:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - name: Checkout
+        uses: actions/checkout@v2
       - name: Install node
         uses: actions/setup-node@v1
         with:
-          node-version: 14
+          node-version: 16
       - name: Install
         run: yarn --immutable
       - name: Lint
@@ -37,11 +38,12 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - name: Checkout
+        uses: actions/checkout@v2
       - name: Install node
         uses: actions/setup-node@v1
         with:
-          node-version: 14
+          node-version: 16
       - name: Install
         run: yarn --immutable
       - name: Build
@@ -64,11 +66,12 @@ jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - name: Checkout
+        uses: actions/checkout@v2
       - name: Install node
         uses: actions/setup-node@v1
         with:
-          node-version: 14
+          node-version: 16
       - name: Install
         run: yarn --immutable
       - name: Build
@@ -93,11 +96,12 @@ jobs:
   integration:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - name: Checkout
+        uses: actions/checkout@v2
       - name: Install node
         uses: actions/setup-node@v1
         with:
-          node-version: 14
+          node-version: 16
       - name: Install
         run: yarn --immutable
       - name: Setup hardhat config
