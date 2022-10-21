@@ -38,70 +38,37 @@ abstract contract BaseImplementation is IImplementation {
     }
 
     /**
-     * @dev Internal function to validate a new dependency. It checks the new dependency is registered in the
-     * same registry under the same namespace
-     * @param currentDependency Address of the dependency currently set. It can be zero if it's being initialized.
-     * @param newDependency New address to replace the current one
+     * @dev Internal function to validate a new dependency that must be registered as stateless.
+     * It checks the new dependency is registered, not deprecated, and stateless.
+     * @param dependency New stateless dependency to be set
      */
-    function _validateDependency(address currentDependency, address newDependency) internal view {
-        // If there is an implementation registered for the new dependency, check the new dependency as an instance.
-        // Otherwise, validate the new dependency as an implementation
-        address newImplementation = IRegistry(registry).implementationOf(newDependency);
-        newImplementation != address(0)
-            ? _validateDependencyInstance(currentDependency, newImplementation)
-            : _validateDependencyImplementation(currentDependency, newDependency);
+    function _validateStatelessDependency(address dependency) internal view {
+        require(_validateDependency(dependency), 'DEPENDENCY_NOT_STATELESS');
     }
 
     /**
-     * @dev Internal function to validate a new dependency instance. It requests the current dependency to be an
-     * instance whose implementation is registered under the same namespace as the new requested one.
-     * @param currentDependency Address of the dependency currently set. It can be zero if it's being initialized.
-     * @param newImplementation Address of the new dependency's implementation
+     * @dev Internal function to validate a new dependency that cannot be registered as stateless.
+     * It checks the new dependency is registered, not deprecated, and not stateful.
+     * @param dependency New stateful dependency to be set
      */
-    function _validateDependencyInstance(address currentDependency, address newImplementation) private view {
-        // Make sure the new implementation is registered and not deprecated
-        (bool newStateless, bool newDeprecated, bytes32 newNamespace) = _getImplementationData(newImplementation);
-        require(newNamespace != bytes32(0), 'NEW_DEPENDENCY_NOT_REGISTERED');
-        require(!newDeprecated, 'NEW_DEPENDENCY_DEPRECATED');
-
-        // If the current dependency is not set, there is nothing else to be checked
-        if (currentDependency != address(0)) {
-            // Make sure the current dependency is an instance too
-            address currentImplementation = IRegistry(registry).implementationOf(currentDependency);
-            require(currentImplementation != address(0), 'NEW_DEPENDENCY_MUST_BE_IMPL');
-
-            // Make sure namespaces and stateless conditions match
-            (bool currentStateless, , bytes32 currentNamespace) = _getImplementationData(currentImplementation);
-            require(currentNamespace == newNamespace, 'INVALID_NEW_DEPENDENCY_NAMESPACE');
-            require(currentStateless == newStateless, 'INVALID_NEW_DEPENDENCY_STATELESS');
-        }
+    function _validateStatefulDependency(address dependency) internal view {
+        require(!_validateDependency(dependency), 'DEPENDENCY_NOT_STATEFUL');
     }
 
     /**
-     * @dev Internal function to validate a new dependency implementation. It requests the current dependency to be an
-     * implementation registered under the same namespace as the new requested one.
-     * @param currentDependency Address of the dependency currently set. It can be zero if it's being initialized.
-     * @param newImplementation Address of the new dependency's implementation
+     * @dev Internal function to validate a new dependency. It checks the dependency is registered and not deprecated.
+     * @param dependency New dependency to be set
+     * @return Whether the dependency is stateless or not
      */
-    function _validateDependencyImplementation(address currentDependency, address newImplementation) private view {
-        // Make sure the new implementation is registered and not deprecated
-        (bool newStateless, bool newDeprecated, bytes32 newNamespace) = _getImplementationData(newImplementation);
-        require(newNamespace != bytes32(0), 'NEW_DEPENDENCY_NOT_REGISTERED');
-        require(!newDeprecated, 'NEW_DEPENDENCY_DEPRECATED');
+    function _validateDependency(address dependency) private view returns (bool) {
+        // If there is an implementation registered for the dependency, check the dependency as an instance.
+        // Otherwise, treat the dependency as an implementation.
+        address dependencyImplementation = IRegistry(registry).implementationOf(dependency);
+        address implementation = dependencyImplementation != address(0) ? dependencyImplementation : dependency;
 
-        // If the current dependency is not set, there is nothing else to be checked
-        if (currentDependency != address(0)) {
-            // Make sure the current dependency is an implementation too
-            (bool currentStateless, , bytes32 currentNamespace) = _getImplementationData(currentDependency);
-            require(currentNamespace != bytes32(0), 'NEW_DEPENDENCY_MUST_BE_INSTANCE');
-
-            // Make sure namespaces and stateless conditions match
-            require(currentNamespace == newNamespace, 'INVALID_NEW_DEPENDENCY_NAMESPACE');
-            require(currentStateless == newStateless, 'INVALID_NEW_DEPENDENCY_STATELESS');
-        }
-    }
-
-    function _getImplementationData(address implementation) private view returns (bool, bool, bytes32) {
-        return IRegistry(registry).implementationData(implementation);
+        (bool stateless, bool deprecated, bytes32 namespace) = IRegistry(registry).implementationData(implementation);
+        require(namespace != bytes32(0), 'DEPENDENCY_NOT_REGISTERED');
+        require(!deprecated, 'DEPENDENCY_DEPRECATED');
+        return stateless;
     }
 }

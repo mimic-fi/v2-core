@@ -66,7 +66,7 @@ contract SmartVault is ISmartVault, InitializableAuthorizedImplementation {
      */
     function setWallet(address newWallet) external override auth {
         require(wallet == address(0), 'WALLET_ALREADY_SET');
-        _validateDependency(wallet, newWallet);
+        _validateStatefulDependency(newWallet);
         wallet = newWallet;
         emit WalletSet(newWallet);
     }
