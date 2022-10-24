@@ -43,11 +43,11 @@ contract SmartVault is ISmartVault, InitializableAuthorizedImplementation {
     }
 
     /**
-     * @dev Initializes the Price Oracle instance
-     * @param _admin Address that will be granted with admin rights
+     * @dev Initializes the Swap Connector instance
+     * @param admin Address that will be granted with admin rights
      */
-    function initialize(address _admin) external initializer {
-        _initialize(_admin);
+    function initialize(address admin) external initializer {
+        _initialize(admin);
     }
 
     /**
