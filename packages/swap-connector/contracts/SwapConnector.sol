@@ -37,8 +37,8 @@ import './connectors/ParaswapV5Connector.sol';
 contract SwapConnector is
     ISwapConnector,
     BaseImplementation,
-    UniswapV3Connector,
     UniswapV2Connector,
+    UniswapV3Connector,
     BalancerV2Connector,
     ParaswapV5Connector
 {
@@ -47,20 +47,20 @@ contract SwapConnector is
 
     /**
      * @dev Initializes the SwapConnector contract
-     * @param uniswapV3Router Uniswap V3 router reference
      * @param uniswapV2Router Uniswap V2 router reference
+     * @param uniswapV3Router Uniswap V3 router reference
      * @param balancerV2Vault Balancer V2 vault reference
      * @param paraswapV5Augustus Paraswap V5 augustus reference
      */
     constructor(
-        address uniswapV3Router,
         address uniswapV2Router,
+        address uniswapV3Router,
         address balancerV2Vault,
         address paraswapV5Augustus,
         address registry
     )
-        UniswapV3Connector(uniswapV3Router)
         UniswapV2Connector(uniswapV2Router)
+        UniswapV3Connector(uniswapV3Router)
         BalancerV2Connector(balancerV2Vault)
         ParaswapV5Connector(paraswapV5Augustus)
         BaseImplementation(registry)
@@ -89,6 +89,6 @@ contract SwapConnector is
         else if (source == Source.UniswapV3) return _swapUniswapV3(tokenIn, tokenOut, amountIn, minAmountOut, data);
         else if (source == Source.BalancerV2) return _swapBalancerV2(tokenIn, tokenOut, amountIn, minAmountOut, data);
         else if (source == Source.ParaswapV5) return _swapParaswapV5(tokenIn, tokenOut, amountIn, minAmountOut, data);
-        else revert('INVALID_DEX_OPTION');
+        else revert('INVALID_SOURCE');
     }
 }
