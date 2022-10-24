@@ -165,6 +165,7 @@ contract Curve3PoolStrategy is IStrategy, BaseImplementation {
         override
         returns (uint256 amount, uint256 value)
     {
+        if (ratio == 0) return (0, 0);
         require(ratio <= FixedPoint.ONE, 'CURVE_INVALID_RATIO');
         require(slippage <= FixedPoint.ONE, 'CURVE_INVALID_SLIPPAGE');
 
