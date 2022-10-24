@@ -119,6 +119,7 @@ contract AaveV2Strategy is IStrategy, BaseImplementation {
      * @return value Value represented by the exited amount
      */
     function exit(uint256 ratio, uint256, bytes memory) external override returns (uint256 amount, uint256 value) {
+        if (ratio == 0) return (0, 0);
         require(ratio <= FixedPoint.ONE, 'AAVE_V2_INVALID_RATIO');
 
         uint256 initialTokenBalance = IERC20(token).balanceOf(address(this));
