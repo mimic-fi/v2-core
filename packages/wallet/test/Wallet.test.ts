@@ -334,14 +334,13 @@ describe('Wallet', () => {
             it('sets the withdraw fee', async () => {
               await wallet.setWithdrawFee(pct, cap, token, period)
 
-              const now = await currentTimestamp()
               const fee = await wallet.withdrawFee()
               expect(fee.pct).to.be.equal(pct)
               expect(fee.cap).to.be.equal(cap)
               expect(fee.token).to.be.equal(token)
               expect(fee.period).to.be.equal(period)
               expect(fee.totalCharged).to.be.equal(0)
-              expect(fee.nextResetTime).to.be.equal(cap != 0 ? now.add(period) : 0)
+              expect(fee.nextResetTime).to.be.equal(cap != 0 ? (await currentTimestamp()).add(period) : 0)
             })
 
             it('emits an event', async () => {
@@ -704,14 +703,13 @@ describe('Wallet', () => {
             it('sets the performance fee', async () => {
               await wallet.setPerformanceFee(pct, cap, token, period)
 
-              const now = await currentTimestamp()
               const fee = await wallet.performanceFee()
               expect(fee.pct).to.be.equal(pct)
               expect(fee.cap).to.be.equal(cap)
               expect(fee.token).to.be.equal(token)
               expect(fee.period).to.be.equal(period)
               expect(fee.totalCharged).to.be.equal(0)
-              expect(fee.nextResetTime).to.be.equal(cap != 0 ? now.add(period) : 0)
+              expect(fee.nextResetTime).to.be.equal(cap != 0 ? (await currentTimestamp()).add(period) : 0)
             })
 
             it('emits an event', async () => {
@@ -1090,14 +1088,13 @@ describe('Wallet', () => {
             it('sets the swap fee', async () => {
               await wallet.setSwapFee(pct, cap, token, period)
 
-              const now = await currentTimestamp()
               const fee = await wallet.swapFee()
               expect(fee.pct).to.be.equal(pct)
               expect(fee.cap).to.be.equal(cap)
               expect(fee.token).to.be.equal(token)
               expect(fee.period).to.be.equal(period)
               expect(fee.totalCharged).to.be.equal(0)
-              expect(fee.nextResetTime).to.be.equal(cap != 0 ? now.add(period) : 0)
+              expect(fee.nextResetTime).to.be.equal(cap != 0 ? (await currentTimestamp()).add(period) : 0)
             })
 
             it('emits an event', async () => {
@@ -1853,7 +1850,7 @@ describe('Wallet', () => {
                     expect(currentData.token).to.be.equal(previousData.token)
                     expect(currentData.period).to.be.equal(previousData.period)
                     expect(currentData.totalCharged).to.be.equal(withdrawFeeAmount.mul(capTokenRate))
-                    expect(currentData.nextResetTime).to.be.equal(periodStartTime.add(period).add(period))
+                    expect(currentData.nextResetTime).to.be.equal((await currentTimestamp()).add(period))
                   })
                 })
               })
@@ -2046,7 +2043,7 @@ describe('Wallet', () => {
                     expect(currentData.token).to.be.equal(previousData.token)
                     expect(currentData.period).to.be.equal(previousData.period)
                     expect(currentData.totalCharged).to.be.equal(withdrawFeeAmount.mul(capTokenRate))
-                    expect(currentData.nextResetTime).to.be.equal(periodStartTime.add(period).add(period))
+                    expect(currentData.nextResetTime).to.be.equal((await currentTimestamp()).add(period))
                   })
                 })
               })
@@ -3024,7 +3021,7 @@ describe('Wallet', () => {
                   expect(currentData.token).to.be.equal(previousData.token)
                   expect(currentData.period).to.be.equal(previousData.period)
                   expect(currentData.totalCharged).to.be.equal(swapFeeAmount.mul(capTokenRate))
-                  expect(currentData.nextResetTime).to.be.equal(periodStartTime.add(period).add(period))
+                  expect(currentData.nextResetTime).to.be.equal((await currentTimestamp()).add(period))
                 })
               })
             })
