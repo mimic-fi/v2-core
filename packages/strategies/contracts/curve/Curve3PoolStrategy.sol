@@ -24,8 +24,6 @@ import '../IStrategy.sol';
 import './ICurve3Pool.sol';
 import './ICurveLiquidityGauge.sol';
 
-import 'hardhat/console.sol';
-
 /**
  * @title Curve3PoolStrategy
  * @dev TODO
@@ -81,8 +79,9 @@ contract Curve3PoolStrategy is IStrategy, BaseImplementation {
         pool = _pool;
         gauge = _gauge;
 
-        uint256 index = 0;
+        uint256 index = COINS;
         for (uint256 i = 0; i < COINS; i++) if (_pool.coins(i) == _token) index = i;
+        require(index < COINS, 'CURVE_COIN_NOT_FOUND');
         tokenIndex = index;
 
         uint256 decimals = IERC20Metadata(_token).decimals();
@@ -107,8 +106,7 @@ contract Curve3PoolStrategy is IStrategy, BaseImplementation {
      */
     function lastValue(address account) public view override returns (uint256) {
         uint256 stakedBalance = gauge.balanceOf(account);
-        uint256 poolTokenBalance = poolToken.balanceOf(account);
-        return (poolTokenBalance + stakedBalance).mulDown(pool.get_virtual_price());
+        return stakedBalance.mulDown(pool.get_virtual_price());
     }
 
     /**
@@ -185,6 +183,6 @@ contract Curve3PoolStrategy is IStrategy, BaseImplementation {
         pool.remove_liquidity_one_coin(exitPoolTokenAmount, int128(int256(tokenIndex)), minAmountOut);
         uint256 finalTokenAmount = IERC20(token).balanceOf(address(this));
         amount = finalTokenAmount - initialTokenAmount;
-        value = (amount * tokenScale).mulDown(poolTokenPrice);
+        value = exitPoolTokenAmount.mulDown(poolTokenPrice);
     }
 }
