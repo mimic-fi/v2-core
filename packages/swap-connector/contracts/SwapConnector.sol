@@ -51,6 +51,7 @@ contract SwapConnector is
      * @param uniswapV3Router Uniswap V3 router reference
      * @param balancerV2Vault Balancer V2 vault reference
      * @param paraswapV5Augustus Paraswap V5 augustus reference
+     * @param registry Address of the Mimic Registry
      */
     constructor(
         address uniswapV2Router,
