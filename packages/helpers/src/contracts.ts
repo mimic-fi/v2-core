@@ -9,9 +9,9 @@ import { getSigner } from './signers'
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable @typescript-eslint/explicit-module-boundary-types */
 
-type Libraries = { [key: string]: string }
+export type Libraries = { [key: string]: string }
 
-type ArtifactLike = { abi: any; bytecode: string; linkReferences?: LinkReferences }
+export type ArtifactLike = { abi: any; bytecode: string; linkReferences?: LinkReferences }
 
 export async function deploy(
   nameOrArtifact: string | ArtifactLike,
@@ -21,14 +21,27 @@ export async function deploy(
 ): Promise<Contract> {
   if (!args) args = []
   if (!from) from = await getSigner()
-
-  const artifact = typeof nameOrArtifact === 'string' ? await getArtifact(nameOrArtifact) : nameOrArtifact
-  if (libraries !== undefined) artifact.bytecode = linkBytecode(artifact, libraries)
-
-  const { ethers } = await import('hardhat')
-  const factory = await ethers.getContractFactory(artifact.abi, artifact.bytecode)
+  const factory = await getFactoryContract(nameOrArtifact, libraries)
   const instance = await factory.connect(from).deploy(...args)
   return instance.deployed()
+}
+
+export async function getCreationCode(
+  nameOrArtifact: string | ArtifactLike,
+  args: Array<any> = [],
+  libraries?: Libraries
+): Promise<string> {
+  if (!args) args = []
+  const contractFactory = await getFactoryContract(nameOrArtifact, libraries)
+  const transaction = await contractFactory.getDeployTransaction(...args)
+  return transaction.data?.toString() || '0x'
+}
+
+async function getFactoryContract(nameOrArtifact: string | ArtifactLike, libraries: Libraries | undefined) {
+  const artifact = typeof nameOrArtifact === 'string' ? await getArtifact(nameOrArtifact) : nameOrArtifact
+  if (libraries !== undefined) artifact.bytecode = linkBytecode(artifact, libraries)
+  const { ethers } = await import('hardhat')
+  return ethers.getContractFactory(artifact.abi, artifact.bytecode)
 }
 
 export async function instanceAt(nameOrArtifact: string | any, address: string): Promise<Contract> {
@@ -45,7 +58,7 @@ export async function getArtifact(contractName: string): Promise<Artifact> {
   return artifacts.readArtifact(contractName.split('/').slice(-1)[0])
 }
 
-function linkBytecode(artifact: ArtifactLike, libraries: Libraries): string {
+export function linkBytecode(artifact: ArtifactLike, libraries: Libraries): string {
   let bytecode = artifact.bytecode.replace('0x', '')
   for (const [, fileReferences] of Object.entries(artifact.linkReferences || {})) {
     for (const [library, fixups] of Object.entries(fileReferences)) {
