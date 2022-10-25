@@ -1,4 +1,11 @@
-import { assertEvent, deploy, getSigners, instanceAt, ZERO_BYTES32 } from '@mimic-fi/v2-helpers'
+import {
+  assertEvent,
+  deploy,
+  getSigners,
+  instanceAt,
+  itBehavesLikeAuthorizer,
+  ZERO_BYTES32,
+} from '@mimic-fi/v2-helpers'
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/dist/src/signer-with-address'
 import { expect } from 'chai'
 import { Contract } from 'ethers'
@@ -47,6 +54,15 @@ describe('Registry', () => {
       expect(await registry.isAuthorized(admin.address, unauthorizeRole)).to.be.true
       expect(await registry.isAuthorized(other.address, unauthorizeRole)).to.be.false
     })
+  })
+
+  describe('authorizer', () => {
+    beforeEach('setup authorizer tests', async function () {
+      this.admin = admin
+      this.authorizer = registry
+    })
+
+    itBehavesLikeAuthorizer()
   })
 
   describe('register', () => {

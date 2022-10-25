@@ -9,6 +9,7 @@ import {
   fp,
   getSigners,
   instanceAt,
+  itBehavesLikeAuthorizer,
   MONTH,
   NATIVE_TOKEN_ADDRESS,
   ZERO_ADDRESS,
@@ -98,6 +99,15 @@ describe('Wallet', () => {
     it('has the expected namespace', async () => {
       expect(await wallet.NAMESPACE()).to.be.equal(ethers.utils.solidityKeccak256(['string'], ['WALLET']))
     })
+  })
+
+  describe('authorizer', () => {
+    beforeEach('setup authorizer tests', async function () {
+      this.admin = admin
+      this.authorizer = wallet
+    })
+
+    itBehavesLikeAuthorizer()
   })
 
   describe('setStrategy', () => {
