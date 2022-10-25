@@ -55,13 +55,12 @@ contract CompoundStrategy is IStrategy, BaseImplementation {
 
     /**
      * @dev Creates a new Compound strategy contract
-     * @param _token Token to be used as the strategy entry point
      * @param _cToken Compound token associated to the strategy token
      * @param _registry Address of the Mimic Registry to be referenced
      */
-    constructor(address _token, ICToken _cToken, address _registry) BaseImplementation(_registry) {
-        token = _token;
+    constructor(ICToken _cToken, address _registry) BaseImplementation(_registry) {
         cToken = _cToken;
+        token = _cToken.underlying();
         comp = _cToken.comptroller().getCompAddress();
         comptroller = _cToken.comptroller();
     }

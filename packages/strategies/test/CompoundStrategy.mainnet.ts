@@ -26,7 +26,7 @@ describe('CompoundStrategy - DAI', function () {
   before('deploy strategy', async () => {
     const admin = await getSigner()
     registry = await deploy('@mimic-fi/v2-registry/artifacts/contracts/registry/Registry.sol/Registry', [admin.address])
-    strategy = await deploy('CompoundStrategy', [DAI, CDAI, registry.address])
+    strategy = await deploy('CompoundStrategy', [CDAI, registry.address])
   })
 
   before('load tokens', async () => {
