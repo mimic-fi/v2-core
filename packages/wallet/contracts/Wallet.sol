@@ -238,7 +238,7 @@ contract Wallet is IWallet, PriceFeedProvider, InitializableAuthorizedImplementa
     }
 
     /**
-     * @dev Collect tokens from a sender to the Mimic Wallet. Sender must be authorized.
+     * @dev Collect tokens from an external account to the Mimic Wallet. Sender must be authorized.
      * @param token Address of the token to be collected
      * @param from Address where the tokens will be transfer from
      * @param amount Amount of tokens to be transferred
