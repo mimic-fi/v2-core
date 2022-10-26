@@ -429,6 +429,7 @@ contract Wallet is IWallet, PriceFeedProvider, InitializableAuthorizedImplementa
         bytes memory data
     ) external override auth returns (uint256 amountOut) {
         require(tokenIn != tokenOut, 'SWAP_SAME_TOKEN');
+        require(swapConnector != address(0), 'SWAP_CONNECTOR_NOT_SET');
 
         uint256 minAmountOut;
         if (limitType == SwapLimit.MinAmountOut) {
