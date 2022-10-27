@@ -31,22 +31,22 @@ interface IWallet is IPriceFeedProvider, IImplementation, IAuthorizer {
     /**
      * @dev Emitted every time a new strategy is set for the Mimic Wallet
      */
-    event StrategySet(address strategy, bool allowed);
+    event StrategySet(address indexed strategy, bool allowed);
 
     /**
      * @dev Emitted every time a new price oracle is set for the Mimic Wallet
      */
-    event PriceOracleSet(address priceOracle);
+    event PriceOracleSet(address indexed priceOracle);
 
     /**
      * @dev Emitted every time a new swap connector is set for the Mimic Wallet
      */
-    event SwapConnectorSet(address swapConnector);
+    event SwapConnectorSet(address indexed swapConnector);
 
     /**
      * @dev Emitted every time a new fee collector is set
      */
-    event FeeCollectorSet(address feeCollector);
+    event FeeCollectorSet(address indexed feeCollector);
 
     /**
      * @dev Emitted every time the withdraw fee percentage is set
@@ -91,17 +91,17 @@ interface IWallet is IPriceFeedProvider, IImplementation, IAuthorizer {
     /**
      * @dev Emitted every time `claim` is called
      */
-    event Claim(address strategy, address[] tokens, uint256[] amounts, bytes data);
+    event Claim(address indexed strategy, address[] tokens, uint256[] amounts, bytes data);
 
     /**
      * @dev Emitted every time `join` is called
      */
-    event Join(address strategy, uint256 invested, uint256 value, uint256 slippage, bytes data);
+    event Join(address indexed strategy, uint256 invested, uint256 value, uint256 slippage, bytes data);
 
     /**
      * @dev Emitted every time `exit` is called
      */
-    event Exit(address strategy, uint256 received, uint256 value, uint256 fee, uint256 slippage, bytes data);
+    event Exit(address indexed strategy, uint256 received, uint256 value, uint256 fee, uint256 slippage, bytes data);
 
     /**
      * @dev Emitted every time `swap` is called
