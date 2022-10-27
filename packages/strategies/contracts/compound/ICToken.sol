@@ -19,6 +19,8 @@ import '@openzeppelin/contracts/token/ERC20/IERC20.sol';
 import './Comptroller.sol';
 
 interface ICToken is IERC20 {
+    function underlying() external view returns (address);
+
     function comptroller() external view returns (Comptroller);
 
     function mint(uint256 mintAmount) external returns (uint256);
