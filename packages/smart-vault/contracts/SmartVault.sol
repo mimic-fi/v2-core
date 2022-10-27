@@ -43,7 +43,7 @@ contract SmartVault is ISmartVault, InitializableAuthorizedImplementation {
     }
 
     /**
-     * @dev Initializes the Swap Connector instance
+     * @dev Initializes the Smart Vault instance
      * @param admin Address that will be granted with admin rights
      */
     function initialize(address admin) external initializer {
