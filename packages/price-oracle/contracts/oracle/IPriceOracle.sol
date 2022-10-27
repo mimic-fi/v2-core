@@ -28,8 +28,9 @@ interface IPriceOracle is IImplementation {
      * a value expressed in `quote` decimals. For example, if `base` is ETH and `quote` is USDC, then the returned
      * value is expected to be expressed using 6 decimals:
      *
-     * FixedPoint.mul(X[ETH], price[ETH/USDC]) = FixedPoint.mul(X[18], price[6]) = X * price [6]
+     * FixedPoint.mul(X[ETH], price[USDC/ETH]) = FixedPoint.mul(X[18], price[6]) = X * price [6]
      *
+     * @param provider Contract providing the price feeds to use by the oracle
      * @param base Token to rate
      * @param quote Token used for the price rate
      */

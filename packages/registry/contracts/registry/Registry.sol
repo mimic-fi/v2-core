@@ -46,7 +46,7 @@ contract Registry is IRegistry, Authorizer {
     mapping (address => ImplementationData) public override implementationData;
 
     /**
-     * @dev Initializes the registry contract
+     * @dev Initializes the Registry contract
      * @param admin Address to be granted with register, deprecate, authorize, and unauthorize permissions
      */
     constructor(address admin) {
@@ -88,7 +88,7 @@ contract Registry is IRegistry, Authorizer {
 
     /**
      * @dev Deprecates a registered implementation. Sender must be authorized.
-     * @param implementation Address of the implementation to be deprecated. It must be registered and active.
+     * @param implementation Address of the implementation to be deprecated. It must be registered and not deprecated.
      */
     function deprecate(address implementation) external override auth {
         require(implementation != address(0), 'IMPLEMENTATION_ADDRESS_ZERO');
@@ -103,7 +103,7 @@ contract Registry is IRegistry, Authorizer {
 
     /**
      * @dev Clones a registered implementation
-     * @param implementation Address of the implementation to be cloned. It must be registered and active.
+     * @param implementation Address of the implementation to be cloned. It must be registered and not deprecated.
      * @param initializeData Arbitrary data to be sent after deployment. It can be used to initialize the new instance.
      * @return instance Address of the new instance created
      */

@@ -37,8 +37,8 @@ describe('SwapConnector', () => {
 
   before('create swap connector', async () => {
     connector = await deploy('SwapConnector', [
-      UNISWAP_V3_ROUTER,
       UNISWAP_V2_ROUTER,
+      UNISWAP_V3_ROUTER,
       BALANCER_V2_VAULT,
       PARASWAP_V5_AUGUSTUS,
       ZERO_ADDRESS,

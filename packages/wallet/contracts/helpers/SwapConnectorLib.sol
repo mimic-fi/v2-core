@@ -25,6 +25,7 @@ import '@mimic-fi/v2-swap-connector/contracts/ISwapConnector.sol';
 library SwapConnectorLib {
     /**
      * @dev Delegate-calls a swap to the swap connector and decodes de expected data
+     * IMPORTANT! This helper method does not check any of the given params, these should be checked beforehand.
      */
     function swap(
         address connector,

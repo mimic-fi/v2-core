@@ -25,6 +25,7 @@ import '@mimic-fi/v2-strategies/contracts/IStrategy.sol';
 library StrategyLib {
     /**
      * @dev Delegate-calls a claim to a strategy and decodes de expected data
+     * IMPORTANT! This helper method does not check any of the given params, these should be checked beforehand.
      */
     function claim(address strategy, bytes memory data) internal returns (address[] memory, uint256[] memory) {
         bytes memory claimData = abi.encodeWithSelector(IStrategy.claim.selector, data);
@@ -37,6 +38,7 @@ library StrategyLib {
 
     /**
      * @dev Delegate-calls a join to a strategy and decodes de expected data
+     * IMPORTANT! This helper method does not check any of the given params, these should be checked beforehand.
      */
     function join(address strategy, uint256 amount, uint256 slippage, bytes memory data)
         internal
@@ -52,6 +54,7 @@ library StrategyLib {
 
     /**
      * @dev Delegate-calls a exit to a strategy and decodes de expected data
+     * IMPORTANT! This helper method does not check any of the given params, these should be checked beforehand.
      */
     function exit(address strategy, uint256 ratio, uint256 slippage, bytes memory data)
         internal
