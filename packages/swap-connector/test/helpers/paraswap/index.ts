@@ -38,10 +38,11 @@ async function readSwapData(
 
   const fixture = JSON.parse(fs.readFileSync(fixturePath).toString())
   return {
-    minAmountOut: bn(fixture.minAmountOut),
     data: fixture.data,
     sig: fixture.sig,
     signer: fixture.signer,
+    minAmountOut: bn(fixture.minAmountOut),
+    expectedAmountOut: bn(fixture.expectedAmountOut),
   }
 }
 
@@ -54,13 +55,14 @@ async function saveSwapData(
   blockNumber: string
 ): Promise<void> {
   const output = {
+    data: swapData.data,
+    sig: swapData.sig,
+    signer: swapData.signer,
     tokenIn: tokenIn.address,
     tokenOut: tokenOut.address,
     amountIn: amountIn.toString(),
     minAmountOut: swapData.minAmountOut.toString(),
-    data: swapData.data,
-    sig: swapData.sig,
-    signer: swapData.signer,
+    expectedAmountOut: swapData.expectedAmountOut.toString(),
   }
 
   const fixturesPath = path.join(__dirname, 'fixtures')

@@ -9,7 +9,13 @@ export type PricesResponse = { data: { priceRoute: { [key: string]: string } } }
 
 export type TransactionsResponse = { data: { data: string; sig: string; signer: string } }
 
-export type SwapData = { minAmountOut: BigNumber; data: string; sig: string; signer: string }
+export type SwapData = {
+  data: string
+  sig: string
+  signer: string
+  minAmountOut: BigNumber
+  expectedAmountOut: BigNumber
+}
 
 export async function getSwapData(
   sender: Contract,
@@ -22,9 +28,11 @@ export async function getSwapData(
   const priceRoute = prices.data.priceRoute
 
   try {
-    const transactions = await postTransactions(sender, tokenIn, tokenOut, amountIn, slippage, priceRoute)
-    const minAmountOut = bn(priceRoute.destAmount).sub(pct(bn(priceRoute.destAmount), slippage))
-    return { data: transactions.data.data, minAmountOut, sig: transactions.data.sig, signer: transactions.data.signer }
+    const { destAmount } = priceRoute
+    const minAmountOut = bn(destAmount).sub(pct(bn(destAmount), slippage))
+    const transactions = await postTransactions(sender, tokenIn, tokenOut, amountIn, minAmountOut, priceRoute)
+    const { data, sig, signer } = transactions.data
+    return { data, sig, signer, minAmountOut, expectedAmountOut: bn(destAmount) }
   } catch (error) {
     if (error instanceof AxiosError) throw Error(error.toString() + ' - ' + error.response?.data?.error)
     else throw error
@@ -60,7 +68,7 @@ export async function postTransactions(
   tokenIn: Contract,
   tokenOut: Contract,
   amountIn: BigNumber,
-  slippage: number,
+  minAmountOut: BigNumber,
   priceRoute: { [key: string]: string }
 ): Promise<TransactionsResponse> {
   return axios.post(
@@ -70,8 +78,8 @@ export async function postTransactions(
       destToken: tokenOut.address,
       srcAmount: amountIn.toString(),
       srcDecimals: await tokenIn.decimals(),
+      destAmount: minAmountOut.toString(),
       destDecimals: await tokenOut.decimals(),
-      slippage: slippage * 10000,
       userAddress: sender.address,
       receiver: sender.address,
       deadline: (await currentTimestamp()).add(MINUTE).toString(),
