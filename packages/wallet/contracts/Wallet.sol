@@ -356,8 +356,12 @@ contract Wallet is IWallet, PriceFeedProvider, InitializableAuthorizedImplementa
         require(slippage <= FixedPoint.ONE, 'JOIN_SLIPPAGE_ABOVE_ONE');
         require(isStrategyAllowed[strategy], 'STRATEGY_NOT_ALLOWED');
 
-        invested = amount;
+        address token = IStrategy(strategy).token();
+        uint256 initialAmount = IERC20(token).balanceOf(address(this));
         uint256 value = strategy.join(amount, slippage, data);
+        uint256 finalAmount = IERC20(token).balanceOf(address(this));
+
+        invested = initialAmount - finalAmount;
         investedValue[strategy] = investedValue[strategy] + value;
         emit Join(strategy, invested, value, slippage, data);
     }
@@ -386,7 +390,7 @@ contract Wallet is IWallet, PriceFeedProvider, InitializableAuthorizedImplementa
         // It can rely on the last updated value since we have just exited, no need to compute current value
         uint256 valueBeforeExit = lastValue(strategy) + exitValue;
         if (valueBeforeExit <= investedValue[strategy]) {
-            // There where losses, invested value is simply reduced using the exited ratio
+            // There were losses, invested value is simply reduced using the exited ratio
             // No need for checked math as we are checking it manually beforehand
             // Invested value is round up to avoid interpreting losses due to rounding errors
             investedValue[strategy] = investedValue[strategy].mulUp(FixedPoint.ONE.uncheckedSub(ratio));
@@ -434,20 +438,21 @@ contract Wallet is IWallet, PriceFeedProvider, InitializableAuthorizedImplementa
         uint256 minAmountOut;
         if (limitType == SwapLimit.MinAmountOut) {
             minAmountOut = limitAmount;
-        } else {
+        } else if (limitType == SwapLimit.Slippage) {
             require(limitAmount <= FixedPoint.ONE, 'SWAP_SLIPPAGE_ABOVE_ONE');
             uint256 price = getPrice(tokenIn, tokenOut);
             // No need for checked math as we are checking it manually beforehand
-            // Always round up the expected min amount out
+            // Always round up the expected min amount out. Limit amount is slippage.
             minAmountOut = amountIn.mulUp(price).mulUp(FixedPoint.ONE.uncheckedSub(limitAmount));
+        } else {
+            revert('SWAP_INVALID_LIMIT_TYPE');
         }
 
         uint256 preBalanceOut = IERC20(tokenOut).balanceOf(address(this));
-        uint256 amountOutBeforeFees = swapConnector.swap(source, tokenIn, tokenOut, amountIn, minAmountOut, data);
-        require(amountOutBeforeFees >= minAmountOut, 'SWAP_MIN_AMOUNT');
-
+        swapConnector.swap(source, tokenIn, tokenOut, amountIn, minAmountOut, data);
         uint256 postBalanceOut = IERC20(tokenOut).balanceOf(address(this));
-        require(postBalanceOut >= preBalanceOut + amountOutBeforeFees, 'SWAP_INVALID_AMOUNT_OUT');
+        uint256 amountOutBeforeFees = postBalanceOut - preBalanceOut;
+        require(amountOutBeforeFees >= minAmountOut, 'SWAP_MIN_AMOUNT');
 
         uint256 swapFeeAmount = _payFee(tokenOut, amountOutBeforeFees, swapFee);
         amountOut = amountOutBeforeFees - swapFeeAmount;
@@ -474,7 +479,7 @@ contract Wallet is IWallet, PriceFeedProvider, InitializableAuthorizedImplementa
         // Reset cap totalizator if necessary
         if (block.timestamp >= fee.nextResetTime) {
             fee.totalCharged = 0;
-            fee.nextResetTime += fee.period;
+            fee.nextResetTime = block.timestamp + fee.period;
         }
 
         // Calc fee amount in the fee token used for the cap
@@ -485,9 +490,14 @@ contract Wallet is IWallet, PriceFeedProvider, InitializableAuthorizedImplementa
         if (fee.totalCharged + feeAmountInFeeToken <= fee.cap) {
             paidAmount = feeAmount;
             fee.totalCharged += feeAmountInFeeToken;
-        } else {
-            paidAmount = ((fee.cap - fee.totalCharged) * feeAmount) / feeAmountInFeeToken;
+        } else if (fee.totalCharged < fee.cap) {
+            paidAmount = (fee.cap.uncheckedSub(fee.totalCharged) * feeAmount) / feeAmountInFeeToken;
             fee.totalCharged = fee.cap;
+        } else {
+            // This case is when the total charged amount is already greater than the cap amount. It could happen if
+            // the cap amounts is decreased or if the cap token is changed. In this case the total charged amount is
+            // not updated, and the amount to paid is zero.
+            paidAmount = 0;
         }
 
         // Pay fee amount to the fee collector
