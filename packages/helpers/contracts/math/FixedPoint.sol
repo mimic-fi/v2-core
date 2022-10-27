@@ -50,6 +50,7 @@ library FixedPoint {
     function divDown(uint256 a, uint256 b) internal pure returns (uint256) {
         unchecked {
             require(b != 0, 'ZERO_DIVISION');
+            if (a == 0) return 0;
             uint256 aInflated = a * ONE;
             require(aInflated / a == ONE, 'DIV_INTERNAL');
             return aInflated / b;
