@@ -1457,13 +1457,90 @@ describe('Wallet', () => {
     })
   })
 
-  describe('setPriceFeeds', () => {
+  describe('setPriceFeed', () => {
     let feed: Contract, base: Contract, quote: Contract
 
     beforeEach('deploy feed and tokens', async () => {
       feed = await deploy('ContractMock')
       base = await deploy('TokenMock', ['BASE'])
       quote = await deploy('TokenMock', ['QUOTE'])
+    })
+
+    context('when the sender is authorized', () => {
+      beforeEach('set sender', async () => {
+        const setPriceFeedRole = wallet.interface.getSighash('setPriceFeed')
+        await wallet.connect(admin).authorize(admin.address, setPriceFeedRole)
+        wallet = wallet.connect(admin)
+      })
+
+      const itCanBeSet = () => {
+        it('can be set', async () => {
+          const tx = await wallet.setPriceFeed(base.address, quote.address, feed.address)
+
+          expect(await wallet.getPriceFeed(base.address, quote.address)).to.be.equal(feed.address)
+
+          await assertEvent(tx, 'PriceFeedSet', { base, quote, feed })
+        })
+      }
+
+      const itCanBeUnset = () => {
+        it('can be unset', async () => {
+          const tx = await wallet.setPriceFeed(base.address, quote.address, ZERO_ADDRESS)
+
+          expect(await wallet.getPriceFeed(base.address, quote.address)).to.be.equal(ZERO_ADDRESS)
+
+          await assertEvent(tx, 'PriceFeedSet', { base, quote, feed: ZERO_ADDRESS })
+        })
+      }
+
+      context('when the feed is set', () => {
+        beforeEach('set feed', async () => {
+          await wallet.setPriceFeed(base.address, quote.address, feed.address)
+          expect(await wallet.getPriceFeed(base.address, quote.address)).to.be.equal(feed.address)
+        })
+
+        itCanBeSet()
+        itCanBeUnset()
+      })
+
+      context('when the feed is not set', () => {
+        beforeEach('unset feed', async () => {
+          await wallet.setPriceFeed(base.address, quote.address, ZERO_ADDRESS)
+          expect(await wallet.getPriceFeed(base.address, quote.address)).to.be.equal(ZERO_ADDRESS)
+        })
+
+        itCanBeSet()
+        itCanBeUnset()
+      })
+    })
+
+    context('when the sender is not authorized', () => {
+      beforeEach('set sender', () => {
+        wallet = wallet.connect(other)
+      })
+
+      it('reverts', async () => {
+        await expect(wallet.setPriceFeed(base.address, quote.address, feed.address)).to.be.revertedWith(
+          'AUTH_SENDER_NOT_ALLOWED'
+        )
+      })
+    })
+  })
+
+  describe('setPriceFeeds', () => {
+    let bases: string[], quotes: string[], feeds: string[]
+    let feed1: Contract, feed2: Contract, base1: Contract, base2: Contract, quote: Contract
+
+    beforeEach('deploy feed and tokens', async () => {
+      feed1 = await deploy('ContractMock')
+      feed2 = await deploy('ContractMock')
+      base1 = await deploy('TokenMock', ['BASE1'])
+      base2 = await deploy('TokenMock', ['BASE2'])
+      quote = await deploy('TokenMock', ['QUOTE'])
+
+      bases = [base1.address, base2.address]
+      quotes = [quote.address, quote.address]
+      feeds = [feed1.address, feed2.address]
     })
 
     context('when the sender is authorized', () => {
@@ -1476,28 +1553,33 @@ describe('Wallet', () => {
       context('when the input length is valid', () => {
         const itCanBeSet = () => {
           it('can be set', async () => {
-            const tx = await wallet.setPriceFeeds([base.address], [quote.address], [feed.address])
+            const tx = await wallet.setPriceFeeds(bases, quotes, feeds)
 
-            expect(await wallet.getPriceFeed(base.address, quote.address)).to.be.equal(feed.address)
+            expect(await wallet.getPriceFeed(base1.address, quote.address)).to.be.equal(feed1.address)
+            expect(await wallet.getPriceFeed(base2.address, quote.address)).to.be.equal(feed2.address)
 
-            await assertEvent(tx, 'PriceFeedSet', { base, quote, feed })
+            await assertEvent(tx, 'PriceFeedSet', { base: base1, quote, feed: feed1 })
+            await assertEvent(tx, 'PriceFeedSet', { base: base2, quote, feed: feed2 })
           })
         }
 
         const itCanBeUnset = () => {
           it('can be unset', async () => {
-            const tx = await wallet.setPriceFeeds([base.address], [quote.address], [ZERO_ADDRESS])
+            const tx = await wallet.setPriceFeeds(bases, quotes, [ZERO_ADDRESS, ZERO_ADDRESS])
 
-            expect(await wallet.getPriceFeed(base.address, quote.address)).to.be.equal(ZERO_ADDRESS)
+            expect(await wallet.getPriceFeed(base1.address, quote.address)).to.be.equal(ZERO_ADDRESS)
+            expect(await wallet.getPriceFeed(base2.address, quote.address)).to.be.equal(ZERO_ADDRESS)
 
-            await assertEvent(tx, 'PriceFeedSet', { base, quote, feed: ZERO_ADDRESS })
+            await assertEvent(tx, 'PriceFeedSet', { base: base1, quote, feed: ZERO_ADDRESS })
+            await assertEvent(tx, 'PriceFeedSet', { base: base2, quote, feed: ZERO_ADDRESS })
           })
         }
 
         context('when the feed is set', () => {
           beforeEach('set feed', async () => {
-            await wallet.setPriceFeeds([base.address], [quote.address], [feed.address])
-            expect(await wallet.getPriceFeed(base.address, quote.address)).to.be.equal(feed.address)
+            await wallet.setPriceFeeds(bases, quotes, feeds)
+            expect(await wallet.getPriceFeed(base1.address, quote.address)).to.be.equal(feed1.address)
+            expect(await wallet.getPriceFeed(base2.address, quote.address)).to.be.equal(feed2.address)
           })
 
           itCanBeSet()
@@ -1506,8 +1588,9 @@ describe('Wallet', () => {
 
         context('when the feed is not set', () => {
           beforeEach('unset feed', async () => {
-            await wallet.setPriceFeeds([base.address], [quote.address], [ZERO_ADDRESS])
-            expect(await wallet.getPriceFeed(base.address, quote.address)).to.be.equal(ZERO_ADDRESS)
+            await wallet.setPriceFeeds(bases, quotes, [ZERO_ADDRESS, ZERO_ADDRESS])
+            expect(await wallet.getPriceFeed(base1.address, quote.address)).to.be.equal(ZERO_ADDRESS)
+            expect(await wallet.getPriceFeed(base2.address, quote.address)).to.be.equal(ZERO_ADDRESS)
           })
 
           itCanBeSet()
@@ -1517,12 +1600,17 @@ describe('Wallet', () => {
 
       context('when the input is invalid', () => {
         it('reverts', async () => {
-          await expect(
-            wallet.setPriceFeeds([base.address], [quote.address, ZERO_ADDRESS], [ZERO_ADDRESS])
-          ).to.be.revertedWith('SET_FEEDS_INVALID_QUOTES_LENGTH')
-          await expect(
-            wallet.setPriceFeeds([base.address], [quote.address], [ZERO_ADDRESS, ZERO_ADDRESS])
-          ).to.be.revertedWith('SET_FEEDS_INVALID_FEEDS_LENGTH')
+          await expect(wallet.setPriceFeeds([base1.address], quotes, feeds)).to.be.revertedWith(
+            'SET_FEEDS_INVALID_QUOTES_LENGTH'
+          )
+
+          await expect(wallet.setPriceFeeds(bases, [quote.address], feeds)).to.be.revertedWith(
+            'SET_FEEDS_INVALID_QUOTES_LENGTH'
+          )
+
+          await expect(wallet.setPriceFeeds(bases, quotes, [feed1.address])).to.be.revertedWith(
+            'SET_FEEDS_INVALID_FEEDS_LENGTH'
+          )
         })
       })
     })
@@ -1533,7 +1621,7 @@ describe('Wallet', () => {
       })
 
       it('reverts', async () => {
-        await expect(wallet.setSwapFee(0, 0, ZERO_ADDRESS, 0)).to.be.revertedWith('AUTH_SENDER_NOT_ALLOWED')
+        await expect(wallet.setPriceFeeds(bases, quotes, feeds)).to.be.revertedWith('AUTH_SENDER_NOT_ALLOWED')
       })
     })
   })
