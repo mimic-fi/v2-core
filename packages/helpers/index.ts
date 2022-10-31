@@ -1,4 +1,5 @@
 export * from './src/asserts'
+export * from './src/authorizer'
 export * from './src/blocks'
 export * from './src/compiler'
 export * from './src/constants'

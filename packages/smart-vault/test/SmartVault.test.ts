@@ -1,4 +1,11 @@
-import { assertEvent, deploy, getSigners, instanceAt, ZERO_ADDRESS } from '@mimic-fi/v2-helpers'
+import {
+  assertEvent,
+  deploy,
+  getSigners,
+  instanceAt,
+  itBehavesLikeAuthorizer,
+  ZERO_ADDRESS,
+} from '@mimic-fi/v2-helpers'
 import { createClone } from '@mimic-fi/v2-registry'
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/dist/src/signer-with-address'
 import { expect } from 'chai'
@@ -51,6 +58,15 @@ describe('SmartVault', () => {
     it('has the expected namespace', async () => {
       expect(await smartVault.NAMESPACE()).to.be.equal(ethers.utils.solidityKeccak256(['string'], ['SMART_VAULT']))
     })
+  })
+
+  describe('authorizer', () => {
+    beforeEach('setup authorizer tests', async function () {
+      this.admin = admin
+      this.authorizer = smartVault
+    })
+
+    itBehavesLikeAuthorizer()
   })
 
   describe('setWallet', () => {
