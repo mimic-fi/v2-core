@@ -32,7 +32,6 @@ This monorepo holds the key components of the Mimic protocol:
 - [Helpers](./packages/helpers): Library of solidity and typescript helpers used among all Mimic repositories.
 - [Price Oracle](./packages/price-oracle): Implementation of the on-chain price oracle used by the Mimic platform.
 - [Registry](./packages/registry): Mimic implementations on-chain registry.
-- [Smart Vault](./packages/smart-vault): Smart vault contract grouping all the required core components.
 - [Strategies](./packages/strategies): Smart vault's strategy contracts in charge of handling DeFi protocol integrations.
 - [Swap Connector](./packages/swap-connector): On-chain dex aggregator to be used by smart vaults to swap tokens.
 - [Wallet](./packages/wallet): Mimic wallet contract in charge of connecting users with the rest of the protocol.
