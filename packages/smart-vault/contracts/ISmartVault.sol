@@ -19,27 +19,27 @@ import '@mimic-fi/v2-price-oracle/contracts/feeds/IPriceFeedProvider.sol';
 import '@mimic-fi/v2-registry/contracts/implementations/IImplementation.sol';
 
 /**
- * @title IWallet
- * @dev Mimic Wallet interface to manage assets. It must support also `IImplementation` and `IAuthorizer`
+ * @title ISmartVault
+ * @dev Mimic Smart Vault interface to manage assets. It must support also `IImplementation` and `IAuthorizer`
  */
-interface IWallet is IPriceFeedProvider, IImplementation, IAuthorizer {
+interface ISmartVault is IPriceFeedProvider, IImplementation, IAuthorizer {
     enum SwapLimit {
         Slippage,
         MinAmountOut
     }
 
     /**
-     * @dev Emitted every time a new strategy is set for the Mimic Wallet
+     * @dev Emitted every time a new strategy is set for the Smart Vault
      */
     event StrategySet(address indexed strategy, bool allowed);
 
     /**
-     * @dev Emitted every time a new price oracle is set for the Mimic Wallet
+     * @dev Emitted every time a new price oracle is set for the Smart Vault
      */
     event PriceOracleSet(address indexed priceOracle);
 
     /**
-     * @dev Emitted every time a new swap connector is set for the Mimic Wallet
+     * @dev Emitted every time a new swap connector is set for the Smart Vault
      */
     event SwapConnectorSet(address indexed swapConnector);
 
@@ -136,12 +136,12 @@ interface IWallet is IPriceFeedProvider, IImplementation, IAuthorizer {
     function lastValue(address strategy) external view returns (uint256);
 
     /**
-     * @dev Tells the price oracle associated to a Mimic Wallet
+     * @dev Tells the price oracle associated to a Smart Vault
      */
     function priceOracle() external view returns (address);
 
     /**
-     * @dev Tells the swap connector associated to a Mimic Wallet
+     * @dev Tells the swap connector associated to a Smart Vault
      */
     function swapConnector() external view returns (address);
 
@@ -180,20 +180,20 @@ interface IWallet is IPriceFeedProvider, IImplementation, IAuthorizer {
     function wrappedNativeToken() external view returns (address);
 
     /**
-     * @dev Sets a new strategy as allowed or not for the Mimic Wallet
+     * @dev Sets a new strategy as allowed or not for a Smart Vault
      * @param strategy Address of the strategy to be set
      * @param allowed Whether the strategy is allowed or not
      */
     function setStrategy(address strategy, bool allowed) external;
 
     /**
-     * @dev Sets a new price oracle to the Mimic Wallet
+     * @dev Sets a new price oracle to a Smart Vault
      * @param newPriceOracle Address of the new price oracle to be set
      */
     function setPriceOracle(address newPriceOracle) external;
 
     /**
-     * @dev Sets a new swap connector to the Mimic Wallet
+     * @dev Sets a new swap connector to a Smart Vault
      * @param newSwapConnector Address of the new swap connector to be set
      */
     function setSwapConnector(address newSwapConnector) external;
@@ -239,7 +239,7 @@ interface IWallet is IPriceFeedProvider, IImplementation, IAuthorizer {
     function getPrice(address base, address quote) external view returns (uint256);
 
     /**
-     * @dev Execute an arbitrary call from the Mimic Wallet
+     * @dev Execute an arbitrary call from a Smart Vault
      * @param target Address where the call will be sent
      * @param callData Calldata to be used for the call
      * @param value Value in wei that will be attached to the call
@@ -251,12 +251,12 @@ interface IWallet is IPriceFeedProvider, IImplementation, IAuthorizer {
         returns (bytes memory result);
 
     /**
-     * @dev Collect tokens from a sender to the Mimic Wallet
+     * @dev Collect tokens from a sender to a Smart Vault
      * @param token Address of the token to be collected
      * @param from Address where the tokens will be transfer from
      * @param amount Amount of tokens to be transferred
      * @param data Extra data that may enable or not different behaviors depending on the implementation
-     * @return collected Amount of tokens assigned to the wallet
+     * @return collected Amount of tokens assigned to the Smart Vault
      */
     function collect(address token, address from, uint256 amount, bytes memory data)
         external
@@ -327,7 +327,7 @@ interface IWallet is IPriceFeedProvider, IImplementation, IAuthorizer {
 
     /**
      * @dev Swaps two tokens
-     * @param source Source to request the swap. It depends on the Swap Connector attached to the Mimic Wallet.
+     * @param source Source to request the swap. It depends on the Swap Connector attached to a Smart Vault.
      * @param tokenIn Token being sent
      * @param tokenOut Token being received
      * @param amountIn Amount of tokenIn being swapped

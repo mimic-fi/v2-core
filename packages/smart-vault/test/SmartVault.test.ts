@@ -20,8 +20,8 @@ import { expect } from 'chai'
 import { BigNumber, Contract } from 'ethers'
 import { ethers } from 'hardhat'
 
-describe('Wallet', () => {
-  let wallet: Contract, registry: Contract
+describe('SmartVault', () => {
+  let smartVault: Contract, registry: Contract
   let strategy: Contract, priceOracle: Contract, swapConnector: Contract, wrappedNativeToken: Contract
   let admin: SignerWithAddress, other: SignerWithAddress, feeCollector: SignerWithAddress
 
@@ -30,81 +30,81 @@ describe('Wallet', () => {
     [, admin, other, feeCollector] = await getSigners()
   })
 
-  beforeEach('deploy wallet', async () => {
+  beforeEach('deploy smart vault', async () => {
     registry = await deploy('@mimic-fi/v2-registry/artifacts/contracts/registry/Registry.sol/Registry', [admin.address])
     wrappedNativeToken = await deploy('WrappedNativeTokenMock')
-    wallet = await createClone(
+    smartVault = await createClone(
       registry,
       admin,
-      'Wallet',
+      'SmartVault',
       [wrappedNativeToken.address, registry.address],
       [admin.address]
     )
   })
 
-  beforeEach('deploy wallet dependencies', async () => {
-    const setFeeCollectorRole = wallet.interface.getSighash('setFeeCollector')
-    await wallet.connect(admin).authorize(admin.address, setFeeCollectorRole)
-    await wallet.connect(admin).setFeeCollector(feeCollector.address)
+  beforeEach('deploy smart vault dependencies', async () => {
+    const setFeeCollectorRole = smartVault.interface.getSighash('setFeeCollector')
+    await smartVault.connect(admin).authorize(admin.address, setFeeCollectorRole)
+    await smartVault.connect(admin).setFeeCollector(feeCollector.address)
 
-    const setStrategyRole = wallet.interface.getSighash('setStrategy')
-    await wallet.connect(admin).authorize(admin.address, setStrategyRole)
+    const setStrategyRole = smartVault.interface.getSighash('setStrategy')
+    await smartVault.connect(admin).authorize(admin.address, setStrategyRole)
     strategy = await deploy('StrategyMock', [registry.address])
     await registry.connect(admin).register(await strategy.NAMESPACE(), strategy.address, true)
-    await wallet.connect(admin).setStrategy(strategy.address, true)
+    await smartVault.connect(admin).setStrategy(strategy.address, true)
 
-    const setPriceOracleRole = wallet.interface.getSighash('setPriceOracle')
-    await wallet.connect(admin).authorize(admin.address, setPriceOracleRole)
+    const setPriceOracleRole = smartVault.interface.getSighash('setPriceOracle')
+    await smartVault.connect(admin).authorize(admin.address, setPriceOracleRole)
     priceOracle = await deploy('PriceOracleMock', [registry.address])
     await registry.connect(admin).register(await priceOracle.NAMESPACE(), priceOracle.address, true)
-    await wallet.connect(admin).setPriceOracle(priceOracle.address)
+    await smartVault.connect(admin).setPriceOracle(priceOracle.address)
 
-    const setSwapConnectorRole = wallet.interface.getSighash('setSwapConnector')
-    await wallet.connect(admin).authorize(admin.address, setSwapConnectorRole)
+    const setSwapConnectorRole = smartVault.interface.getSighash('setSwapConnector')
+    await smartVault.connect(admin).authorize(admin.address, setSwapConnectorRole)
     swapConnector = await deploy('SwapConnectorMock', [registry.address])
     await registry.connect(admin).register(await swapConnector.NAMESPACE(), swapConnector.address, true)
-    await wallet.connect(admin).setSwapConnector(swapConnector.address)
+    await smartVault.connect(admin).setSwapConnector(swapConnector.address)
   })
 
   describe('initialization', async () => {
     it('has a registry reference', async () => {
-      expect(await wallet.registry()).to.be.equal(registry.address)
+      expect(await smartVault.registry()).to.be.equal(registry.address)
     })
 
     it('cannot be initialized twice', async () => {
-      await expect(wallet.initialize(admin.address)).to.be.revertedWith(
+      await expect(smartVault.initialize(admin.address)).to.be.revertedWith(
         'Initializable: contract is already initialized'
       )
     })
 
     it('its implementation is already initialized', async () => {
-      const implementation = await instanceAt('Wallet', await registry.implementationOf(wallet.address))
+      const implementation = await instanceAt('SmartVault', await registry.implementationOf(smartVault.address))
       await expect(implementation.initialize(admin.address)).to.be.revertedWith(
         'Initializable: contract is already initialized'
       )
     })
 
     it('is properly registered in the registry', async () => {
-      const implementation = await registry.implementationOf(wallet.address)
+      const implementation = await registry.implementationOf(smartVault.address)
       const implementationData = await registry.implementationData(implementation)
 
       expect(implementationData.deprecated).to.be.false
-      expect(implementationData.namespace).to.be.equal(await wallet.NAMESPACE())
+      expect(implementationData.namespace).to.be.equal(await smartVault.NAMESPACE())
     })
 
     it('has the proper wrapped native token reference', async () => {
-      expect(await wallet.wrappedNativeToken()).to.be.equal(wrappedNativeToken.address)
+      expect(await smartVault.wrappedNativeToken()).to.be.equal(wrappedNativeToken.address)
     })
 
     it('has the expected namespace', async () => {
-      expect(await wallet.NAMESPACE()).to.be.equal(ethers.utils.solidityKeccak256(['string'], ['WALLET']))
+      expect(await smartVault.NAMESPACE()).to.be.equal(ethers.utils.solidityKeccak256(['string'], ['SMART_VAULT']))
     })
   })
 
   describe('authorizer', () => {
     beforeEach('setup authorizer tests', async function () {
       this.admin = admin
-      this.authorizer = wallet
+      this.authorizer = smartVault
     })
 
     itBehavesLikeAuthorizer()
@@ -119,20 +119,20 @@ describe('Wallet', () => {
 
     context('when the sender is authorized', async () => {
       beforeEach('set sender', async () => {
-        const setStrategyRole = wallet.interface.getSighash('setStrategy')
-        await wallet.connect(admin).authorize(admin.address, setStrategyRole)
-        wallet = wallet.connect(admin)
+        const setStrategyRole = smartVault.interface.getSighash('setStrategy')
+        await smartVault.connect(admin).authorize(admin.address, setStrategyRole)
+        smartVault = smartVault.connect(admin)
       })
 
       const itCanBeSet = (allowed: boolean) => {
         it(`${allowed ? 'allows' : 'disallows'} the strategy`, async () => {
-          await wallet.setStrategy(anotherStrategy.address, allowed)
+          await smartVault.setStrategy(anotherStrategy.address, allowed)
 
-          expect(await wallet.isStrategyAllowed(anotherStrategy.address)).to.be.equal(allowed)
+          expect(await smartVault.isStrategyAllowed(anotherStrategy.address)).to.be.equal(allowed)
         })
 
         it('emits an event', async () => {
-          const tx = await wallet.setStrategy(anotherStrategy.address, allowed)
+          const tx = await smartVault.setStrategy(anotherStrategy.address, allowed)
 
           await assertEvent(tx, 'StrategySet', { strategy: anotherStrategy, allowed })
         })
@@ -155,7 +155,7 @@ describe('Wallet', () => {
       context('when the implementation is not registered', () => {
         context('when the allowing the strategy', () => {
           it('reverts', async () => {
-            await expect(wallet.setStrategy(anotherStrategy.address, true)).to.be.revertedWith(
+            await expect(smartVault.setStrategy(anotherStrategy.address, true)).to.be.revertedWith(
               'DEPENDENCY_NOT_REGISTERED'
             )
           })
@@ -169,11 +169,13 @@ describe('Wallet', () => {
 
     context('when the sender is not authorized', () => {
       beforeEach('set sender', () => {
-        wallet = wallet.connect(other)
+        smartVault = smartVault.connect(other)
       })
 
       it('reverts', async () => {
-        await expect(wallet.setStrategy(anotherStrategy.address, true)).to.be.revertedWith('AUTH_SENDER_NOT_ALLOWED')
+        await expect(smartVault.setStrategy(anotherStrategy.address, true)).to.be.revertedWith(
+          'AUTH_SENDER_NOT_ALLOWED'
+        )
       })
     })
   })
@@ -183,9 +185,9 @@ describe('Wallet', () => {
 
     context('when the sender is authorized', async () => {
       beforeEach('set sender', async () => {
-        const setPriceOracleRole = wallet.interface.getSighash('setPriceOracle')
-        await wallet.connect(admin).authorize(admin.address, setPriceOracleRole)
-        wallet = wallet.connect(admin)
+        const setPriceOracleRole = smartVault.interface.getSighash('setPriceOracle')
+        await smartVault.connect(admin).authorize(admin.address, setPriceOracleRole)
+        smartVault = smartVault.connect(admin)
       })
 
       context('when the implementation is registered', async () => {
@@ -195,14 +197,14 @@ describe('Wallet', () => {
         })
 
         it('sets the implementation', async () => {
-          await wallet.setPriceOracle(newOracle.address)
+          await smartVault.setPriceOracle(newOracle.address)
 
-          const oracle = await wallet.priceOracle()
+          const oracle = await smartVault.priceOracle()
           expect(oracle).to.be.equal(newOracle.address)
         })
 
         it('emits an event', async () => {
-          const tx = await wallet.setPriceOracle(newOracle.address)
+          const tx = await smartVault.setPriceOracle(newOracle.address)
           await assertEvent(tx, 'PriceOracleSet', { priceOracle: newOracle })
         })
       })
@@ -213,18 +215,18 @@ describe('Wallet', () => {
         })
 
         it('reverts', async () => {
-          await expect(wallet.setPriceOracle(newOracle.address)).to.be.revertedWith('DEPENDENCY_NOT_REGISTERED')
+          await expect(smartVault.setPriceOracle(newOracle.address)).to.be.revertedWith('DEPENDENCY_NOT_REGISTERED')
         })
       })
     })
 
     context('when the sender is not authorized', () => {
       beforeEach('set sender', () => {
-        wallet = wallet.connect(other)
+        smartVault = smartVault.connect(other)
       })
 
       it('reverts', async () => {
-        await expect(wallet.setPriceOracle(ZERO_ADDRESS)).to.be.revertedWith('AUTH_SENDER_NOT_ALLOWED')
+        await expect(smartVault.setPriceOracle(ZERO_ADDRESS)).to.be.revertedWith('AUTH_SENDER_NOT_ALLOWED')
       })
     })
   })
@@ -234,9 +236,9 @@ describe('Wallet', () => {
 
     context('when the sender is authorized', async () => {
       beforeEach('set sender', async () => {
-        const setSwapConnectorRole = wallet.interface.getSighash('setSwapConnector')
-        await wallet.connect(admin).authorize(admin.address, setSwapConnectorRole)
-        wallet = wallet.connect(admin)
+        const setSwapConnectorRole = smartVault.interface.getSighash('setSwapConnector')
+        await smartVault.connect(admin).authorize(admin.address, setSwapConnectorRole)
+        smartVault = smartVault.connect(admin)
       })
 
       context('when the implementation is registered', async () => {
@@ -246,14 +248,14 @@ describe('Wallet', () => {
         })
 
         it('sets the implementation', async () => {
-          await wallet.setSwapConnector(newSwapConnector.address)
+          await smartVault.setSwapConnector(newSwapConnector.address)
 
-          const swapConnector = await wallet.swapConnector()
+          const swapConnector = await smartVault.swapConnector()
           expect(swapConnector).to.be.equal(newSwapConnector.address)
         })
 
         it('emits an event', async () => {
-          const tx = await wallet.setSwapConnector(newSwapConnector.address)
+          const tx = await smartVault.setSwapConnector(newSwapConnector.address)
           await assertEvent(tx, 'SwapConnectorSet', { swapConnector: newSwapConnector })
         })
       })
@@ -264,7 +266,7 @@ describe('Wallet', () => {
         })
 
         it('reverts', async () => {
-          await expect(wallet.setSwapConnector(newSwapConnector.address)).to.be.revertedWith(
+          await expect(smartVault.setSwapConnector(newSwapConnector.address)).to.be.revertedWith(
             'DEPENDENCY_NOT_REGISTERED'
           )
         })
@@ -273,11 +275,11 @@ describe('Wallet', () => {
 
     context('when the sender is not authorized', () => {
       beforeEach('set sender', () => {
-        wallet = wallet.connect(other)
+        smartVault = smartVault.connect(other)
       })
 
       it('reverts', async () => {
-        await expect(wallet.setSwapConnector(ZERO_ADDRESS)).to.be.revertedWith('AUTH_SENDER_NOT_ALLOWED')
+        await expect(smartVault.setSwapConnector(ZERO_ADDRESS)).to.be.revertedWith('AUTH_SENDER_NOT_ALLOWED')
       })
     })
   })
@@ -285,9 +287,9 @@ describe('Wallet', () => {
   describe('setFeeCollector', () => {
     context('when the sender is authorized', async () => {
       beforeEach('set sender', async () => {
-        const setFeeCollectorRole = wallet.interface.getSighash('setFeeCollector')
-        await wallet.connect(admin).authorize(admin.address, setFeeCollectorRole)
-        wallet = wallet.connect(admin)
+        const setFeeCollectorRole = smartVault.interface.getSighash('setFeeCollector')
+        await smartVault.connect(admin).authorize(admin.address, setFeeCollectorRole)
+        smartVault = smartVault.connect(admin)
       })
 
       context('when the new address is not zero', async () => {
@@ -298,14 +300,14 @@ describe('Wallet', () => {
         })
 
         it('sets the fee collector', async () => {
-          await wallet.setFeeCollector(newFeeCollector.address)
+          await smartVault.setFeeCollector(newFeeCollector.address)
 
-          const collector = await wallet.feeCollector()
+          const collector = await smartVault.feeCollector()
           expect(collector).to.be.equal(newFeeCollector.address)
         })
 
         it('emits an event', async () => {
-          const tx = await wallet.setFeeCollector(newFeeCollector.address)
+          const tx = await smartVault.setFeeCollector(newFeeCollector.address)
           await assertEvent(tx, 'FeeCollectorSet', { feeCollector: newFeeCollector })
         })
       })
@@ -314,18 +316,18 @@ describe('Wallet', () => {
         const newFeeCollector = ZERO_ADDRESS
 
         it('reverts', async () => {
-          await expect(wallet.setFeeCollector(newFeeCollector)).to.be.revertedWith('FEE_COLLECTOR_ZERO')
+          await expect(smartVault.setFeeCollector(newFeeCollector)).to.be.revertedWith('FEE_COLLECTOR_ZERO')
         })
       })
     })
 
     context('when the sender is not authorized', () => {
       beforeEach('set sender', () => {
-        wallet = wallet.connect(other)
+        smartVault = smartVault.connect(other)
       })
 
       it('reverts', async () => {
-        await expect(wallet.setFeeCollector(ZERO_ADDRESS)).to.be.revertedWith('AUTH_SENDER_NOT_ALLOWED')
+        await expect(smartVault.setFeeCollector(ZERO_ADDRESS)).to.be.revertedWith('AUTH_SENDER_NOT_ALLOWED')
       })
     })
   })
@@ -333,18 +335,18 @@ describe('Wallet', () => {
   describe('setWithdrawFee', () => {
     context('when the sender is authorized', async () => {
       beforeEach('set sender', async () => {
-        const setWithdrawFeeRole = wallet.interface.getSighash('setWithdrawFee')
-        await wallet.connect(admin).authorize(admin.address, setWithdrawFeeRole)
-        wallet = wallet.connect(admin)
+        const setWithdrawFeeRole = smartVault.interface.getSighash('setWithdrawFee')
+        await smartVault.connect(admin).authorize(admin.address, setWithdrawFeeRole)
+        smartVault = smartVault.connect(admin)
       })
 
       context('when there was no withdraw fee set yet', () => {
         context('when the pct is below one', async () => {
           const itSetsTheFeeCorrectly = (pct: BigNumberish, cap: BigNumberish, token: string, period: BigNumberish) => {
             it('sets the withdraw fee', async () => {
-              await wallet.setWithdrawFee(pct, cap, token, period)
+              await smartVault.setWithdrawFee(pct, cap, token, period)
 
-              const fee = await wallet.withdrawFee()
+              const fee = await smartVault.withdrawFee()
               expect(fee.pct).to.be.equal(pct)
               expect(fee.cap).to.be.equal(cap)
               expect(fee.token).to.be.equal(token)
@@ -354,7 +356,7 @@ describe('Wallet', () => {
             })
 
             it('emits an event', async () => {
-              const tx = await wallet.setWithdrawFee(pct, cap, token, period)
+              const tx = await smartVault.setWithdrawFee(pct, cap, token, period)
               await assertEvent(tx, 'WithdrawFeeSet', { pct, cap, token, period })
             })
           }
@@ -378,7 +380,7 @@ describe('Wallet', () => {
                   const period = 0
 
                   it('reverts', async () => {
-                    await expect(wallet.setWithdrawFee(pct, cap, token, period)).to.be.revertedWith(
+                    await expect(smartVault.setWithdrawFee(pct, cap, token, period)).to.be.revertedWith(
                       'INCONSISTENT_CAP_VALUES'
                     )
                   })
@@ -392,7 +394,7 @@ describe('Wallet', () => {
                   const period = MONTH
 
                   it('reverts', async () => {
-                    await expect(wallet.setWithdrawFee(pct, cap, token, period)).to.be.revertedWith(
+                    await expect(smartVault.setWithdrawFee(pct, cap, token, period)).to.be.revertedWith(
                       'INCONSISTENT_CAP_VALUES'
                     )
                   })
@@ -402,7 +404,7 @@ describe('Wallet', () => {
                   const period = 0
 
                   it('reverts', async () => {
-                    await expect(wallet.setWithdrawFee(pct, cap, token, period)).to.be.revertedWith(
+                    await expect(smartVault.setWithdrawFee(pct, cap, token, period)).to.be.revertedWith(
                       'INCONSISTENT_CAP_VALUES'
                     )
                   })
@@ -420,7 +422,7 @@ describe('Wallet', () => {
                   const period = MONTH
 
                   it('reverts', async () => {
-                    await expect(wallet.setWithdrawFee(pct, cap, token, period)).to.be.revertedWith(
+                    await expect(smartVault.setWithdrawFee(pct, cap, token, period)).to.be.revertedWith(
                       'INCONSISTENT_CAP_VALUES'
                     )
                   })
@@ -430,7 +432,7 @@ describe('Wallet', () => {
                   const period = 0
 
                   it('reverts', async () => {
-                    await expect(wallet.setWithdrawFee(pct, cap, token, period)).to.be.revertedWith(
+                    await expect(smartVault.setWithdrawFee(pct, cap, token, period)).to.be.revertedWith(
                       'INCONSISTENT_CAP_VALUES'
                     )
                   })
@@ -444,7 +446,7 @@ describe('Wallet', () => {
                   const period = MONTH
 
                   it('reverts', async () => {
-                    await expect(wallet.setWithdrawFee(pct, cap, token, period)).to.be.revertedWith(
+                    await expect(smartVault.setWithdrawFee(pct, cap, token, period)).to.be.revertedWith(
                       'INCONSISTENT_CAP_VALUES'
                     )
                   })
@@ -472,7 +474,7 @@ describe('Wallet', () => {
                   const period = MONTH
 
                   it('reverts', async () => {
-                    await expect(wallet.setWithdrawFee(pct, cap, token, period)).to.be.revertedWith(
+                    await expect(smartVault.setWithdrawFee(pct, cap, token, period)).to.be.revertedWith(
                       'INVALID_CAP_WITH_FEE_ZERO'
                     )
                   })
@@ -482,7 +484,7 @@ describe('Wallet', () => {
                   const period = 0
 
                   it('reverts', async () => {
-                    await expect(wallet.setWithdrawFee(pct, cap, token, period)).to.be.revertedWith(
+                    await expect(smartVault.setWithdrawFee(pct, cap, token, period)).to.be.revertedWith(
                       'INVALID_CAP_WITH_FEE_ZERO'
                     )
                   })
@@ -496,7 +498,7 @@ describe('Wallet', () => {
                   const period = MONTH
 
                   it('reverts', async () => {
-                    await expect(wallet.setWithdrawFee(pct, cap, token, period)).to.be.revertedWith(
+                    await expect(smartVault.setWithdrawFee(pct, cap, token, period)).to.be.revertedWith(
                       'INVALID_CAP_WITH_FEE_ZERO'
                     )
                   })
@@ -506,7 +508,7 @@ describe('Wallet', () => {
                   const period = 0
 
                   it('reverts', async () => {
-                    await expect(wallet.setWithdrawFee(pct, cap, token, period)).to.be.revertedWith(
+                    await expect(smartVault.setWithdrawFee(pct, cap, token, period)).to.be.revertedWith(
                       'INVALID_CAP_WITH_FEE_ZERO'
                     )
                   })
@@ -524,7 +526,7 @@ describe('Wallet', () => {
                   const period = MONTH
 
                   it('reverts', async () => {
-                    await expect(wallet.setWithdrawFee(pct, cap, token, period)).to.be.revertedWith(
+                    await expect(smartVault.setWithdrawFee(pct, cap, token, period)).to.be.revertedWith(
                       'INVALID_CAP_WITH_FEE_ZERO'
                     )
                   })
@@ -534,7 +536,7 @@ describe('Wallet', () => {
                   const period = 0
 
                   it('reverts', async () => {
-                    await expect(wallet.setWithdrawFee(pct, cap, token, period)).to.be.revertedWith(
+                    await expect(smartVault.setWithdrawFee(pct, cap, token, period)).to.be.revertedWith(
                       'INVALID_CAP_WITH_FEE_ZERO'
                     )
                   })
@@ -548,7 +550,7 @@ describe('Wallet', () => {
                   const period = MONTH
 
                   it('reverts', async () => {
-                    await expect(wallet.setWithdrawFee(pct, cap, token, period)).to.be.revertedWith(
+                    await expect(smartVault.setWithdrawFee(pct, cap, token, period)).to.be.revertedWith(
                       'INVALID_CAP_WITH_FEE_ZERO'
                     )
                   })
@@ -568,7 +570,7 @@ describe('Wallet', () => {
           const pct = fp(1.01)
 
           it('reverts', async () => {
-            await expect(wallet.setWithdrawFee(pct, 0, ZERO_ADDRESS, 0)).to.be.revertedWith('FEE_PCT_ABOVE_ONE')
+            await expect(smartVault.setWithdrawFee(pct, 0, ZERO_ADDRESS, 0)).to.be.revertedWith('FEE_PCT_ABOVE_ONE')
           })
         })
       })
@@ -580,7 +582,7 @@ describe('Wallet', () => {
         const token = NATIVE_TOKEN_ADDRESS
 
         beforeEach('set withdraw fee', async () => {
-          await wallet.setWithdrawFee(pct, cap, token, period)
+          await smartVault.setWithdrawFee(pct, cap, token, period)
         })
 
         context('when there was no charged fees yet', () => {
@@ -596,11 +598,11 @@ describe('Wallet', () => {
           })
 
           it('sets the withdraw fee without updating the next reset time', async () => {
-            const { nextResetTime: previousResetTime } = await wallet.withdrawFee()
+            const { nextResetTime: previousResetTime } = await smartVault.withdrawFee()
 
-            await wallet.setWithdrawFee(newPct, newCap, newToken.address, newPeriod)
+            await smartVault.setWithdrawFee(newPct, newCap, newToken.address, newPeriod)
 
-            const fee = await wallet.withdrawFee()
+            const fee = await smartVault.withdrawFee()
             expect(fee.pct).to.be.equal(newPct)
             expect(fee.cap).to.be.equal(newCap)
             expect(fee.token).to.be.equal(newToken.address)
@@ -610,7 +612,7 @@ describe('Wallet', () => {
           })
 
           it('emits an event', async () => {
-            const tx = await wallet.setWithdrawFee(newPct, newCap, newToken.address, newPeriod)
+            const tx = await smartVault.setWithdrawFee(newPct, newCap, newToken.address, newPeriod)
             await assertEvent(tx, 'WithdrawFeeSet', { pct: newPct, cap: newCap, token: newToken, period: newPeriod })
           })
         })
@@ -624,11 +626,11 @@ describe('Wallet', () => {
 
           beforeEach('accrue withdraw fee', async () => {
             const amount = fp(10)
-            await newToken.mint(wallet.address, amount)
-            const withdrawRole = wallet.interface.getSighash('withdraw')
-            await wallet.connect(admin).authorize(admin.address, withdrawRole)
+            await newToken.mint(smartVault.address, amount)
+            const withdrawRole = smartVault.interface.getSighash('withdraw')
+            await smartVault.connect(admin).authorize(admin.address, withdrawRole)
             await priceOracle.mockRate(newToken.address, token, fp(1))
-            await wallet.withdraw(newToken.address, amount, other.address, '0x')
+            await smartVault.withdraw(newToken.address, amount, other.address, '0x')
           })
 
           context('when the fee cap is being changed', () => {
@@ -642,11 +644,11 @@ describe('Wallet', () => {
             })
 
             it('sets the withdraw fee without updating the next reset time', async () => {
-              const previousFeeData = await wallet.withdrawFee()
+              const previousFeeData = await smartVault.withdrawFee()
 
-              await wallet.setWithdrawFee(newPct, newCap, newToken.address, newPeriod)
+              await smartVault.setWithdrawFee(newPct, newCap, newToken.address, newPeriod)
 
-              const fee = await wallet.withdrawFee()
+              const fee = await smartVault.withdrawFee()
               expect(fee.pct).to.be.equal(newPct)
               expect(fee.cap).to.be.equal(newCap)
               expect(fee.token).to.be.equal(newToken.address)
@@ -656,7 +658,7 @@ describe('Wallet', () => {
             })
 
             it('emits an event', async () => {
-              const tx = await wallet.setWithdrawFee(newPct, newCap, newToken.address, newPeriod)
+              const tx = await smartVault.setWithdrawFee(newPct, newCap, newToken.address, newPeriod)
               await assertEvent(tx, 'WithdrawFeeSet', { pct: newPct, cap: newCap, token: newToken, period: newPeriod })
             })
           })
@@ -668,9 +670,9 @@ describe('Wallet', () => {
             const newToken = ZERO_ADDRESS
 
             it('sets the withdraw fee and resets the totalizators', async () => {
-              await wallet.setWithdrawFee(newPct, newCap, newToken, newPeriod)
+              await smartVault.setWithdrawFee(newPct, newCap, newToken, newPeriod)
 
-              const fee = await wallet.withdrawFee()
+              const fee = await smartVault.withdrawFee()
               expect(fee.pct).to.be.equal(newPct)
               expect(fee.cap).to.be.equal(newCap)
               expect(fee.token).to.be.equal(newToken)
@@ -680,7 +682,7 @@ describe('Wallet', () => {
             })
 
             it('emits an event', async () => {
-              const tx = await wallet.setWithdrawFee(newPct, newCap, newToken, newPeriod)
+              const tx = await smartVault.setWithdrawFee(newPct, newCap, newToken, newPeriod)
               await assertEvent(tx, 'WithdrawFeeSet', { pct: newPct, cap: newCap, token: newToken, period: newPeriod })
             })
           })
@@ -690,11 +692,11 @@ describe('Wallet', () => {
 
     context('when the sender is not authorized', () => {
       beforeEach('set sender', () => {
-        wallet = wallet.connect(other)
+        smartVault = smartVault.connect(other)
       })
 
       it('reverts', async () => {
-        await expect(wallet.setWithdrawFee(0, 0, ZERO_ADDRESS, 0)).to.be.revertedWith('AUTH_SENDER_NOT_ALLOWED')
+        await expect(smartVault.setWithdrawFee(0, 0, ZERO_ADDRESS, 0)).to.be.revertedWith('AUTH_SENDER_NOT_ALLOWED')
       })
     })
   })
@@ -702,18 +704,18 @@ describe('Wallet', () => {
   describe('setPerformanceFee', () => {
     context('when the sender is authorized', async () => {
       beforeEach('set sender', async () => {
-        const setPerformanceFeeRole = wallet.interface.getSighash('setPerformanceFee')
-        await wallet.connect(admin).authorize(admin.address, setPerformanceFeeRole)
-        wallet = wallet.connect(admin)
+        const setPerformanceFeeRole = smartVault.interface.getSighash('setPerformanceFee')
+        await smartVault.connect(admin).authorize(admin.address, setPerformanceFeeRole)
+        smartVault = smartVault.connect(admin)
       })
 
       context('when there was no performance fee set yet', () => {
         context('when the pct is below one', async () => {
           const itSetsTheFeeCorrectly = (pct: BigNumberish, cap: BigNumberish, token: string, period: BigNumberish) => {
             it('sets the performance fee', async () => {
-              await wallet.setPerformanceFee(pct, cap, token, period)
+              await smartVault.setPerformanceFee(pct, cap, token, period)
 
-              const fee = await wallet.performanceFee()
+              const fee = await smartVault.performanceFee()
               expect(fee.pct).to.be.equal(pct)
               expect(fee.cap).to.be.equal(cap)
               expect(fee.token).to.be.equal(token)
@@ -723,7 +725,7 @@ describe('Wallet', () => {
             })
 
             it('emits an event', async () => {
-              const tx = await wallet.setPerformanceFee(pct, cap, token, period)
+              const tx = await smartVault.setPerformanceFee(pct, cap, token, period)
               await assertEvent(tx, 'PerformanceFeeSet', { pct, cap, token, period })
             })
           }
@@ -747,7 +749,7 @@ describe('Wallet', () => {
                   const period = 0
 
                   it('reverts', async () => {
-                    await expect(wallet.setPerformanceFee(pct, cap, token, period)).to.be.revertedWith(
+                    await expect(smartVault.setPerformanceFee(pct, cap, token, period)).to.be.revertedWith(
                       'INCONSISTENT_CAP_VALUES'
                     )
                   })
@@ -761,7 +763,7 @@ describe('Wallet', () => {
                   const period = MONTH
 
                   it('reverts', async () => {
-                    await expect(wallet.setPerformanceFee(pct, cap, token, period)).to.be.revertedWith(
+                    await expect(smartVault.setPerformanceFee(pct, cap, token, period)).to.be.revertedWith(
                       'INCONSISTENT_CAP_VALUES'
                     )
                   })
@@ -771,7 +773,7 @@ describe('Wallet', () => {
                   const period = 0
 
                   it('reverts', async () => {
-                    await expect(wallet.setPerformanceFee(pct, cap, token, period)).to.be.revertedWith(
+                    await expect(smartVault.setPerformanceFee(pct, cap, token, period)).to.be.revertedWith(
                       'INCONSISTENT_CAP_VALUES'
                     )
                   })
@@ -789,7 +791,7 @@ describe('Wallet', () => {
                   const period = MONTH
 
                   it('reverts', async () => {
-                    await expect(wallet.setPerformanceFee(pct, cap, token, period)).to.be.revertedWith(
+                    await expect(smartVault.setPerformanceFee(pct, cap, token, period)).to.be.revertedWith(
                       'INCONSISTENT_CAP_VALUES'
                     )
                   })
@@ -799,7 +801,7 @@ describe('Wallet', () => {
                   const period = 0
 
                   it('reverts', async () => {
-                    await expect(wallet.setPerformanceFee(pct, cap, token, period)).to.be.revertedWith(
+                    await expect(smartVault.setPerformanceFee(pct, cap, token, period)).to.be.revertedWith(
                       'INCONSISTENT_CAP_VALUES'
                     )
                   })
@@ -813,7 +815,7 @@ describe('Wallet', () => {
                   const period = MONTH
 
                   it('reverts', async () => {
-                    await expect(wallet.setPerformanceFee(pct, cap, token, period)).to.be.revertedWith(
+                    await expect(smartVault.setPerformanceFee(pct, cap, token, period)).to.be.revertedWith(
                       'INCONSISTENT_CAP_VALUES'
                     )
                   })
@@ -841,7 +843,7 @@ describe('Wallet', () => {
                   const period = MONTH
 
                   it('reverts', async () => {
-                    await expect(wallet.setPerformanceFee(pct, cap, token, period)).to.be.revertedWith(
+                    await expect(smartVault.setPerformanceFee(pct, cap, token, period)).to.be.revertedWith(
                       'INVALID_CAP_WITH_FEE_ZERO'
                     )
                   })
@@ -851,7 +853,7 @@ describe('Wallet', () => {
                   const period = 0
 
                   it('reverts', async () => {
-                    await expect(wallet.setPerformanceFee(pct, cap, token, period)).to.be.revertedWith(
+                    await expect(smartVault.setPerformanceFee(pct, cap, token, period)).to.be.revertedWith(
                       'INVALID_CAP_WITH_FEE_ZERO'
                     )
                   })
@@ -865,7 +867,7 @@ describe('Wallet', () => {
                   const period = MONTH
 
                   it('reverts', async () => {
-                    await expect(wallet.setPerformanceFee(pct, cap, token, period)).to.be.revertedWith(
+                    await expect(smartVault.setPerformanceFee(pct, cap, token, period)).to.be.revertedWith(
                       'INVALID_CAP_WITH_FEE_ZERO'
                     )
                   })
@@ -875,7 +877,7 @@ describe('Wallet', () => {
                   const period = 0
 
                   it('reverts', async () => {
-                    await expect(wallet.setPerformanceFee(pct, cap, token, period)).to.be.revertedWith(
+                    await expect(smartVault.setPerformanceFee(pct, cap, token, period)).to.be.revertedWith(
                       'INVALID_CAP_WITH_FEE_ZERO'
                     )
                   })
@@ -893,7 +895,7 @@ describe('Wallet', () => {
                   const period = MONTH
 
                   it('reverts', async () => {
-                    await expect(wallet.setPerformanceFee(pct, cap, token, period)).to.be.revertedWith(
+                    await expect(smartVault.setPerformanceFee(pct, cap, token, period)).to.be.revertedWith(
                       'INVALID_CAP_WITH_FEE_ZERO'
                     )
                   })
@@ -903,7 +905,7 @@ describe('Wallet', () => {
                   const period = 0
 
                   it('reverts', async () => {
-                    await expect(wallet.setPerformanceFee(pct, cap, token, period)).to.be.revertedWith(
+                    await expect(smartVault.setPerformanceFee(pct, cap, token, period)).to.be.revertedWith(
                       'INVALID_CAP_WITH_FEE_ZERO'
                     )
                   })
@@ -917,7 +919,7 @@ describe('Wallet', () => {
                   const period = MONTH
 
                   it('reverts', async () => {
-                    await expect(wallet.setPerformanceFee(pct, cap, token, period)).to.be.revertedWith(
+                    await expect(smartVault.setPerformanceFee(pct, cap, token, period)).to.be.revertedWith(
                       'INVALID_CAP_WITH_FEE_ZERO'
                     )
                   })
@@ -937,7 +939,7 @@ describe('Wallet', () => {
           const pct = fp(1.01)
 
           it('reverts', async () => {
-            await expect(wallet.setPerformanceFee(pct, 0, ZERO_ADDRESS, 0)).to.be.revertedWith('FEE_PCT_ABOVE_ONE')
+            await expect(smartVault.setPerformanceFee(pct, 0, ZERO_ADDRESS, 0)).to.be.revertedWith('FEE_PCT_ABOVE_ONE')
           })
         })
       })
@@ -949,7 +951,7 @@ describe('Wallet', () => {
         const token = NATIVE_TOKEN_ADDRESS
 
         beforeEach('set performance fee', async () => {
-          await wallet.setPerformanceFee(pct, cap, token, period)
+          await smartVault.setPerformanceFee(pct, cap, token, period)
         })
 
         context('when there was no charged fees yet', () => {
@@ -965,11 +967,11 @@ describe('Wallet', () => {
           })
 
           it('sets the performance fee without updating the next reset time', async () => {
-            const { nextResetTime: previousResetTime } = await wallet.performanceFee()
+            const { nextResetTime: previousResetTime } = await smartVault.performanceFee()
 
-            await wallet.setPerformanceFee(newPct, newCap, newToken.address, newPeriod)
+            await smartVault.setPerformanceFee(newPct, newCap, newToken.address, newPeriod)
 
-            const fee = await wallet.performanceFee()
+            const fee = await smartVault.performanceFee()
             expect(fee.pct).to.be.equal(newPct)
             expect(fee.cap).to.be.equal(newCap)
             expect(fee.token).to.be.equal(newToken.address)
@@ -979,7 +981,7 @@ describe('Wallet', () => {
           })
 
           it('emits an event', async () => {
-            const tx = await wallet.setPerformanceFee(newPct, newCap, newToken.address, newPeriod)
+            const tx = await smartVault.setPerformanceFee(newPct, newCap, newToken.address, newPeriod)
             await assertEvent(tx, 'PerformanceFeeSet', { pct: newPct, cap: newCap, token: newToken, period: newPeriod })
           })
         })
@@ -992,18 +994,18 @@ describe('Wallet', () => {
           })
 
           beforeEach('accrue performance fee', async () => {
-            const joinRole = wallet.interface.getSighash('join')
-            await wallet.connect(admin).authorize(admin.address, joinRole)
-            const exitRole = wallet.interface.getSighash('exit')
-            await wallet.connect(admin).authorize(admin.address, exitRole)
+            const joinRole = smartVault.interface.getSighash('join')
+            await smartVault.connect(admin).authorize(admin.address, joinRole)
+            const exitRole = smartVault.interface.getSighash('exit')
+            await smartVault.connect(admin).authorize(admin.address, exitRole)
 
             const amount = fp(50)
             const strategyToken = await instanceAt('TokenMock', await strategy.token())
-            await strategyToken.mint(wallet.address, amount)
-            await wallet.join(strategy.address, amount, 0, '0x')
-            await strategy.mockGains(wallet.address, 2)
+            await strategyToken.mint(smartVault.address, amount)
+            await smartVault.join(strategy.address, amount, 0, '0x')
+            await strategy.mockGains(smartVault.address, 2)
             await priceOracle.mockRate(strategyToken.address, token, fp(1))
-            await wallet.exit(strategy.address, fp(1), 0, '0x')
+            await smartVault.exit(strategy.address, fp(1), 0, '0x')
           })
 
           context('when the fee cap is being changed', () => {
@@ -1017,11 +1019,11 @@ describe('Wallet', () => {
             })
 
             it('sets the performance fee without updating the next reset time', async () => {
-              const previousFeeData = await wallet.performanceFee()
+              const previousFeeData = await smartVault.performanceFee()
 
-              await wallet.setPerformanceFee(newPct, newCap, newToken.address, newPeriod)
+              await smartVault.setPerformanceFee(newPct, newCap, newToken.address, newPeriod)
 
-              const fee = await wallet.performanceFee()
+              const fee = await smartVault.performanceFee()
               expect(fee.pct).to.be.equal(newPct)
               expect(fee.cap).to.be.equal(newCap)
               expect(fee.token).to.be.equal(newToken.address)
@@ -1031,7 +1033,7 @@ describe('Wallet', () => {
             })
 
             it('emits an event', async () => {
-              const tx = await wallet.setPerformanceFee(newPct, newCap, newToken.address, newPeriod)
+              const tx = await smartVault.setPerformanceFee(newPct, newCap, newToken.address, newPeriod)
               await assertEvent(tx, 'PerformanceFeeSet', {
                 pct: newPct,
                 cap: newCap,
@@ -1048,9 +1050,9 @@ describe('Wallet', () => {
             const newToken = ZERO_ADDRESS
 
             it('sets the performance fee and resets the totalizators', async () => {
-              await wallet.setPerformanceFee(newPct, newCap, newToken, newPeriod)
+              await smartVault.setPerformanceFee(newPct, newCap, newToken, newPeriod)
 
-              const fee = await wallet.performanceFee()
+              const fee = await smartVault.performanceFee()
               expect(fee.pct).to.be.equal(newPct)
               expect(fee.cap).to.be.equal(newCap)
               expect(fee.token).to.be.equal(newToken)
@@ -1060,7 +1062,7 @@ describe('Wallet', () => {
             })
 
             it('emits an event', async () => {
-              const tx = await wallet.setPerformanceFee(newPct, newCap, newToken, newPeriod)
+              const tx = await smartVault.setPerformanceFee(newPct, newCap, newToken, newPeriod)
               await assertEvent(tx, 'PerformanceFeeSet', {
                 pct: newPct,
                 cap: newCap,
@@ -1075,11 +1077,11 @@ describe('Wallet', () => {
 
     context('when the sender is not authorized', () => {
       beforeEach('set sender', () => {
-        wallet = wallet.connect(other)
+        smartVault = smartVault.connect(other)
       })
 
       it('reverts', async () => {
-        await expect(wallet.setPerformanceFee(0, 0, ZERO_ADDRESS, 0)).to.be.revertedWith('AUTH_SENDER_NOT_ALLOWED')
+        await expect(smartVault.setPerformanceFee(0, 0, ZERO_ADDRESS, 0)).to.be.revertedWith('AUTH_SENDER_NOT_ALLOWED')
       })
     })
   })
@@ -1087,18 +1089,18 @@ describe('Wallet', () => {
   describe('setSwapFee', () => {
     context('when the sender is authorized', async () => {
       beforeEach('set sender', async () => {
-        const setSwapFeeRole = wallet.interface.getSighash('setSwapFee')
-        await wallet.connect(admin).authorize(admin.address, setSwapFeeRole)
-        wallet = wallet.connect(admin)
+        const setSwapFeeRole = smartVault.interface.getSighash('setSwapFee')
+        await smartVault.connect(admin).authorize(admin.address, setSwapFeeRole)
+        smartVault = smartVault.connect(admin)
       })
 
       context('when there was no swap fee set yet', () => {
         context('when the pct is below one', async () => {
           const itSetsTheFeeCorrectly = (pct: BigNumberish, cap: BigNumberish, token: string, period: BigNumberish) => {
             it('sets the swap fee', async () => {
-              await wallet.setSwapFee(pct, cap, token, period)
+              await smartVault.setSwapFee(pct, cap, token, period)
 
-              const fee = await wallet.swapFee()
+              const fee = await smartVault.swapFee()
               expect(fee.pct).to.be.equal(pct)
               expect(fee.cap).to.be.equal(cap)
               expect(fee.token).to.be.equal(token)
@@ -1108,7 +1110,7 @@ describe('Wallet', () => {
             })
 
             it('emits an event', async () => {
-              const tx = await wallet.setSwapFee(pct, cap, token, period)
+              const tx = await smartVault.setSwapFee(pct, cap, token, period)
               await assertEvent(tx, 'SwapFeeSet', { pct, cap, token, period })
             })
           }
@@ -1132,7 +1134,7 @@ describe('Wallet', () => {
                   const period = 0
 
                   it('reverts', async () => {
-                    await expect(wallet.setSwapFee(pct, cap, token, period)).to.be.revertedWith(
+                    await expect(smartVault.setSwapFee(pct, cap, token, period)).to.be.revertedWith(
                       'INCONSISTENT_CAP_VALUES'
                     )
                   })
@@ -1146,7 +1148,7 @@ describe('Wallet', () => {
                   const period = MONTH
 
                   it('reverts', async () => {
-                    await expect(wallet.setSwapFee(pct, cap, token, period)).to.be.revertedWith(
+                    await expect(smartVault.setSwapFee(pct, cap, token, period)).to.be.revertedWith(
                       'INCONSISTENT_CAP_VALUES'
                     )
                   })
@@ -1156,7 +1158,7 @@ describe('Wallet', () => {
                   const period = 0
 
                   it('reverts', async () => {
-                    await expect(wallet.setSwapFee(pct, cap, token, period)).to.be.revertedWith(
+                    await expect(smartVault.setSwapFee(pct, cap, token, period)).to.be.revertedWith(
                       'INCONSISTENT_CAP_VALUES'
                     )
                   })
@@ -1174,7 +1176,7 @@ describe('Wallet', () => {
                   const period = MONTH
 
                   it('reverts', async () => {
-                    await expect(wallet.setSwapFee(pct, cap, token, period)).to.be.revertedWith(
+                    await expect(smartVault.setSwapFee(pct, cap, token, period)).to.be.revertedWith(
                       'INCONSISTENT_CAP_VALUES'
                     )
                   })
@@ -1184,7 +1186,7 @@ describe('Wallet', () => {
                   const period = 0
 
                   it('reverts', async () => {
-                    await expect(wallet.setSwapFee(pct, cap, token, period)).to.be.revertedWith(
+                    await expect(smartVault.setSwapFee(pct, cap, token, period)).to.be.revertedWith(
                       'INCONSISTENT_CAP_VALUES'
                     )
                   })
@@ -1198,7 +1200,7 @@ describe('Wallet', () => {
                   const period = MONTH
 
                   it('reverts', async () => {
-                    await expect(wallet.setSwapFee(pct, cap, token, period)).to.be.revertedWith(
+                    await expect(smartVault.setSwapFee(pct, cap, token, period)).to.be.revertedWith(
                       'INCONSISTENT_CAP_VALUES'
                     )
                   })
@@ -1226,7 +1228,7 @@ describe('Wallet', () => {
                   const period = MONTH
 
                   it('reverts', async () => {
-                    await expect(wallet.setSwapFee(pct, cap, token, period)).to.be.revertedWith(
+                    await expect(smartVault.setSwapFee(pct, cap, token, period)).to.be.revertedWith(
                       'INVALID_CAP_WITH_FEE_ZERO'
                     )
                   })
@@ -1236,7 +1238,7 @@ describe('Wallet', () => {
                   const period = 0
 
                   it('reverts', async () => {
-                    await expect(wallet.setSwapFee(pct, cap, token, period)).to.be.revertedWith(
+                    await expect(smartVault.setSwapFee(pct, cap, token, period)).to.be.revertedWith(
                       'INVALID_CAP_WITH_FEE_ZERO'
                     )
                   })
@@ -1250,7 +1252,7 @@ describe('Wallet', () => {
                   const period = MONTH
 
                   it('reverts', async () => {
-                    await expect(wallet.setSwapFee(pct, cap, token, period)).to.be.revertedWith(
+                    await expect(smartVault.setSwapFee(pct, cap, token, period)).to.be.revertedWith(
                       'INVALID_CAP_WITH_FEE_ZERO'
                     )
                   })
@@ -1260,7 +1262,7 @@ describe('Wallet', () => {
                   const period = 0
 
                   it('reverts', async () => {
-                    await expect(wallet.setSwapFee(pct, cap, token, period)).to.be.revertedWith(
+                    await expect(smartVault.setSwapFee(pct, cap, token, period)).to.be.revertedWith(
                       'INVALID_CAP_WITH_FEE_ZERO'
                     )
                   })
@@ -1278,7 +1280,7 @@ describe('Wallet', () => {
                   const period = MONTH
 
                   it('reverts', async () => {
-                    await expect(wallet.setSwapFee(pct, cap, token, period)).to.be.revertedWith(
+                    await expect(smartVault.setSwapFee(pct, cap, token, period)).to.be.revertedWith(
                       'INVALID_CAP_WITH_FEE_ZERO'
                     )
                   })
@@ -1288,7 +1290,7 @@ describe('Wallet', () => {
                   const period = 0
 
                   it('reverts', async () => {
-                    await expect(wallet.setSwapFee(pct, cap, token, period)).to.be.revertedWith(
+                    await expect(smartVault.setSwapFee(pct, cap, token, period)).to.be.revertedWith(
                       'INVALID_CAP_WITH_FEE_ZERO'
                     )
                   })
@@ -1302,7 +1304,7 @@ describe('Wallet', () => {
                   const period = MONTH
 
                   it('reverts', async () => {
-                    await expect(wallet.setSwapFee(pct, cap, token, period)).to.be.revertedWith(
+                    await expect(smartVault.setSwapFee(pct, cap, token, period)).to.be.revertedWith(
                       'INVALID_CAP_WITH_FEE_ZERO'
                     )
                   })
@@ -1322,7 +1324,7 @@ describe('Wallet', () => {
           const pct = fp(1.01)
 
           it('reverts', async () => {
-            await expect(wallet.setSwapFee(pct, 0, ZERO_ADDRESS, 0)).to.be.revertedWith('FEE_PCT_ABOVE_ONE')
+            await expect(smartVault.setSwapFee(pct, 0, ZERO_ADDRESS, 0)).to.be.revertedWith('FEE_PCT_ABOVE_ONE')
           })
         })
       })
@@ -1334,7 +1336,7 @@ describe('Wallet', () => {
         const token = NATIVE_TOKEN_ADDRESS
 
         beforeEach('set swap fee', async () => {
-          await wallet.setSwapFee(pct, cap, token, period)
+          await smartVault.setSwapFee(pct, cap, token, period)
         })
 
         context('when there was no charged fees yet', () => {
@@ -1350,11 +1352,11 @@ describe('Wallet', () => {
           })
 
           it('sets the swap fee without updating the next reset time', async () => {
-            const { nextResetTime: previousResetTime } = await wallet.swapFee()
+            const { nextResetTime: previousResetTime } = await smartVault.swapFee()
 
-            await wallet.setSwapFee(newPct, newCap, newToken.address, newPeriod)
+            await smartVault.setSwapFee(newPct, newCap, newToken.address, newPeriod)
 
-            const fee = await wallet.swapFee()
+            const fee = await smartVault.swapFee()
             expect(fee.pct).to.be.equal(newPct)
             expect(fee.cap).to.be.equal(newCap)
             expect(fee.token).to.be.equal(newToken.address)
@@ -1364,7 +1366,7 @@ describe('Wallet', () => {
           })
 
           it('emits an event', async () => {
-            const tx = await wallet.setSwapFee(newPct, newCap, newToken.address, newPeriod)
+            const tx = await smartVault.setSwapFee(newPct, newCap, newToken.address, newPeriod)
             await assertEvent(tx, 'SwapFeeSet', { pct: newPct, cap: newCap, token: newToken, period: newPeriod })
           })
         })
@@ -1377,16 +1379,16 @@ describe('Wallet', () => {
           })
 
           beforeEach('accrue swap fee', async () => {
-            const swapRole = wallet.interface.getSighash('swap')
-            await wallet.connect(admin).authorize(admin.address, swapRole)
+            const swapRole = smartVault.interface.getSighash('swap')
+            await smartVault.connect(admin).authorize(admin.address, swapRole)
 
             const amount = fp(10)
             const anotherToken = await deploy('TokenMock', ['TKN'])
-            await anotherToken.mint(wallet.address, amount)
+            await anotherToken.mint(smartVault.address, amount)
             await newToken.mint(await swapConnector.dex(), amount)
             await swapConnector.mockRate(fp(1))
             await priceOracle.mockRate(newToken.address, token, fp(1))
-            await wallet.swap(0, anotherToken.address, newToken.address, amount, 1, 0, '0x')
+            await smartVault.swap(0, anotherToken.address, newToken.address, amount, 1, 0, '0x')
           })
 
           context('when the fee cap is being changed', () => {
@@ -1400,11 +1402,11 @@ describe('Wallet', () => {
             })
 
             it('sets the swap fee without updating the next reset time', async () => {
-              const previousFeeData = await wallet.swapFee()
+              const previousFeeData = await smartVault.swapFee()
 
-              await wallet.setSwapFee(newPct, newCap, newToken.address, newPeriod)
+              await smartVault.setSwapFee(newPct, newCap, newToken.address, newPeriod)
 
-              const fee = await wallet.swapFee()
+              const fee = await smartVault.swapFee()
               expect(fee.pct).to.be.equal(newPct)
               expect(fee.cap).to.be.equal(newCap)
               expect(fee.token).to.be.equal(newToken.address)
@@ -1414,7 +1416,7 @@ describe('Wallet', () => {
             })
 
             it('emits an event', async () => {
-              const tx = await wallet.setSwapFee(newPct, newCap, newToken.address, newPeriod)
+              const tx = await smartVault.setSwapFee(newPct, newCap, newToken.address, newPeriod)
               await assertEvent(tx, 'SwapFeeSet', { pct: newPct, cap: newCap, token: newToken, period: newPeriod })
             })
           })
@@ -1426,9 +1428,9 @@ describe('Wallet', () => {
             const newToken = ZERO_ADDRESS
 
             it('sets the swap fee and resets the totalizators', async () => {
-              await wallet.setSwapFee(newPct, newCap, newToken, newPeriod)
+              await smartVault.setSwapFee(newPct, newCap, newToken, newPeriod)
 
-              const fee = await wallet.swapFee()
+              const fee = await smartVault.swapFee()
               expect(fee.pct).to.be.equal(newPct)
               expect(fee.cap).to.be.equal(newCap)
               expect(fee.token).to.be.equal(newToken)
@@ -1438,7 +1440,7 @@ describe('Wallet', () => {
             })
 
             it('emits an event', async () => {
-              const tx = await wallet.setSwapFee(newPct, newCap, newToken, newPeriod)
+              const tx = await smartVault.setSwapFee(newPct, newCap, newToken, newPeriod)
               await assertEvent(tx, 'SwapFeeSet', { pct: newPct, cap: newCap, token: newToken, period: newPeriod })
             })
           })
@@ -1448,11 +1450,11 @@ describe('Wallet', () => {
 
     context('when the sender is not authorized', () => {
       beforeEach('set sender', () => {
-        wallet = wallet.connect(other)
+        smartVault = smartVault.connect(other)
       })
 
       it('reverts', async () => {
-        await expect(wallet.setSwapFee(0, 0, ZERO_ADDRESS, 0)).to.be.revertedWith('AUTH_SENDER_NOT_ALLOWED')
+        await expect(smartVault.setSwapFee(0, 0, ZERO_ADDRESS, 0)).to.be.revertedWith('AUTH_SENDER_NOT_ALLOWED')
       })
     })
   })
@@ -1468,16 +1470,16 @@ describe('Wallet', () => {
 
     context('when the sender is authorized', () => {
       beforeEach('set sender', async () => {
-        const setPriceFeedRole = wallet.interface.getSighash('setPriceFeed')
-        await wallet.connect(admin).authorize(admin.address, setPriceFeedRole)
-        wallet = wallet.connect(admin)
+        const setPriceFeedRole = smartVault.interface.getSighash('setPriceFeed')
+        await smartVault.connect(admin).authorize(admin.address, setPriceFeedRole)
+        smartVault = smartVault.connect(admin)
       })
 
       const itCanBeSet = () => {
         it('can be set', async () => {
-          const tx = await wallet.setPriceFeed(base.address, quote.address, feed.address)
+          const tx = await smartVault.setPriceFeed(base.address, quote.address, feed.address)
 
-          expect(await wallet.getPriceFeed(base.address, quote.address)).to.be.equal(feed.address)
+          expect(await smartVault.getPriceFeed(base.address, quote.address)).to.be.equal(feed.address)
 
           await assertEvent(tx, 'PriceFeedSet', { base, quote, feed })
         })
@@ -1485,9 +1487,9 @@ describe('Wallet', () => {
 
       const itCanBeUnset = () => {
         it('can be unset', async () => {
-          const tx = await wallet.setPriceFeed(base.address, quote.address, ZERO_ADDRESS)
+          const tx = await smartVault.setPriceFeed(base.address, quote.address, ZERO_ADDRESS)
 
-          expect(await wallet.getPriceFeed(base.address, quote.address)).to.be.equal(ZERO_ADDRESS)
+          expect(await smartVault.getPriceFeed(base.address, quote.address)).to.be.equal(ZERO_ADDRESS)
 
           await assertEvent(tx, 'PriceFeedSet', { base, quote, feed: ZERO_ADDRESS })
         })
@@ -1495,8 +1497,8 @@ describe('Wallet', () => {
 
       context('when the feed is set', () => {
         beforeEach('set feed', async () => {
-          await wallet.setPriceFeed(base.address, quote.address, feed.address)
-          expect(await wallet.getPriceFeed(base.address, quote.address)).to.be.equal(feed.address)
+          await smartVault.setPriceFeed(base.address, quote.address, feed.address)
+          expect(await smartVault.getPriceFeed(base.address, quote.address)).to.be.equal(feed.address)
         })
 
         itCanBeSet()
@@ -1505,8 +1507,8 @@ describe('Wallet', () => {
 
       context('when the feed is not set', () => {
         beforeEach('unset feed', async () => {
-          await wallet.setPriceFeed(base.address, quote.address, ZERO_ADDRESS)
-          expect(await wallet.getPriceFeed(base.address, quote.address)).to.be.equal(ZERO_ADDRESS)
+          await smartVault.setPriceFeed(base.address, quote.address, ZERO_ADDRESS)
+          expect(await smartVault.getPriceFeed(base.address, quote.address)).to.be.equal(ZERO_ADDRESS)
         })
 
         itCanBeSet()
@@ -1516,11 +1518,11 @@ describe('Wallet', () => {
 
     context('when the sender is not authorized', () => {
       beforeEach('set sender', () => {
-        wallet = wallet.connect(other)
+        smartVault = smartVault.connect(other)
       })
 
       it('reverts', async () => {
-        await expect(wallet.setPriceFeed(base.address, quote.address, feed.address)).to.be.revertedWith(
+        await expect(smartVault.setPriceFeed(base.address, quote.address, feed.address)).to.be.revertedWith(
           'AUTH_SENDER_NOT_ALLOWED'
         )
       })
@@ -1545,18 +1547,18 @@ describe('Wallet', () => {
 
     context('when the sender is authorized', () => {
       beforeEach('set sender', async () => {
-        const setPriceFeedsRole = wallet.interface.getSighash('setPriceFeeds')
-        await wallet.connect(admin).authorize(admin.address, setPriceFeedsRole)
-        wallet = wallet.connect(admin)
+        const setPriceFeedsRole = smartVault.interface.getSighash('setPriceFeeds')
+        await smartVault.connect(admin).authorize(admin.address, setPriceFeedsRole)
+        smartVault = smartVault.connect(admin)
       })
 
       context('when the input length is valid', () => {
         const itCanBeSet = () => {
           it('can be set', async () => {
-            const tx = await wallet.setPriceFeeds(bases, quotes, feeds)
+            const tx = await smartVault.setPriceFeeds(bases, quotes, feeds)
 
-            expect(await wallet.getPriceFeed(base1.address, quote.address)).to.be.equal(feed1.address)
-            expect(await wallet.getPriceFeed(base2.address, quote.address)).to.be.equal(feed2.address)
+            expect(await smartVault.getPriceFeed(base1.address, quote.address)).to.be.equal(feed1.address)
+            expect(await smartVault.getPriceFeed(base2.address, quote.address)).to.be.equal(feed2.address)
 
             await assertEvent(tx, 'PriceFeedSet', { base: base1, quote, feed: feed1 })
             await assertEvent(tx, 'PriceFeedSet', { base: base2, quote, feed: feed2 })
@@ -1565,10 +1567,10 @@ describe('Wallet', () => {
 
         const itCanBeUnset = () => {
           it('can be unset', async () => {
-            const tx = await wallet.setPriceFeeds(bases, quotes, [ZERO_ADDRESS, ZERO_ADDRESS])
+            const tx = await smartVault.setPriceFeeds(bases, quotes, [ZERO_ADDRESS, ZERO_ADDRESS])
 
-            expect(await wallet.getPriceFeed(base1.address, quote.address)).to.be.equal(ZERO_ADDRESS)
-            expect(await wallet.getPriceFeed(base2.address, quote.address)).to.be.equal(ZERO_ADDRESS)
+            expect(await smartVault.getPriceFeed(base1.address, quote.address)).to.be.equal(ZERO_ADDRESS)
+            expect(await smartVault.getPriceFeed(base2.address, quote.address)).to.be.equal(ZERO_ADDRESS)
 
             await assertEvent(tx, 'PriceFeedSet', { base: base1, quote, feed: ZERO_ADDRESS })
             await assertEvent(tx, 'PriceFeedSet', { base: base2, quote, feed: ZERO_ADDRESS })
@@ -1577,9 +1579,9 @@ describe('Wallet', () => {
 
         context('when the feed is set', () => {
           beforeEach('set feed', async () => {
-            await wallet.setPriceFeeds(bases, quotes, feeds)
-            expect(await wallet.getPriceFeed(base1.address, quote.address)).to.be.equal(feed1.address)
-            expect(await wallet.getPriceFeed(base2.address, quote.address)).to.be.equal(feed2.address)
+            await smartVault.setPriceFeeds(bases, quotes, feeds)
+            expect(await smartVault.getPriceFeed(base1.address, quote.address)).to.be.equal(feed1.address)
+            expect(await smartVault.getPriceFeed(base2.address, quote.address)).to.be.equal(feed2.address)
           })
 
           itCanBeSet()
@@ -1588,9 +1590,9 @@ describe('Wallet', () => {
 
         context('when the feed is not set', () => {
           beforeEach('unset feed', async () => {
-            await wallet.setPriceFeeds(bases, quotes, [ZERO_ADDRESS, ZERO_ADDRESS])
-            expect(await wallet.getPriceFeed(base1.address, quote.address)).to.be.equal(ZERO_ADDRESS)
-            expect(await wallet.getPriceFeed(base2.address, quote.address)).to.be.equal(ZERO_ADDRESS)
+            await smartVault.setPriceFeeds(bases, quotes, [ZERO_ADDRESS, ZERO_ADDRESS])
+            expect(await smartVault.getPriceFeed(base1.address, quote.address)).to.be.equal(ZERO_ADDRESS)
+            expect(await smartVault.getPriceFeed(base2.address, quote.address)).to.be.equal(ZERO_ADDRESS)
           })
 
           itCanBeSet()
@@ -1600,15 +1602,15 @@ describe('Wallet', () => {
 
       context('when the input is invalid', () => {
         it('reverts', async () => {
-          await expect(wallet.setPriceFeeds([base1.address], quotes, feeds)).to.be.revertedWith(
+          await expect(smartVault.setPriceFeeds([base1.address], quotes, feeds)).to.be.revertedWith(
             'SET_FEEDS_INVALID_QUOTES_LENGTH'
           )
 
-          await expect(wallet.setPriceFeeds(bases, [quote.address], feeds)).to.be.revertedWith(
+          await expect(smartVault.setPriceFeeds(bases, [quote.address], feeds)).to.be.revertedWith(
             'SET_FEEDS_INVALID_QUOTES_LENGTH'
           )
 
-          await expect(wallet.setPriceFeeds(bases, quotes, [feed1.address])).to.be.revertedWith(
+          await expect(smartVault.setPriceFeeds(bases, quotes, [feed1.address])).to.be.revertedWith(
             'SET_FEEDS_INVALID_FEEDS_LENGTH'
           )
         })
@@ -1617,11 +1619,11 @@ describe('Wallet', () => {
 
     context('when the sender is not authorized', () => {
       beforeEach('set sender', () => {
-        wallet = wallet.connect(other)
+        smartVault = smartVault.connect(other)
       })
 
       it('reverts', async () => {
-        await expect(wallet.setPriceFeeds(bases, quotes, feeds)).to.be.revertedWith('AUTH_SENDER_NOT_ALLOWED')
+        await expect(smartVault.setPriceFeeds(bases, quotes, feeds)).to.be.revertedWith('AUTH_SENDER_NOT_ALLOWED')
       })
     })
   })
@@ -1637,9 +1639,9 @@ describe('Wallet', () => {
 
     context('when the sender is authorized', () => {
       beforeEach('set sender', async () => {
-        const callRole = wallet.interface.getSighash('call')
-        await wallet.connect(admin).authorize(admin.address, callRole)
-        wallet = wallet.connect(admin)
+        const callRole = smartVault.interface.getSighash('call')
+        await smartVault.connect(admin).authorize(admin.address, callRole)
+        smartVault = smartVault.connect(admin)
       })
 
       context('when the call succeeds', () => {
@@ -1650,16 +1652,16 @@ describe('Wallet', () => {
         })
 
         it('calls the target contract', async () => {
-          await admin.sendTransaction({ to: wallet.address, value })
-          const previousWalletBalance = await ethers.provider.getBalance(wallet.address)
+          await admin.sendTransaction({ to: smartVault.address, value })
+          const previousSmartVaultBalance = await ethers.provider.getBalance(smartVault.address)
           const previousTargetBalance = await ethers.provider.getBalance(target.address)
 
-          const tx = await wallet.call(target.address, callData, value, data)
+          const tx = await smartVault.call(target.address, callData, value, data)
           await assertEvent(tx, 'Call', { target, value, callData, data })
-          await assertIndirectEvent(tx, target.interface, 'Received', { sender: wallet, value })
+          await assertIndirectEvent(tx, target.interface, 'Received', { sender: smartVault, value })
 
-          const currentWalletBalance = await ethers.provider.getBalance(wallet.address)
-          expect(currentWalletBalance).to.be.equal(previousWalletBalance.sub(value))
+          const currentSmartVaultBalance = await ethers.provider.getBalance(smartVault.address)
+          expect(currentSmartVaultBalance).to.be.equal(previousSmartVaultBalance.sub(value))
 
           const currentTargetBalance = await ethers.provider.getBalance(target.address)
           expect(currentTargetBalance).to.be.equal(previousTargetBalance.add(value))
@@ -1670,9 +1672,9 @@ describe('Wallet', () => {
         const callData = '0xabcdef12' // random
 
         it('reverts', async () => {
-          await admin.sendTransaction({ to: wallet.address, value })
-          await expect(wallet.call(target.address, callData, value, data)).to.be.revertedWith(
-            'WALLET_ARBITRARY_CALL_FAILED'
+          await admin.sendTransaction({ to: smartVault.address, value })
+          await expect(smartVault.call(target.address, callData, value, data)).to.be.revertedWith(
+            'SMART_VAULT_ARBITRARY_CALL_FAIL'
           )
         })
       })
@@ -1680,11 +1682,11 @@ describe('Wallet', () => {
 
     context('when the sender is not authorized', () => {
       beforeEach('set sender', async () => {
-        wallet = wallet.connect(other)
+        smartVault = smartVault.connect(other)
       })
 
       it('reverts', async () => {
-        await expect(wallet.call(target.address, '0x', value, data)).to.be.revertedWith('AUTH_SENDER_NOT_ALLOWED')
+        await expect(smartVault.call(target.address, '0x', value, data)).to.be.revertedWith('AUTH_SENDER_NOT_ALLOWED')
       })
     })
   })
@@ -1703,45 +1705,45 @@ describe('Wallet', () => {
 
     context('when the sender is authorized', () => {
       beforeEach('set sender', async () => {
-        const collectRole = wallet.interface.getSighash('collect')
-        await wallet.connect(admin).authorize(admin.address, collectRole)
-        wallet = wallet.connect(admin)
+        const collectRole = smartVault.interface.getSighash('collect')
+        await smartVault.connect(admin).authorize(admin.address, collectRole)
+        smartVault = smartVault.connect(admin)
       })
 
-      context('when the wallet has enough allowance', () => {
+      context('when the smart vault has enough allowance', () => {
         beforeEach('allow tokens', async () => {
           await token.mint(from.address, amount)
-          await token.connect(from).approve(wallet.address, amount)
+          await token.connect(from).approve(smartVault.address, amount)
         })
 
-        it('transfers the tokens to the wallet', async () => {
+        it('transfers the tokens to the smart vault', async () => {
           const previousHolderBalance = await token.balanceOf(from.address)
-          const previousWalletBalance = await token.balanceOf(wallet.address)
+          const previousSmartVaultBalance = await token.balanceOf(smartVault.address)
 
-          await wallet.collect(token.address, from.address, amount, data)
+          await smartVault.collect(token.address, from.address, amount, data)
 
           const currentHolderBalance = await token.balanceOf(from.address)
           expect(currentHolderBalance).to.be.equal(previousHolderBalance.sub(amount))
 
-          const currentWalletBalance = await token.balanceOf(wallet.address)
-          expect(currentWalletBalance).to.be.equal(previousWalletBalance.add(amount))
+          const currentSmartVaultBalance = await token.balanceOf(smartVault.address)
+          expect(currentSmartVaultBalance).to.be.equal(previousSmartVaultBalance.add(amount))
         })
 
         it('emits an event', async () => {
-          const tx = await wallet.collect(token.address, from.address, amount, data)
+          const tx = await smartVault.collect(token.address, from.address, amount, data)
 
           await assertEvent(tx, 'Collect', { token, from, collected: amount, data })
         })
       })
 
-      context('when the wallet does not have enough allowance', () => {
+      context('when the smart vault does not have enough allowance', () => {
         beforeEach('allow tokens', async () => {
           await token.mint(admin.address, amount)
-          await token.connect(admin).approve(wallet.address, amount.sub(1))
+          await token.connect(admin).approve(smartVault.address, amount.sub(1))
         })
 
         it('reverts', async () => {
-          await expect(wallet.collect(token.address, from.address, amount, data)).to.be.revertedWith(
+          await expect(smartVault.collect(token.address, from.address, amount, data)).to.be.revertedWith(
             'ERC20: insufficient allowance'
           )
         })
@@ -1750,11 +1752,11 @@ describe('Wallet', () => {
 
     context('when the sender is not authorized', () => {
       beforeEach('set sender', async () => {
-        wallet = wallet.connect(other)
+        smartVault = smartVault.connect(other)
       })
 
       it('reverts', async () => {
-        await expect(wallet.collect(token.address, from.address, amount, data)).to.be.revertedWith(
+        await expect(smartVault.collect(token.address, from.address, amount, data)).to.be.revertedWith(
           'AUTH_SENDER_NOT_ALLOWED'
         )
       })
@@ -1767,9 +1769,9 @@ describe('Wallet', () => {
 
     context('when the sender is authorized', () => {
       beforeEach('set sender', async () => {
-        const withdrawRole = wallet.interface.getSighash('withdraw')
-        await wallet.connect(admin).authorize(admin.address, withdrawRole)
-        wallet = wallet.connect(admin)
+        const withdrawRole = smartVault.interface.getSighash('withdraw')
+        await smartVault.connect(admin).authorize(admin.address, withdrawRole)
+        smartVault = smartVault.connect(admin)
       })
 
       context('when withdrawing erc20 tokens', async () => {
@@ -1779,27 +1781,27 @@ describe('Wallet', () => {
           token = await deploy('TokenMock', ['USDC'])
         })
 
-        context('when the wallet has enough balance', async () => {
+        context('when the smart vault has enough balance', async () => {
           beforeEach('mint tokens', async () => {
-            await token.mint(wallet.address, amount)
+            await token.mint(smartVault.address, amount)
           })
 
           context('without withdraw fees', async () => {
             it('transfers the tokens to the recipient', async () => {
-              const previousWalletBalance = await token.balanceOf(wallet.address)
+              const previousSmartVaultBalance = await token.balanceOf(smartVault.address)
               const previousRecipientBalance = await token.balanceOf(other.address)
 
-              await wallet.withdraw(token.address, amount, other.address, data)
+              await smartVault.withdraw(token.address, amount, other.address, data)
 
-              const currentWalletBalance = await token.balanceOf(wallet.address)
-              expect(currentWalletBalance).to.be.equal(previousWalletBalance.sub(amount))
+              const currentSmartVaultBalance = await token.balanceOf(smartVault.address)
+              expect(currentSmartVaultBalance).to.be.equal(previousSmartVaultBalance.sub(amount))
 
               const currentRecipientBalance = await token.balanceOf(other.address)
               expect(currentRecipientBalance).to.be.equal(previousRecipientBalance.add(amount))
             })
 
             it('emits an event', async () => {
-              const tx = await wallet.withdraw(token.address, amount, other.address, data)
+              const tx = await smartVault.withdraw(token.address, amount, other.address, data)
 
               await assertEvent(tx, 'Withdraw', { token, withdrawn: amount, recipient: other, fee: 0, data })
             })
@@ -1810,22 +1812,22 @@ describe('Wallet', () => {
             const withdrawFeeAmount = amount.mul(withdrawFee).div(fp(1))
 
             beforeEach('authorize', async () => {
-              const setWithdrawFeeRole = wallet.interface.getSighash('setWithdrawFee')
-              await wallet.connect(admin).authorize(admin.address, setWithdrawFeeRole)
+              const setWithdrawFeeRole = smartVault.interface.getSighash('setWithdrawFee')
+              await smartVault.connect(admin).authorize(admin.address, setWithdrawFeeRole)
             })
 
             const itWithdrawsCorrectly = (expectedChargedFees: BigNumber) => {
               const amountAfterFees = amount.sub(expectedChargedFees)
 
               it('transfers the tokens to the recipient', async () => {
-                const previousWalletBalance = await token.balanceOf(wallet.address)
+                const previousSmartVaultBalance = await token.balanceOf(smartVault.address)
                 const previousRecipientBalance = await token.balanceOf(other.address)
                 const previousFeeCollectorBalance = await token.balanceOf(feeCollector.address)
 
-                await wallet.withdraw(token.address, amount, other.address, data)
+                await smartVault.withdraw(token.address, amount, other.address, data)
 
-                const currentWalletBalance = await token.balanceOf(wallet.address)
-                expect(currentWalletBalance).to.be.equal(previousWalletBalance.sub(amount))
+                const currentSmartVaultBalance = await token.balanceOf(smartVault.address)
+                expect(currentSmartVaultBalance).to.be.equal(previousSmartVaultBalance.sub(amount))
 
                 const currentRecipientBalance = await token.balanceOf(other.address)
                 expect(currentRecipientBalance).to.be.equal(previousRecipientBalance.add(amountAfterFees))
@@ -1835,7 +1837,7 @@ describe('Wallet', () => {
               })
 
               it('emits an event', async () => {
-                const tx = await wallet.withdraw(token.address, amount, other.address, data)
+                const tx = await smartVault.withdraw(token.address, amount, other.address, data)
 
                 await assertEvent(tx, 'Withdraw', {
                   token,
@@ -1849,17 +1851,17 @@ describe('Wallet', () => {
 
             context('without cap', async () => {
               beforeEach('set withdraw fee', async () => {
-                await wallet.connect(admin).setWithdrawFee(withdrawFee, 0, ZERO_ADDRESS, 0)
+                await smartVault.connect(admin).setWithdrawFee(withdrawFee, 0, ZERO_ADDRESS, 0)
               })
 
               itWithdrawsCorrectly(withdrawFeeAmount)
 
               it('does not update the total charged fees', async () => {
-                const previousData = await wallet.withdrawFee()
+                const previousData = await smartVault.withdrawFee()
 
-                await wallet.withdraw(token.address, amount, other.address, data)
+                await smartVault.withdraw(token.address, amount, other.address, data)
 
-                const currentData = await wallet.withdrawFee()
+                const currentData = await smartVault.withdrawFee()
                 expect(currentData.pct).to.be.equal(previousData.pct)
                 expect(currentData.cap).to.be.equal(previousData.cap)
                 expect(currentData.period).to.be.equal(previousData.period)
@@ -1882,7 +1884,7 @@ describe('Wallet', () => {
               })
 
               beforeEach('set withdraw fee', async () => {
-                await wallet.connect(admin).setWithdrawFee(withdrawFee, cap, capToken.address, period)
+                await smartVault.connect(admin).setWithdrawFee(withdrawFee, cap, capToken.address, period)
                 periodStartTime = await currentTimestamp()
               })
 
@@ -1890,11 +1892,11 @@ describe('Wallet', () => {
                 itWithdrawsCorrectly(withdrawFeeAmount)
 
                 it('updates the total charged fees', async () => {
-                  const previousData = await wallet.withdrawFee()
+                  const previousData = await smartVault.withdrawFee()
 
-                  await wallet.withdraw(token.address, amount, other.address, data)
+                  await smartVault.withdraw(token.address, amount, other.address, data)
 
-                  const currentData = await wallet.withdrawFee()
+                  const currentData = await smartVault.withdrawFee()
                   expect(currentData.pct).to.be.equal(previousData.pct)
                   expect(currentData.cap).to.be.equal(previousData.cap)
                   expect(currentData.token).to.be.equal(previousData.token)
@@ -1906,8 +1908,8 @@ describe('Wallet', () => {
 
               context('when the cap period has been reached', async () => {
                 beforeEach('accrue some charged fees', async () => {
-                  await token.mint(wallet.address, amount.mul(3).div(4))
-                  await wallet.withdraw(token.address, amount.mul(3).div(4), other.address, data)
+                  await token.mint(smartVault.address, amount.mul(3).div(4))
+                  await smartVault.withdraw(token.address, amount.mul(3).div(4), other.address, data)
                 })
 
                 context('within the current cap period', async () => {
@@ -1916,11 +1918,11 @@ describe('Wallet', () => {
                   itWithdrawsCorrectly(expectedChargedFees)
 
                   it('updates the total charged fees', async () => {
-                    const previousData = await wallet.withdrawFee()
+                    const previousData = await smartVault.withdrawFee()
 
-                    await wallet.withdraw(token.address, amount, other.address, data)
+                    await smartVault.withdraw(token.address, amount, other.address, data)
 
-                    const currentData = await wallet.withdrawFee()
+                    const currentData = await smartVault.withdrawFee()
                     expect(currentData.pct).to.be.equal(previousData.pct)
                     expect(currentData.cap).to.be.equal(previousData.cap)
                     expect(currentData.token).to.be.equal(previousData.token)
@@ -1938,11 +1940,11 @@ describe('Wallet', () => {
                   itWithdrawsCorrectly(withdrawFeeAmount)
 
                   it('updates the total charged fees and the next reset time', async () => {
-                    const previousData = await wallet.withdrawFee()
+                    const previousData = await smartVault.withdrawFee()
 
-                    await wallet.withdraw(token.address, amount, other.address, data)
+                    await smartVault.withdraw(token.address, amount, other.address, data)
 
-                    const currentData = await wallet.withdrawFee()
+                    const currentData = await smartVault.withdrawFee()
                     expect(currentData.pct).to.be.equal(previousData.pct)
                     expect(currentData.cap).to.be.equal(previousData.cap)
                     expect(currentData.token).to.be.equal(previousData.token)
@@ -1956,9 +1958,9 @@ describe('Wallet', () => {
           })
         })
 
-        context('when the wallet does not have enough balance', async () => {
+        context('when the smart vault does not have enough balance', async () => {
           it('reverts', async () => {
-            await expect(wallet.withdraw(token.address, amount, other.address, data)).to.be.revertedWith(
+            await expect(smartVault.withdraw(token.address, amount, other.address, data)).to.be.revertedWith(
               'ERC20: transfer amount exceeds balance'
             )
           })
@@ -1972,27 +1974,27 @@ describe('Wallet', () => {
           token = NATIVE_TOKEN_ADDRESS
         })
 
-        context('when the wallet has enough balance', async () => {
+        context('when the smart vault has enough balance', async () => {
           beforeEach('deposit native tokens', async () => {
-            await admin.sendTransaction({ to: wallet.address, value: amount })
+            await admin.sendTransaction({ to: smartVault.address, value: amount })
           })
 
           context('without withdraw fees', async () => {
             it('transfers the tokens to the recipient', async () => {
-              const previousWalletBalance = await ethers.provider.getBalance(wallet.address)
+              const previousSmartVaultBalance = await ethers.provider.getBalance(smartVault.address)
               const previousRecipientBalance = await ethers.provider.getBalance(other.address)
 
-              await wallet.withdraw(token, amount, other.address, data)
+              await smartVault.withdraw(token, amount, other.address, data)
 
-              const currentWalletBalance = await ethers.provider.getBalance(wallet.address)
-              expect(currentWalletBalance).to.be.equal(previousWalletBalance.sub(amount))
+              const currentSmartVaultBalance = await ethers.provider.getBalance(smartVault.address)
+              expect(currentSmartVaultBalance).to.be.equal(previousSmartVaultBalance.sub(amount))
 
               const currentRecipientBalance = await ethers.provider.getBalance(other.address)
               expect(currentRecipientBalance).to.be.equal(previousRecipientBalance.add(amount))
             })
 
             it('emits an event', async () => {
-              const tx = await wallet.withdraw(token, amount, other.address, data)
+              const tx = await smartVault.withdraw(token, amount, other.address, data)
 
               await assertEvent(tx, 'Withdraw', { token, withdrawn: amount, recipient: other, fee: 0, data })
             })
@@ -2003,22 +2005,22 @@ describe('Wallet', () => {
             const withdrawFeeAmount = amount.mul(withdrawFee).div(fp(1))
 
             beforeEach('authorize', async () => {
-              const setWithdrawFeeRole = wallet.interface.getSighash('setWithdrawFee')
-              await wallet.connect(admin).authorize(admin.address, setWithdrawFeeRole)
+              const setWithdrawFeeRole = smartVault.interface.getSighash('setWithdrawFee')
+              await smartVault.connect(admin).authorize(admin.address, setWithdrawFeeRole)
             })
 
             const itWithdrawsCorrectly = (expectedChargedFees: BigNumber) => {
               const amountAfterFees = amount.sub(expectedChargedFees)
 
               it('transfers the tokens to the recipient', async () => {
-                const previousWalletBalance = await ethers.provider.getBalance(wallet.address)
+                const previousSmartVaultBalance = await ethers.provider.getBalance(smartVault.address)
                 const previousRecipientBalance = await ethers.provider.getBalance(other.address)
                 const previousFeeCollectorBalance = await ethers.provider.getBalance(feeCollector.address)
 
-                await wallet.withdraw(token, amount, other.address, data)
+                await smartVault.withdraw(token, amount, other.address, data)
 
-                const currentWalletBalance = await ethers.provider.getBalance(wallet.address)
-                expect(currentWalletBalance).to.be.equal(previousWalletBalance.sub(amount))
+                const currentSmartVaultBalance = await ethers.provider.getBalance(smartVault.address)
+                expect(currentSmartVaultBalance).to.be.equal(previousSmartVaultBalance.sub(amount))
 
                 const currentRecipientBalance = await ethers.provider.getBalance(other.address)
                 expect(currentRecipientBalance).to.be.equal(previousRecipientBalance.add(amountAfterFees))
@@ -2028,7 +2030,7 @@ describe('Wallet', () => {
               })
 
               it('emits an event', async () => {
-                const tx = await wallet.withdraw(token, amount, other.address, data)
+                const tx = await smartVault.withdraw(token, amount, other.address, data)
 
                 await assertEvent(tx, 'Withdraw', {
                   token,
@@ -2042,17 +2044,17 @@ describe('Wallet', () => {
 
             context('without cap', async () => {
               beforeEach('set withdraw fee', async () => {
-                await wallet.connect(admin).setWithdrawFee(withdrawFee, 0, ZERO_ADDRESS, 0)
+                await smartVault.connect(admin).setWithdrawFee(withdrawFee, 0, ZERO_ADDRESS, 0)
               })
 
               itWithdrawsCorrectly(withdrawFeeAmount)
 
               it('does not update the total charged fees', async () => {
-                const previousData = await wallet.withdrawFee()
+                const previousData = await smartVault.withdrawFee()
 
-                await wallet.withdraw(token, amount, other.address, data)
+                await smartVault.withdraw(token, amount, other.address, data)
 
-                const currentData = await wallet.withdrawFee()
+                const currentData = await smartVault.withdrawFee()
                 expect(currentData.pct).to.be.equal(previousData.pct)
                 expect(currentData.cap).to.be.equal(previousData.cap)
                 expect(currentData.period).to.be.equal(previousData.period)
@@ -2075,7 +2077,7 @@ describe('Wallet', () => {
               })
 
               beforeEach('set withdraw fee', async () => {
-                await wallet.connect(admin).setWithdrawFee(withdrawFee, cap, capToken.address, period)
+                await smartVault.connect(admin).setWithdrawFee(withdrawFee, cap, capToken.address, period)
                 periodStartTime = await currentTimestamp()
               })
 
@@ -2083,11 +2085,11 @@ describe('Wallet', () => {
                 itWithdrawsCorrectly(withdrawFeeAmount)
 
                 it('updates the total charged fees', async () => {
-                  const previousData = await wallet.withdrawFee()
+                  const previousData = await smartVault.withdrawFee()
 
-                  await wallet.withdraw(token, amount, other.address, data)
+                  await smartVault.withdraw(token, amount, other.address, data)
 
-                  const currentData = await wallet.withdrawFee()
+                  const currentData = await smartVault.withdrawFee()
                   expect(currentData.pct).to.be.equal(previousData.pct)
                   expect(currentData.cap).to.be.equal(previousData.cap)
                   expect(currentData.token).to.be.equal(previousData.token)
@@ -2099,8 +2101,8 @@ describe('Wallet', () => {
 
               context('when the cap period has been reached', async () => {
                 beforeEach('accrue some charged fees', async () => {
-                  await admin.sendTransaction({ to: wallet.address, value: amount.mul(3).div(4) })
-                  await wallet.withdraw(token, amount.mul(3).div(4), other.address, data)
+                  await admin.sendTransaction({ to: smartVault.address, value: amount.mul(3).div(4) })
+                  await smartVault.withdraw(token, amount.mul(3).div(4), other.address, data)
                 })
 
                 context('within the current cap period', async () => {
@@ -2109,11 +2111,11 @@ describe('Wallet', () => {
                   itWithdrawsCorrectly(expectedChargedFees)
 
                   it('updates the total charged fees', async () => {
-                    const previousData = await wallet.withdrawFee()
+                    const previousData = await smartVault.withdrawFee()
 
-                    await wallet.withdraw(token, amount, other.address, data)
+                    await smartVault.withdraw(token, amount, other.address, data)
 
-                    const currentData = await wallet.withdrawFee()
+                    const currentData = await smartVault.withdrawFee()
                     expect(currentData.pct).to.be.equal(previousData.pct)
                     expect(currentData.cap).to.be.equal(previousData.cap)
                     expect(currentData.token).to.be.equal(previousData.token)
@@ -2131,11 +2133,11 @@ describe('Wallet', () => {
                   itWithdrawsCorrectly(withdrawFeeAmount)
 
                   it('updates the total charged fees and the next reset time', async () => {
-                    const previousData = await wallet.withdrawFee()
+                    const previousData = await smartVault.withdrawFee()
 
-                    await wallet.withdraw(token, amount, other.address, data)
+                    await smartVault.withdraw(token, amount, other.address, data)
 
-                    const currentData = await wallet.withdrawFee()
+                    const currentData = await smartVault.withdrawFee()
                     expect(currentData.pct).to.be.equal(previousData.pct)
                     expect(currentData.cap).to.be.equal(previousData.cap)
                     expect(currentData.token).to.be.equal(previousData.token)
@@ -2149,9 +2151,9 @@ describe('Wallet', () => {
           })
         })
 
-        context('when the wallet does not have enough balance', async () => {
+        context('when the smart vault does not have enough balance', async () => {
           it('reverts', async () => {
-            await expect(wallet.withdraw(token, amount, other.address, data)).to.be.revertedWith(
+            await expect(smartVault.withdraw(token, amount, other.address, data)).to.be.revertedWith(
               'Address: insufficient balance'
             )
           })
@@ -2161,11 +2163,11 @@ describe('Wallet', () => {
 
     context('when the sender is not authorized', () => {
       beforeEach('set sender', () => {
-        wallet = wallet.connect(other)
+        smartVault = smartVault.connect(other)
       })
 
       it('reverts', async () => {
-        await expect(wallet.withdraw(ZERO_ADDRESS, 0, other.address, '0x')).to.be.revertedWith(
+        await expect(smartVault.withdraw(ZERO_ADDRESS, 0, other.address, '0x')).to.be.revertedWith(
           'AUTH_SENDER_NOT_ALLOWED'
         )
       })
@@ -2178,49 +2180,49 @@ describe('Wallet', () => {
 
     context('when the sender is authorized', () => {
       beforeEach('set sender', async () => {
-        const wrapRole = wallet.interface.getSighash('wrap')
-        await wallet.connect(admin).authorize(admin.address, wrapRole)
-        wallet = wallet.connect(admin)
+        const wrapRole = smartVault.interface.getSighash('wrap')
+        await smartVault.connect(admin).authorize(admin.address, wrapRole)
+        smartVault = smartVault.connect(admin)
       })
 
-      context('when the wallet has enough wrapped native tokens', () => {
-        beforeEach('fund wallet', async () => {
-          await admin.sendTransaction({ to: wallet.address, value: amount.mul(2) })
+      context('when the smart vault has enough wrapped native tokens', () => {
+        beforeEach('fund smart vault', async () => {
+          await admin.sendTransaction({ to: smartVault.address, value: amount.mul(2) })
         })
 
         it('wraps the requested amount', async () => {
-          const previousNativeBalance = await ethers.provider.getBalance(wallet.address)
-          const previousWrappedBalance = await wrappedNativeToken.balanceOf(wallet.address)
+          const previousNativeBalance = await ethers.provider.getBalance(smartVault.address)
+          const previousWrappedBalance = await wrappedNativeToken.balanceOf(smartVault.address)
 
-          await wallet.wrap(amount, data)
+          await smartVault.wrap(amount, data)
 
-          const currentNativeBalance = await ethers.provider.getBalance(wallet.address)
+          const currentNativeBalance = await ethers.provider.getBalance(smartVault.address)
           expect(currentNativeBalance).to.be.equal(previousNativeBalance.sub(amount))
 
-          const currentWrappedBalance = await wrappedNativeToken.balanceOf(wallet.address)
+          const currentWrappedBalance = await wrappedNativeToken.balanceOf(smartVault.address)
           expect(currentWrappedBalance).to.be.equal(previousWrappedBalance.add(amount))
         })
 
         it('emits an event', async () => {
-          const tx = await wallet.wrap(amount, data)
+          const tx = await smartVault.wrap(amount, data)
           await assertEvent(tx, 'Wrap', { wrapped: amount, data })
         })
       })
 
-      context('when the wallet does not have enough native tokens', () => {
+      context('when the smart vault does not have enough native tokens', () => {
         it('reverts', async () => {
-          await expect(wallet.wrap(amount, data)).to.be.revertedWith('WRAP_INSUFFICIENT_AMOUNT')
+          await expect(smartVault.wrap(amount, data)).to.be.revertedWith('WRAP_INSUFFICIENT_AMOUNT')
         })
       })
     })
 
     context('when the sender is not authorized', () => {
       beforeEach('set sender', async () => {
-        wallet = wallet.connect(other)
+        smartVault = smartVault.connect(other)
       })
 
       it('reverts', async () => {
-        await expect(wallet.wrap(amount, data)).to.be.revertedWith('AUTH_SENDER_NOT_ALLOWED')
+        await expect(smartVault.wrap(amount, data)).to.be.revertedWith('AUTH_SENDER_NOT_ALLOWED')
       })
     })
   })
@@ -2231,52 +2233,52 @@ describe('Wallet', () => {
 
     context('when the sender is authorized', () => {
       beforeEach('set sender', async () => {
-        const unwrapRole = wallet.interface.getSighash('unwrap')
-        await wallet.connect(admin).authorize(admin.address, unwrapRole)
-        wallet = wallet.connect(admin)
+        const unwrapRole = smartVault.interface.getSighash('unwrap')
+        await smartVault.connect(admin).authorize(admin.address, unwrapRole)
+        smartVault = smartVault.connect(admin)
       })
 
-      context('when the wallet has enough wrapped native tokens', () => {
+      context('when the smart vault has enough wrapped native tokens', () => {
         beforeEach('wrap tokens', async () => {
-          await admin.sendTransaction({ to: wallet.address, value: amount.mul(2) })
-          const wrapRole = wallet.interface.getSighash('wrap')
-          await wallet.connect(admin).authorize(admin.address, wrapRole)
-          await wallet.wrap(amount.mul(2), data)
+          await admin.sendTransaction({ to: smartVault.address, value: amount.mul(2) })
+          const wrapRole = smartVault.interface.getSighash('wrap')
+          await smartVault.connect(admin).authorize(admin.address, wrapRole)
+          await smartVault.wrap(amount.mul(2), data)
         })
 
         it('unwraps the requested amount', async () => {
-          const previousNativeBalance = await ethers.provider.getBalance(wallet.address)
-          const previousWrappedBalance = await wrappedNativeToken.balanceOf(wallet.address)
+          const previousNativeBalance = await ethers.provider.getBalance(smartVault.address)
+          const previousWrappedBalance = await wrappedNativeToken.balanceOf(smartVault.address)
 
-          await wallet.unwrap(amount, data)
+          await smartVault.unwrap(amount, data)
 
-          const currentNativeBalance = await ethers.provider.getBalance(wallet.address)
+          const currentNativeBalance = await ethers.provider.getBalance(smartVault.address)
           expect(currentNativeBalance).to.be.equal(previousNativeBalance.add(amount))
 
-          const currentWrappedBalance = await wrappedNativeToken.balanceOf(wallet.address)
+          const currentWrappedBalance = await wrappedNativeToken.balanceOf(smartVault.address)
           expect(currentWrappedBalance).to.be.equal(previousWrappedBalance.sub(amount))
         })
 
         it('emits an event', async () => {
-          const tx = await wallet.unwrap(amount, data)
+          const tx = await smartVault.unwrap(amount, data)
           await assertEvent(tx, 'Unwrap', { unwrapped: amount, data })
         })
       })
 
-      context('when the wallet does not have enough wrapped native tokens', () => {
+      context('when the smart vault does not have enough wrapped native tokens', () => {
         it('reverts', async () => {
-          await expect(wallet.unwrap(amount, data)).to.be.revertedWith('WNT_NOT_ENOUGH_BALANCE')
+          await expect(smartVault.unwrap(amount, data)).to.be.revertedWith('WNT_NOT_ENOUGH_BALANCE')
         })
       })
     })
 
     context('when the sender is not authorized', () => {
       beforeEach('set sender', async () => {
-        wallet = wallet.connect(other)
+        smartVault = smartVault.connect(other)
       })
 
       it('reverts', async () => {
-        await expect(wallet.unwrap(amount, data)).to.be.revertedWith('AUTH_SENDER_NOT_ALLOWED')
+        await expect(smartVault.unwrap(amount, data)).to.be.revertedWith('AUTH_SENDER_NOT_ALLOWED')
       })
     })
   })
@@ -2287,30 +2289,30 @@ describe('Wallet', () => {
 
     context('when the sender is authorized', () => {
       beforeEach('set sender', async () => {
-        const claimRole = wallet.interface.getSighash('claim')
-        await wallet.connect(admin).authorize(admin.address, claimRole)
-        wallet = wallet.connect(admin)
+        const claimRole = smartVault.interface.getSighash('claim')
+        await smartVault.connect(admin).authorize(admin.address, claimRole)
+        smartVault = smartVault.connect(admin)
       })
 
       context('when the strategy is allowed', () => {
         let rewardToken: Contract
 
         beforeEach('allow strategy', async () => {
-          await wallet.connect(admin).setStrategy(strategy.address, true)
+          await smartVault.connect(admin).setStrategy(strategy.address, true)
           rewardToken = await instanceAt('IERC20', await strategy.rewardToken())
         })
 
         it('receives the rewards', async () => {
-          const previousBalance = await rewardToken.balanceOf(wallet.address)
+          const previousBalance = await rewardToken.balanceOf(smartVault.address)
 
-          await wallet.claim(strategy.address, data)
+          await smartVault.claim(strategy.address, data)
 
-          const currentBalance = await rewardToken.balanceOf(wallet.address)
+          const currentBalance = await rewardToken.balanceOf(smartVault.address)
           expect(currentBalance).to.be.equal(previousBalance.add(amount))
         })
 
         it('emits an event', async () => {
-          const tx = await wallet.claim(strategy.address, data)
+          const tx = await smartVault.claim(strategy.address, data)
 
           await assertEvent(tx, 'Claim', { strategy, tokens: [rewardToken.address], amounts: [amount] })
         })
@@ -2318,22 +2320,22 @@ describe('Wallet', () => {
 
       context('when the strategy is not allowed', () => {
         beforeEach('disallow strategy', async () => {
-          await wallet.connect(admin).setStrategy(strategy.address, false)
+          await smartVault.connect(admin).setStrategy(strategy.address, false)
         })
 
         it('reverts', async () => {
-          await expect(wallet.claim(strategy.address, data)).to.be.revertedWith('STRATEGY_NOT_ALLOWED')
+          await expect(smartVault.claim(strategy.address, data)).to.be.revertedWith('STRATEGY_NOT_ALLOWED')
         })
       })
     })
 
     context('when the sender is not authorized', () => {
       beforeEach('set sender', async () => {
-        wallet = wallet.connect(other)
+        smartVault = smartVault.connect(other)
       })
 
       it('reverts', async () => {
-        await expect(wallet.claim(strategy.address, data)).to.be.revertedWith('AUTH_SENDER_NOT_ALLOWED')
+        await expect(smartVault.claim(strategy.address, data)).to.be.revertedWith('AUTH_SENDER_NOT_ALLOWED')
       })
     })
   })
@@ -2350,9 +2352,9 @@ describe('Wallet', () => {
 
     context('when the sender is authorized', () => {
       beforeEach('set sender', async () => {
-        const joinRole = wallet.interface.getSighash('join')
-        await wallet.connect(admin).authorize(admin.address, joinRole)
-        wallet = wallet.connect(admin)
+        const joinRole = smartVault.interface.getSighash('join')
+        await smartVault.connect(admin).authorize(admin.address, joinRole)
+        smartVault = smartVault.connect(admin)
       })
 
       context('when the amount is greater than zero', () => {
@@ -2363,37 +2365,37 @@ describe('Wallet', () => {
 
           context('when the strategy is allowed', () => {
             beforeEach('allow strategy', async () => {
-              await wallet.connect(admin).setStrategy(strategy.address, true)
+              await smartVault.connect(admin).setStrategy(strategy.address, true)
             })
 
-            context('when the wallet has enough balance', async () => {
+            context('when the smart vault has enough balance', async () => {
               beforeEach('mint tokens', async () => {
-                await token.mint(wallet.address, amount)
+                await token.mint(smartVault.address, amount)
               })
 
               it('receives lp tokens in exchange of strategy tokens', async () => {
-                const previousLptBalance = await lpt.balanceOf(wallet.address)
-                const previousTokenBalance = await token.balanceOf(wallet.address)
+                const previousLptBalance = await lpt.balanceOf(smartVault.address)
+                const previousTokenBalance = await token.balanceOf(smartVault.address)
 
-                await wallet.join(strategy.address, amount, slippage, data)
+                await smartVault.join(strategy.address, amount, slippage, data)
 
-                const currentLptBalance = await lpt.balanceOf(wallet.address)
+                const currentLptBalance = await lpt.balanceOf(smartVault.address)
                 expect(currentLptBalance).to.be.equal(previousLptBalance.add(amount))
 
-                const currentTokenBalance = await token.balanceOf(wallet.address)
+                const currentTokenBalance = await token.balanceOf(smartVault.address)
                 expect(currentTokenBalance).to.be.equal(previousTokenBalance.sub(amount))
               })
 
               it('emits an event', async () => {
-                const tx = await wallet.join(strategy.address, amount, slippage, data)
+                const tx = await smartVault.join(strategy.address, amount, slippage, data)
 
                 await assertEvent(tx, 'Join', { strategy, invested: amount, slippage, data })
               })
             })
 
-            context('when the wallet does not have enough tokens', async () => {
+            context('when the smart vault does not have enough tokens', async () => {
               it('reverts', async () => {
-                await expect(wallet.join(strategy.address, amount, slippage, data)).to.be.revertedWith(
+                await expect(smartVault.join(strategy.address, amount, slippage, data)).to.be.revertedWith(
                   'exceeds balance'
                 )
               })
@@ -2402,11 +2404,11 @@ describe('Wallet', () => {
 
           context('when the strategy is not allowed', () => {
             beforeEach('disallow strategy', async () => {
-              await wallet.connect(admin).setStrategy(strategy.address, false)
+              await smartVault.connect(admin).setStrategy(strategy.address, false)
             })
 
             it('reverts', async () => {
-              await expect(wallet.join(strategy.address, amount, slippage, data)).to.be.revertedWith(
+              await expect(smartVault.join(strategy.address, amount, slippage, data)).to.be.revertedWith(
                 'STRATEGY_NOT_ALLOWED'
               )
             })
@@ -2417,7 +2419,7 @@ describe('Wallet', () => {
           const slippage = fp(1.01)
 
           it('reverts', async () => {
-            await expect(wallet.join(strategy.address, amount, slippage, data)).to.be.revertedWith(
+            await expect(smartVault.join(strategy.address, amount, slippage, data)).to.be.revertedWith(
               'JOIN_SLIPPAGE_ABOVE_ONE'
             )
           })
@@ -2428,18 +2430,18 @@ describe('Wallet', () => {
         const amount = 0
 
         it('reverts', async () => {
-          await expect(wallet.join(strategy.address, amount, 0, data)).to.be.revertedWith('JOIN_AMOUNT_ZERO')
+          await expect(smartVault.join(strategy.address, amount, 0, data)).to.be.revertedWith('JOIN_AMOUNT_ZERO')
         })
       })
     })
 
     context('when the sender is not authorized', () => {
       beforeEach('set sender', async () => {
-        wallet = wallet.connect(other)
+        smartVault = smartVault.connect(other)
       })
 
       it('reverts', async () => {
-        await expect(wallet.join(strategy.address, 0, 0, data)).to.be.revertedWith('AUTH_SENDER_NOT_ALLOWED')
+        await expect(smartVault.join(strategy.address, 0, 0, data)).to.be.revertedWith('AUTH_SENDER_NOT_ALLOWED')
       })
     })
   })
@@ -2456,19 +2458,19 @@ describe('Wallet', () => {
 
     context('when the sender is authorized', () => {
       beforeEach('set sender', async () => {
-        const exitRole = wallet.interface.getSighash('exit')
-        await wallet.connect(admin).authorize(admin.address, exitRole)
-        wallet = wallet.connect(admin)
+        const exitRole = smartVault.interface.getSighash('exit')
+        await smartVault.connect(admin).authorize(admin.address, exitRole)
+        smartVault = smartVault.connect(admin)
       })
 
-      context('when the wallet has joined before', async () => {
+      context('when the smart vault has joined before', async () => {
         const joinAmount = fp(150)
 
         beforeEach('join strategy', async () => {
-          const joinRole = wallet.interface.getSighash('join')
-          await wallet.connect(admin).authorize(admin.address, joinRole)
-          await token.mint(wallet.address, joinAmount)
-          await wallet.join(strategy.address, joinAmount, 0, data)
+          const joinRole = smartVault.interface.getSighash('join')
+          await smartVault.connect(admin).authorize(admin.address, joinRole)
+          await token.mint(smartVault.address, joinAmount)
+          await smartVault.join(strategy.address, joinAmount, 0, data)
         })
 
         context('when the slippage is valid', async () => {
@@ -2477,19 +2479,19 @@ describe('Wallet', () => {
           context('when the given ratio is valid', async () => {
             context('when the strategy is allowed', () => {
               beforeEach('allow strategy', async () => {
-                await wallet.connect(admin).setStrategy(strategy.address, true)
+                await smartVault.connect(admin).setStrategy(strategy.address, true)
               })
 
               async function computeExitAmount(ratio: BigNumber): Promise<BigNumber> {
-                const currentValue = await strategy.lastValue(wallet.address)
+                const currentValue = await strategy.lastValue(smartVault.address)
                 const exitValue = currentValue.mul(ratio).div(fp(1))
                 const valueRate = await strategy.valueRate()
                 return exitValue.mul(valueRate).div(fp(1))
               }
 
               async function computeInvestedValueAfterExit(ratio: BigNumber): Promise<BigNumber> {
-                const investedValue = await wallet.investedValue(strategy.address)
-                const currentValue = await strategy.lastValue(wallet.address)
+                const investedValue = await smartVault.investedValue(strategy.address)
+                const currentValue = await strategy.lastValue(smartVault.address)
                 const valueGains = currentValue.gt(investedValue) ? currentValue.sub(investedValue) : bn(0)
 
                 // If there are no gains, the invested value is reduced by the exit ratio
@@ -2504,11 +2506,11 @@ describe('Wallet', () => {
 
               const itDoesNotAffectTheInvestedValue = (ratio: BigNumber) => {
                 it('does not affect the invested value', async () => {
-                  const previousInvestedValue = await wallet.investedValue(strategy.address)
+                  const previousInvestedValue = await smartVault.investedValue(strategy.address)
 
-                  await wallet.exit(strategy.address, ratio, slippage, data)
+                  await smartVault.exit(strategy.address, ratio, slippage, data)
 
-                  const currentInvestedValue = await wallet.investedValue(strategy.address)
+                  const currentInvestedValue = await smartVault.investedValue(strategy.address)
                   expect(currentInvestedValue).to.be.equal(previousInvestedValue)
                 })
               }
@@ -2517,9 +2519,9 @@ describe('Wallet', () => {
                 it('decreases the invested value', async () => {
                   const expectedInvestedValue = await computeInvestedValueAfterExit(ratio)
 
-                  await wallet.exit(strategy.address, ratio, slippage, data)
+                  await smartVault.exit(strategy.address, ratio, slippage, data)
 
-                  const currentInvestmentValue = await wallet.investedValue(strategy.address)
+                  const currentInvestmentValue = await smartVault.investedValue(strategy.address)
                   expect(currentInvestmentValue).to.be.equal(expectedInvestedValue)
                 })
               }
@@ -2528,7 +2530,7 @@ describe('Wallet', () => {
                 it('does not pay performance fees', async () => {
                   const previousBalance = await token.balanceOf(feeCollector.address)
 
-                  await wallet.exit(strategy.address, ratio, slippage, data)
+                  await smartVault.exit(strategy.address, ratio, slippage, data)
 
                   const currentBalance = await token.balanceOf(feeCollector.address)
                   expect(currentBalance).to.be.equal(previousBalance)
@@ -2539,14 +2541,14 @@ describe('Wallet', () => {
                 const performanceFee = fp(0.02)
 
                 beforeEach('set performance fee', async () => {
-                  const setPerformanceFeeRole = wallet.interface.getSighash('setPerformanceFee')
-                  await wallet.connect(admin).authorize(admin.address, setPerformanceFeeRole)
-                  await wallet.connect(admin).setPerformanceFee(performanceFee, fp(1000), token.address, MONTH)
+                  const setPerformanceFeeRole = smartVault.interface.getSighash('setPerformanceFee')
+                  await smartVault.connect(admin).authorize(admin.address, setPerformanceFeeRole)
+                  await smartVault.connect(admin).setPerformanceFee(performanceFee, fp(1000), token.address, MONTH)
                 })
 
                 async function computePerformanceFeeAmount(ratio: BigNumber): Promise<BigNumber> {
-                  const investedValue = await wallet.investedValue(strategy.address)
-                  const currentValue = await strategy.lastValue(wallet.address)
+                  const investedValue = await smartVault.investedValue(strategy.address)
+                  const currentValue = await strategy.lastValue(smartVault.address)
                   const valueGains = currentValue.gt(investedValue) ? currentValue.sub(investedValue) : bn(0)
                   if (valueGains.eq(0)) return bn(0)
 
@@ -2558,22 +2560,22 @@ describe('Wallet', () => {
                   return taxableAmount.mul(performanceFee).div(fp(1))
                 }
 
-                const itTransfersTheTokensToTheWallet = (ratio: BigNumber) => {
+                const itTransfersTheTokensToTheSmartVault = (ratio: BigNumber) => {
                   it('receives strategy tokens in exchange of lp tokens', async () => {
                     const exitAmount = await computeExitAmount(ratio)
                     const performanceFeeAmount = await computePerformanceFeeAmount(ratio)
                     const expectedAmountAfterFees = exitAmount.sub(performanceFeeAmount)
-                    const previousLptBalance = await lpt.balanceOf(wallet.address)
-                    const previousTokenBalance = await token.balanceOf(wallet.address)
+                    const previousLptBalance = await lpt.balanceOf(smartVault.address)
+                    const previousTokenBalance = await token.balanceOf(smartVault.address)
 
-                    await wallet.exit(strategy.address, ratio, slippage, data)
+                    await smartVault.exit(strategy.address, ratio, slippage, data)
 
-                    const currentTokenBalance = await token.balanceOf(wallet.address)
+                    const currentTokenBalance = await token.balanceOf(smartVault.address)
                     const expectedTokenBalance = previousTokenBalance.add(expectedAmountAfterFees)
                     expect(currentTokenBalance).to.be.at.least(expectedTokenBalance.sub(1))
                     expect(currentTokenBalance).to.be.at.most(expectedTokenBalance.add(1))
 
-                    const currentLptBalance = await lpt.balanceOf(wallet.address)
+                    const currentLptBalance = await lpt.balanceOf(smartVault.address)
                     expect(currentLptBalance).to.be.equal(previousLptBalance.sub(exitAmount))
                   })
 
@@ -2582,7 +2584,7 @@ describe('Wallet', () => {
                     const performanceFeeAmount = await computePerformanceFeeAmount(ratio)
                     const expectedAmountAfterFees = exitAmount.sub(performanceFeeAmount)
 
-                    const tx = await wallet.exit(strategy.address, ratio, slippage, data)
+                    const tx = await smartVault.exit(strategy.address, ratio, slippage, data)
 
                     await assertEvent(tx, 'Exit', {
                       strategy,
@@ -2598,7 +2600,7 @@ describe('Wallet', () => {
                     const previousBalance = await token.balanceOf(feeCollector.address)
                     const expectedPerformanceFeeAmount = await computePerformanceFeeAmount(ratio)
 
-                    await wallet.exit(strategy.address, ratio, slippage, data)
+                    await smartVault.exit(strategy.address, ratio, slippage, data)
 
                     const currentBalance = await token.balanceOf(feeCollector.address)
                     const expectedBalance = previousBalance.add(expectedPerformanceFeeAmount)
@@ -2607,12 +2609,12 @@ describe('Wallet', () => {
                   })
 
                   it('updates the total charged fees', async () => {
-                    const previousData = await wallet.performanceFee()
+                    const previousData = await smartVault.performanceFee()
                     const expectedPerformanceFeeAmount = await computePerformanceFeeAmount(ratio)
 
-                    await wallet.exit(strategy.address, ratio, slippage, data)
+                    await smartVault.exit(strategy.address, ratio, slippage, data)
 
-                    const currentData = await wallet.performanceFee()
+                    const currentData = await smartVault.performanceFee()
                     expect(currentData.pct).to.be.equal(previousData.pct)
                     expect(currentData.cap).to.be.equal(previousData.cap)
                     expect(currentData.token).to.be.equal(previousData.token)
@@ -2626,7 +2628,7 @@ describe('Wallet', () => {
                   context('when withdraws half', async () => {
                     const ratio = fp(0.5)
 
-                    itTransfersTheTokensToTheWallet(ratio)
+                    itTransfersTheTokensToTheSmartVault(ratio)
                     itDecreasesTheInvestedValue(ratio)
                     itDoesNotPayPerformanceFees(ratio)
                   })
@@ -2634,7 +2636,7 @@ describe('Wallet', () => {
                   context('when withdraws all', async () => {
                     const ratio = fp(1)
 
-                    itTransfersTheTokensToTheWallet(ratio)
+                    itTransfersTheTokensToTheSmartVault(ratio)
                     itDecreasesTheInvestedValue(ratio)
                     itDoesNotPayPerformanceFees(ratio)
                   })
@@ -2642,13 +2644,13 @@ describe('Wallet', () => {
 
                 context('when the strategy reports some gains (2x)', async () => {
                   beforeEach('mock gains', async () => {
-                    await strategy.mockGains(wallet.address, 2)
+                    await strategy.mockGains(smartVault.address, 2)
                   })
 
                   context('when withdraws only gains', async () => {
                     const ratio = fp(0.5)
 
-                    itTransfersTheTokensToTheWallet(ratio)
+                    itTransfersTheTokensToTheSmartVault(ratio)
                     itDoesNotAffectTheInvestedValue(ratio)
                     itPaysPerformanceFees(ratio)
                   })
@@ -2656,7 +2658,7 @@ describe('Wallet', () => {
                   context('when withdraws more than gains', async () => {
                     const ratio = fp(0.75)
 
-                    itTransfersTheTokensToTheWallet(ratio)
+                    itTransfersTheTokensToTheSmartVault(ratio)
                     itDecreasesTheInvestedValue(ratio)
                     itPaysPerformanceFees(ratio)
                   })
@@ -2664,7 +2666,7 @@ describe('Wallet', () => {
                   context('when withdraws all', async () => {
                     const ratio = fp(1)
 
-                    itTransfersTheTokensToTheWallet(ratio)
+                    itTransfersTheTokensToTheSmartVault(ratio)
                     itDecreasesTheInvestedValue(ratio)
                     itPaysPerformanceFees(ratio)
                   })
@@ -2672,13 +2674,13 @@ describe('Wallet', () => {
 
                 context('when the strategy reports losses (0.5x)', async () => {
                   beforeEach('mock losses', async () => {
-                    await strategy.mockLosses(wallet.address, 2)
+                    await strategy.mockLosses(smartVault.address, 2)
                   })
 
                   context('when withdraws half', async () => {
                     const ratio = fp(0.5)
 
-                    itTransfersTheTokensToTheWallet(ratio)
+                    itTransfersTheTokensToTheSmartVault(ratio)
                     itDecreasesTheInvestedValue(ratio)
                     itDoesNotPayPerformanceFees(ratio)
                   })
@@ -2686,7 +2688,7 @@ describe('Wallet', () => {
                   context('when withdraws all', async () => {
                     const ratio = fp(1)
 
-                    itTransfersTheTokensToTheWallet(ratio)
+                    itTransfersTheTokensToTheSmartVault(ratio)
                     itDecreasesTheInvestedValue(ratio)
                     itDoesNotPayPerformanceFees(ratio)
                   })
@@ -2694,27 +2696,27 @@ describe('Wallet', () => {
               })
 
               context('without performance fee', async () => {
-                const itTransfersTheTokensToTheWallet = (ratio: BigNumber) => {
+                const itTransfersTheTokensToTheSmartVault = (ratio: BigNumber) => {
                   it('receives strategy tokens in exchange of lp tokens', async () => {
                     const exitAmount = await computeExitAmount(ratio)
-                    const previousLptBalance = await lpt.balanceOf(wallet.address)
-                    const previousTokenBalance = await token.balanceOf(wallet.address)
+                    const previousLptBalance = await lpt.balanceOf(smartVault.address)
+                    const previousTokenBalance = await token.balanceOf(smartVault.address)
 
-                    await wallet.exit(strategy.address, ratio, slippage, data)
+                    await smartVault.exit(strategy.address, ratio, slippage, data)
 
-                    const currentTokenBalance = await token.balanceOf(wallet.address)
+                    const currentTokenBalance = await token.balanceOf(smartVault.address)
                     const expectedTokenBalance = previousTokenBalance.add(exitAmount)
                     expect(currentTokenBalance).to.be.at.least(expectedTokenBalance.sub(1))
                     expect(currentTokenBalance).to.be.at.most(expectedTokenBalance.add(1))
 
-                    const currentLptBalance = await lpt.balanceOf(wallet.address)
+                    const currentLptBalance = await lpt.balanceOf(smartVault.address)
                     expect(currentLptBalance).to.be.equal(previousLptBalance.sub(exitAmount))
                   })
 
                   it('emits an event', async () => {
                     const exitAmount = await computeExitAmount(ratio)
 
-                    const tx = await wallet.exit(strategy.address, ratio, slippage, data)
+                    const tx = await smartVault.exit(strategy.address, ratio, slippage, data)
 
                     await assertEvent(tx, 'Exit', {
                       received: exitAmount,
@@ -2728,7 +2730,7 @@ describe('Wallet', () => {
                   context('when withdraws half', async () => {
                     const ratio = fp(0.5)
 
-                    itTransfersTheTokensToTheWallet(ratio)
+                    itTransfersTheTokensToTheSmartVault(ratio)
                     itDecreasesTheInvestedValue(ratio)
                     itDoesNotPayPerformanceFees(ratio)
                   })
@@ -2736,7 +2738,7 @@ describe('Wallet', () => {
                   context('when withdraws all', async () => {
                     const ratio = fp(1)
 
-                    itTransfersTheTokensToTheWallet(ratio)
+                    itTransfersTheTokensToTheSmartVault(ratio)
                     itDecreasesTheInvestedValue(ratio)
                     itDoesNotPayPerformanceFees(ratio)
                   })
@@ -2744,13 +2746,13 @@ describe('Wallet', () => {
 
                 context('when the strategy reports some gains (2x)', async () => {
                   beforeEach('mock gains', async () => {
-                    await strategy.mockGains(wallet.address, 2)
+                    await strategy.mockGains(smartVault.address, 2)
                   })
 
                   context('when withdraws only gains', async () => {
                     const ratio = fp(0.5)
 
-                    itTransfersTheTokensToTheWallet(ratio)
+                    itTransfersTheTokensToTheSmartVault(ratio)
                     itDoesNotAffectTheInvestedValue(ratio)
                     itDoesNotPayPerformanceFees(ratio)
                   })
@@ -2758,7 +2760,7 @@ describe('Wallet', () => {
                   context('when withdraws more than gains', async () => {
                     const ratio = fp(0.75)
 
-                    itTransfersTheTokensToTheWallet(ratio)
+                    itTransfersTheTokensToTheSmartVault(ratio)
                     itDecreasesTheInvestedValue(ratio)
                     itDoesNotPayPerformanceFees(ratio)
                   })
@@ -2766,7 +2768,7 @@ describe('Wallet', () => {
                   context('when withdraws all', async () => {
                     const ratio = fp(1)
 
-                    itTransfersTheTokensToTheWallet(ratio)
+                    itTransfersTheTokensToTheSmartVault(ratio)
                     itDecreasesTheInvestedValue(ratio)
                     itDoesNotPayPerformanceFees(ratio)
                   })
@@ -2774,13 +2776,13 @@ describe('Wallet', () => {
 
                 context('when the strategy reports losses (0.5x)', async () => {
                   beforeEach('mock losses', async () => {
-                    await strategy.mockLosses(wallet.address, 2)
+                    await strategy.mockLosses(smartVault.address, 2)
                   })
 
                   context('when withdraws half', async () => {
                     const ratio = fp(0.5)
 
-                    itTransfersTheTokensToTheWallet(ratio)
+                    itTransfersTheTokensToTheSmartVault(ratio)
                     itDecreasesTheInvestedValue(ratio)
                     itDoesNotPayPerformanceFees(ratio)
                   })
@@ -2788,7 +2790,7 @@ describe('Wallet', () => {
                   context('when withdraws all', async () => {
                     const ratio = fp(1)
 
-                    itTransfersTheTokensToTheWallet(ratio)
+                    itTransfersTheTokensToTheSmartVault(ratio)
                     itDecreasesTheInvestedValue(ratio)
                     itDoesNotPayPerformanceFees(ratio)
                   })
@@ -2798,11 +2800,11 @@ describe('Wallet', () => {
 
             context('when the strategy is not allowed', () => {
               beforeEach('disallow strategy', async () => {
-                await wallet.connect(admin).setStrategy(strategy.address, false)
+                await smartVault.connect(admin).setStrategy(strategy.address, false)
               })
 
               it('reverts', async () => {
-                await expect(wallet.exit(strategy.address, fp(1), slippage, data)).to.be.revertedWith(
+                await expect(smartVault.exit(strategy.address, fp(1), slippage, data)).to.be.revertedWith(
                   'STRATEGY_NOT_ALLOWED'
                 )
               })
@@ -2813,7 +2815,7 @@ describe('Wallet', () => {
             const ratio = fp(10)
 
             it('reverts', async () => {
-              await expect(wallet.exit(strategy.address, ratio, slippage, data)).to.be.revertedWith(
+              await expect(smartVault.exit(strategy.address, ratio, slippage, data)).to.be.revertedWith(
                 'EXIT_INVALID_RATIO'
               )
             })
@@ -2824,27 +2826,27 @@ describe('Wallet', () => {
           const slippage = fp(1.01)
 
           it('reverts', async () => {
-            await expect(wallet.exit(strategy.address, fp(1), slippage, data)).to.be.revertedWith(
+            await expect(smartVault.exit(strategy.address, fp(1), slippage, data)).to.be.revertedWith(
               'EXIT_SLIPPAGE_ABOVE_ONE'
             )
           })
         })
       })
 
-      context('when the wallet has not joined before', async () => {
+      context('when the smart vault has not joined before', async () => {
         it('reverts', async () => {
-          await expect(wallet.exit(strategy.address, fp(1), 0, data)).to.be.revertedWith('EXIT_NO_INVESTED_VALUE')
+          await expect(smartVault.exit(strategy.address, fp(1), 0, data)).to.be.revertedWith('EXIT_NO_INVESTED_VALUE')
         })
       })
     })
 
     context('when the sender is not authorized', () => {
       beforeEach('set sender', async () => {
-        wallet = wallet.connect(other)
+        smartVault = smartVault.connect(other)
       })
 
       it('reverts', async () => {
-        await expect(wallet.exit(strategy.address, 0, 0, data)).to.be.revertedWith('AUTH_SENDER_NOT_ALLOWED')
+        await expect(smartVault.exit(strategy.address, 0, 0, data)).to.be.revertedWith('AUTH_SENDER_NOT_ALLOWED')
       })
     })
   })
@@ -2867,9 +2869,9 @@ describe('Wallet', () => {
       let swapConnectorDex: string
 
       beforeEach('set sender', async () => {
-        const swapRole = wallet.interface.getSighash('swap')
-        await wallet.connect(admin).authorize(admin.address, swapRole)
-        wallet = wallet.connect(admin)
+        const swapRole = smartVault.interface.getSighash('swap')
+        await smartVault.connect(admin).authorize(admin.address, swapRole)
+        smartVault = smartVault.connect(admin)
       })
 
       beforeEach('load swap connector dex', async () => {
@@ -2888,33 +2890,33 @@ describe('Wallet', () => {
 
         context('without swap fee', () => {
           it('transfers the token in to the dex', async () => {
-            const previousWalletBalance = await tokenIn.balanceOf(wallet.address)
+            const previousSmartVaultBalance = await tokenIn.balanceOf(smartVault.address)
             const previousConnectorBalance = await tokenIn.balanceOf(swapConnectorDex)
 
-            await wallet.swap(source, tokenIn.address, tokenOut.address, amount, limitType, limitAmount, data)
+            await smartVault.swap(source, tokenIn.address, tokenOut.address, amount, limitType, limitAmount, data)
 
-            const currentWalletBalance = await tokenIn.balanceOf(wallet.address)
-            expect(currentWalletBalance).to.be.equal(previousWalletBalance.sub(amount))
+            const currentSmartVaultBalance = await tokenIn.balanceOf(smartVault.address)
+            expect(currentSmartVaultBalance).to.be.equal(previousSmartVaultBalance.sub(amount))
 
             const currentConnectorBalance = await tokenIn.balanceOf(swapConnectorDex)
             expect(currentConnectorBalance).to.be.equal(previousConnectorBalance.add(amount))
           })
 
-          it('transfers the token out to the wallet', async () => {
-            const previousWalletBalance = await tokenOut.balanceOf(wallet.address)
+          it('transfers the token out to the smart vault', async () => {
+            const previousSmartVaultBalance = await tokenOut.balanceOf(smartVault.address)
             const previousConnectorBalance = await tokenOut.balanceOf(swapConnectorDex)
 
-            await wallet.swap(source, tokenIn.address, tokenOut.address, amount, limitType, limitAmount, data)
+            await smartVault.swap(source, tokenIn.address, tokenOut.address, amount, limitType, limitAmount, data)
 
-            const currentWalletBalance = await tokenOut.balanceOf(wallet.address)
-            expect(currentWalletBalance).to.be.equal(previousWalletBalance.add(expectedAmountOut))
+            const currentSmartVaultBalance = await tokenOut.balanceOf(smartVault.address)
+            expect(currentSmartVaultBalance).to.be.equal(previousSmartVaultBalance.add(expectedAmountOut))
 
             const currentConnectorBalance = await tokenOut.balanceOf(swapConnectorDex)
             expect(currentConnectorBalance).to.be.equal(previousConnectorBalance.sub(expectedAmountOut))
           })
 
           it('emits an event', async () => {
-            const tx = await wallet.swap(
+            const tx = await smartVault.swap(
               source,
               tokenIn.address,
               tokenOut.address,
@@ -2942,22 +2944,22 @@ describe('Wallet', () => {
           const swapFeeAmount = expectedAmountOut.mul(swapFee).div(fp(1))
 
           beforeEach('authorize', async () => {
-            const setSwapFeeRole = wallet.interface.getSighash('setSwapFee')
-            await wallet.connect(admin).authorize(admin.address, setSwapFeeRole)
+            const setSwapFeeRole = smartVault.interface.getSighash('setSwapFee')
+            await smartVault.connect(admin).authorize(admin.address, setSwapFeeRole)
           })
 
           const itSwapsCorrectly = (expectedChargedFees: BigNumber) => {
             const expectedAmountOutAfterFees = expectedAmountOut.sub(expectedChargedFees)
 
             it('transfers the token in to the dex', async () => {
-              const previousWalletBalance = await tokenIn.balanceOf(wallet.address)
+              const previousSmartVaultBalance = await tokenIn.balanceOf(smartVault.address)
               const previousConnectorBalance = await tokenIn.balanceOf(swapConnectorDex)
               const previousFeeCollectorBalance = await tokenIn.balanceOf(feeCollector.address)
 
-              await wallet.swap(source, tokenIn.address, tokenOut.address, amount, limitType, limitAmount, data)
+              await smartVault.swap(source, tokenIn.address, tokenOut.address, amount, limitType, limitAmount, data)
 
-              const currentWalletBalance = await tokenIn.balanceOf(wallet.address)
-              expect(currentWalletBalance).to.be.equal(previousWalletBalance.sub(amount))
+              const currentSmartVaultBalance = await tokenIn.balanceOf(smartVault.address)
+              expect(currentSmartVaultBalance).to.be.equal(previousSmartVaultBalance.sub(amount))
 
               const currentConnectorBalance = await tokenIn.balanceOf(swapConnectorDex)
               expect(currentConnectorBalance).to.be.equal(previousConnectorBalance.add(amount))
@@ -2966,15 +2968,15 @@ describe('Wallet', () => {
               expect(currentFeeCollectorBalance).to.be.equal(previousFeeCollectorBalance)
             })
 
-            it('transfers the token out to the wallet', async () => {
-              const previousWalletBalance = await tokenOut.balanceOf(wallet.address)
+            it('transfers the token out to the smart vault', async () => {
+              const previousSmartVaultBalance = await tokenOut.balanceOf(smartVault.address)
               const previousConnectorBalance = await tokenOut.balanceOf(swapConnectorDex)
               const previousFeeCollectorBalance = await tokenOut.balanceOf(feeCollector.address)
 
-              await wallet.swap(source, tokenIn.address, tokenOut.address, amount, limitType, limitAmount, data)
+              await smartVault.swap(source, tokenIn.address, tokenOut.address, amount, limitType, limitAmount, data)
 
-              const currentWalletBalance = await tokenOut.balanceOf(wallet.address)
-              expect(currentWalletBalance).to.be.equal(previousWalletBalance.add(expectedAmountOutAfterFees))
+              const currentSmartVaultBalance = await tokenOut.balanceOf(smartVault.address)
+              expect(currentSmartVaultBalance).to.be.equal(previousSmartVaultBalance.add(expectedAmountOutAfterFees))
 
               const currentConnectorBalance = await tokenOut.balanceOf(swapConnectorDex)
               expect(currentConnectorBalance).to.be.equal(previousConnectorBalance.sub(expectedAmountOut))
@@ -2984,7 +2986,7 @@ describe('Wallet', () => {
             })
 
             it('emits an event', async () => {
-              const tx = await wallet.swap(
+              const tx = await smartVault.swap(
                 source,
                 tokenIn.address,
                 tokenOut.address,
@@ -3009,17 +3011,17 @@ describe('Wallet', () => {
 
           context('without cap', async () => {
             beforeEach('set swap fee', async () => {
-              await wallet.connect(admin).setSwapFee(swapFee, 0, ZERO_ADDRESS, 0)
+              await smartVault.connect(admin).setSwapFee(swapFee, 0, ZERO_ADDRESS, 0)
             })
 
             itSwapsCorrectly(swapFeeAmount)
 
             it('does not update the total charged fees', async () => {
-              const previousData = await wallet.swapFee()
+              const previousData = await smartVault.swapFee()
 
-              await wallet.swap(source, tokenIn.address, tokenOut.address, amount, limitType, limitAmount, data)
+              await smartVault.swap(source, tokenIn.address, tokenOut.address, amount, limitType, limitAmount, data)
 
-              const currentData = await wallet.swapFee()
+              const currentData = await smartVault.swapFee()
               expect(currentData.pct).to.be.equal(previousData.pct)
               expect(currentData.cap).to.be.equal(previousData.cap)
               expect(currentData.period).to.be.equal(previousData.period)
@@ -3042,7 +3044,7 @@ describe('Wallet', () => {
             })
 
             beforeEach('set swap fee', async () => {
-              await wallet.connect(admin).setSwapFee(swapFee, cap, capToken.address, period)
+              await smartVault.connect(admin).setSwapFee(swapFee, cap, capToken.address, period)
               periodStartTime = await currentTimestamp()
             })
 
@@ -3050,11 +3052,11 @@ describe('Wallet', () => {
               itSwapsCorrectly(swapFeeAmount)
 
               it('updates the total charged fees', async () => {
-                const previousData = await wallet.swapFee()
+                const previousData = await smartVault.swapFee()
 
-                await wallet.swap(source, tokenIn.address, tokenOut.address, amount, limitType, limitAmount, data)
+                await smartVault.swap(source, tokenIn.address, tokenOut.address, amount, limitType, limitAmount, data)
 
-                const currentData = await wallet.swapFee()
+                const currentData = await smartVault.swapFee()
                 expect(currentData.pct).to.be.equal(previousData.pct)
                 expect(currentData.cap).to.be.equal(previousData.cap)
                 expect(currentData.token).to.be.equal(previousData.token)
@@ -3066,11 +3068,11 @@ describe('Wallet', () => {
 
             context('when the cap period has been reached', async () => {
               beforeEach('accrue some charged fees', async () => {
-                await tokenIn.mint(wallet.address, amount.mul(3).div(4))
+                await tokenIn.mint(smartVault.address, amount.mul(3).div(4))
                 await tokenOut.mint(swapConnectorDex, expectedAmountOut.mul(3).div(4))
 
                 const limit = limitType == SWAP_LIMIT.SLIPPAGE ? limitAmount : bn(limitAmount).mul(3).div(4)
-                await wallet.swap(
+                await smartVault.swap(
                   source,
                   tokenIn.address,
                   tokenOut.address,
@@ -3087,11 +3089,11 @@ describe('Wallet', () => {
                 itSwapsCorrectly(expectedChargedFees)
 
                 it('updates the total charged fees', async () => {
-                  const previousData = await wallet.swapFee()
+                  const previousData = await smartVault.swapFee()
 
-                  await wallet.swap(source, tokenIn.address, tokenOut.address, amount, limitType, limitAmount, data)
+                  await smartVault.swap(source, tokenIn.address, tokenOut.address, amount, limitType, limitAmount, data)
 
-                  const currentData = await wallet.swapFee()
+                  const currentData = await smartVault.swapFee()
                   expect(currentData.pct).to.be.equal(previousData.pct)
                   expect(currentData.cap).to.be.equal(previousData.cap)
                   expect(currentData.token).to.be.equal(previousData.token)
@@ -3109,11 +3111,11 @@ describe('Wallet', () => {
                 itSwapsCorrectly(swapFeeAmount)
 
                 it('updates the total charged fees and the next reset time', async () => {
-                  const previousData = await wallet.swapFee()
+                  const previousData = await smartVault.swapFee()
 
-                  await wallet.swap(source, tokenIn.address, tokenOut.address, amount, limitType, limitAmount, data)
+                  await smartVault.swap(source, tokenIn.address, tokenOut.address, amount, limitType, limitAmount, data)
 
-                  const currentData = await wallet.swapFee()
+                  const currentData = await smartVault.swapFee()
                   expect(currentData.pct).to.be.equal(previousData.pct)
                   expect(currentData.cap).to.be.equal(previousData.cap)
                   expect(currentData.token).to.be.equal(previousData.token)
@@ -3138,9 +3140,9 @@ describe('Wallet', () => {
             await priceOracle.mockRate(tokenIn.address, tokenOut.address, ORACLE_RATE)
           })
 
-          context('when the wallet has enough balance', async () => {
+          context('when the smart vault has enough balance', async () => {
             beforeEach('mint tokens', async () => {
-              await tokenIn.mint(wallet.address, amount)
+              await tokenIn.mint(smartVault.address, amount)
             })
 
             context('when the swap connector provides a worse rate', () => {
@@ -3168,7 +3170,7 @@ describe('Wallet', () => {
 
                 it('reverts', async () => {
                   await expect(
-                    wallet.swap(source, tokenIn.address, tokenOut.address, amount, limitType, slippage, data)
+                    smartVault.swap(source, tokenIn.address, tokenOut.address, amount, limitType, slippage, data)
                   ).to.be.revertedWith('SWAP_MIN_AMOUNT')
                 })
               })
@@ -3221,10 +3223,10 @@ describe('Wallet', () => {
             })
           })
 
-          context('when the wallet does not have enough balance', () => {
+          context('when the smart vault does not have enough balance', () => {
             it('reverts', async () => {
               await expect(
-                wallet.swap(source, tokenIn.address, tokenOut.address, amount, limitType, 0, data)
+                smartVault.swap(source, tokenIn.address, tokenOut.address, amount, limitType, 0, data)
               ).to.be.revertedWith('ERC20: transfer amount exceeds balance')
             })
           })
@@ -3235,7 +3237,7 @@ describe('Wallet', () => {
 
           it('reverts', async () => {
             await expect(
-              wallet.swap(source, tokenIn.address, tokenOut.address, amount, limitType, slippage, data)
+              smartVault.swap(source, tokenIn.address, tokenOut.address, amount, limitType, slippage, data)
             ).to.be.revertedWith('SLIPPAGE_ABOVE_ONE')
           })
         })
@@ -3246,9 +3248,9 @@ describe('Wallet', () => {
         const limitType = SWAP_LIMIT.MIN_AMOUNT_OUT
         const minAmountOut = amount.mul(PRETENDED_RATE).div(fp(1))
 
-        context('when the wallet has enough balance', async () => {
+        context('when the smart vault has enough balance', async () => {
           beforeEach('mint tokens', async () => {
-            await tokenIn.mint(wallet.address, amount)
+            await tokenIn.mint(smartVault.address, amount)
           })
 
           context('when the swap connector provides a worse rate', () => {
@@ -3261,7 +3263,7 @@ describe('Wallet', () => {
 
             it('reverts', async () => {
               await expect(
-                wallet.swap(source, tokenIn.address, tokenOut.address, amount, limitType, minAmountOut, data)
+                smartVault.swap(source, tokenIn.address, tokenOut.address, amount, limitType, minAmountOut, data)
               ).to.be.revertedWith('SWAP_MIN_AMOUNT')
             })
           })
@@ -3289,10 +3291,10 @@ describe('Wallet', () => {
           })
         })
 
-        context('when the wallet does not have enough balance', () => {
+        context('when the smart vault does not have enough balance', () => {
           it('reverts', async () => {
             await expect(
-              wallet.swap(source, tokenIn.address, tokenOut.address, amount, limitType, minAmountOut, data)
+              smartVault.swap(source, tokenIn.address, tokenOut.address, amount, limitType, minAmountOut, data)
             ).to.be.revertedWith('ERC20: transfer amount exceeds balance')
           })
         })
@@ -3301,11 +3303,11 @@ describe('Wallet', () => {
 
     context('when the sender is not authorized', () => {
       beforeEach('set sender', async () => {
-        wallet = wallet.connect(other)
+        smartVault = smartVault.connect(other)
       })
 
       it('reverts', async () => {
-        await expect(wallet.swap(source, tokenIn.address, tokenOut.address, amount, 0, 0, data)).to.be.revertedWith(
+        await expect(smartVault.swap(source, tokenIn.address, tokenOut.address, amount, 0, 0, data)).to.be.revertedWith(
           'AUTH_SENDER_NOT_ALLOWED'
         )
       })

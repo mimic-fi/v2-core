@@ -28,28 +28,28 @@ import '@mimic-fi/v2-strategies/contracts/IStrategy.sol';
 import '@mimic-fi/v2-swap-connector/contracts/ISwapConnector.sol';
 import '@mimic-fi/v2-registry/contracts/implementations/InitializableAuthorizedImplementation.sol';
 
-import './IWallet.sol';
+import './ISmartVault.sol';
 import './IWrappedNativeToken.sol';
 import './helpers/StrategyLib.sol';
 import './helpers/SwapConnectorLib.sol';
 
 /**
- * @title Wallet
- * @dev Mimic Wallet contract where funds are being held offering a bunch of primitives to allow users model any
+ * @title Smart Vault
+ * @dev Smart Vault contract where funds are being held offering a bunch of primitives to allow users model any
  * type of action to manage them, these are: collector, withdraw, swap, join, exit, bridge, wrap, and unwrap.
  *
  * It inherits from InitializableAuthorizedImplementation which means it's implementation can be cloned
  * from the Mimic Registry and should be initialized depending on each case.
  */
-contract Wallet is IWallet, PriceFeedProvider, InitializableAuthorizedImplementation {
+contract SmartVault is ISmartVault, PriceFeedProvider, InitializableAuthorizedImplementation {
     using SafeERC20 for IERC20;
     using FixedPoint for uint256;
     using UncheckedMath for uint256;
     using StrategyLib for address;
     using SwapConnectorLib for address;
 
-    // Namespace under which the Wallet is registered in the Mimic Registry
-    bytes32 public constant override NAMESPACE = keccak256('WALLET');
+    // Namespace under which the Smart Vault is registered in the Mimic Registry
+    bytes32 public constant override NAMESPACE = keccak256('SMART_VAULT');
 
     /**
      * @dev Fee configuration parameters
@@ -97,7 +97,7 @@ contract Wallet is IWallet, PriceFeedProvider, InitializableAuthorizedImplementa
     address public immutable override wrappedNativeToken;
 
     /**
-     * @dev Creates a new Wallet implementation with references that should be shared among all implementations
+     * @dev Creates a new Smart Vault implementation with references that should be shared among all implementations
      * @param _wrappedNativeToken Address of the wrapped native token to be used
      * @param _registry Address of the Mimic Registry to be referenced
      */
@@ -106,7 +106,7 @@ contract Wallet is IWallet, PriceFeedProvider, InitializableAuthorizedImplementa
     }
 
     /**
-     * @dev Initializes the Wallet instance
+     * @dev Initializes the Smart Vault instance
      * @param admin Address that will be granted with admin rights
      */
     function initialize(address admin) external initializer {
@@ -121,7 +121,7 @@ contract Wallet is IWallet, PriceFeedProvider, InitializableAuthorizedImplementa
     }
 
     /**
-     * @dev Sets a new strategy as allowed or not for the Mimic Wallet. Sender must be authorized.
+     * @dev Sets a new strategy as allowed or not for a Smart Vault. Sender must be authorized.
      * @param strategy Address of the strategy to be set
      * @param allowed Whether the strategy is allowed or not
      */
@@ -130,7 +130,7 @@ contract Wallet is IWallet, PriceFeedProvider, InitializableAuthorizedImplementa
     }
 
     /**
-     * @dev Sets a new price oracle to the Mimic Wallet. Sender must be authorized.
+     * @dev Sets a new price oracle to a Smart Vault. Sender must be authorized.
      * @param newPriceOracle Address of the new price oracle to be set
      */
     function setPriceOracle(address newPriceOracle) external override auth {
@@ -138,7 +138,7 @@ contract Wallet is IWallet, PriceFeedProvider, InitializableAuthorizedImplementa
     }
 
     /**
-     * @dev Sets a new swap connector to the Mimic Wallet. Sender must be authorized.
+     * @dev Sets a new swap connector to a Smart Vault. Sender must be authorized.
      * @param newSwapConnector Address of the new swap connector to be set
      */
     function setSwapConnector(address newSwapConnector) external override auth {
@@ -221,7 +221,7 @@ contract Wallet is IWallet, PriceFeedProvider, InitializableAuthorizedImplementa
     }
 
     /**
-     * @dev Execute an arbitrary call from the Mimic Wallet. Sender must be authorized.
+     * @dev Execute an arbitrary call from a Smart Vault. Sender must be authorized.
      * @param target Address where the call will be sent
      * @param data Calldata to be used for the call
      * @param value Value in wei that will be attached to the call
@@ -233,12 +233,12 @@ contract Wallet is IWallet, PriceFeedProvider, InitializableAuthorizedImplementa
         auth
         returns (bytes memory result)
     {
-        result = Address.functionCallWithValue(target, callData, value, 'WALLET_ARBITRARY_CALL_FAILED');
+        result = Address.functionCallWithValue(target, callData, value, 'SMART_VAULT_ARBITRARY_CALL_FAIL');
         emit Call(target, callData, value, result, data);
     }
 
     /**
-     * @dev Collect tokens from an external account to the Mimic Wallet. Sender must be authorized.
+     * @dev Collect tokens from an external account to a Smart Vault. Sender must be authorized.
      * @param token Address of the token to be collected
      * @param from Address where the tokens will be transfer from
      * @param amount Amount of tokens to be transferred
@@ -505,7 +505,7 @@ contract Wallet is IWallet, PriceFeedProvider, InitializableAuthorizedImplementa
     }
 
     /**
-     * @dev Internal method to transfer ERC20 or native tokens from the Mimic wallet
+     * @dev Internal method to transfer ERC20 or native tokens from a Smart Vault
      * @param token Address of the ERC20 token to transfer
      * @param to Address transferring the tokens to
      * @param amount Amount of tokens to transfer

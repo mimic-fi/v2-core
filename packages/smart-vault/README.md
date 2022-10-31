@@ -5,8 +5,8 @@
 <h4 align="center">A DeFi automation platform</h4>
 
 <p align="center">
-  <a href="https://badge.fury.io/js/@mimic-fi%2Fv2-wallet">
-    <img src="https://badge.fury.io/js/@mimic-fi%2Fv2-wallet.svg" alt="NPM">
+  <a href="https://badge.fury.io/js/@mimic-fi%2Fv2-smart-vault">
+    <img src="https://badge.fury.io/js/@mimic-fi%2Fv2-smart-vault.svg" alt="NPM">
   </a>
   <a href="https://github.com/mimic-fi/v2-core/actions/workflows/ci.yml">
     <img src="https://github.com/mimic-fi/v2-core/actions/workflows/ci.yml/badge.svg" alt="CI">
@@ -30,8 +30,9 @@
 
 ## Content 
 
-This package contains contracts used for the Mimic Wallet. The Mimic Wallet is the smart vaults' entry point, 
-this is where users can set custom permissions to enable different action patterns to manage their funds. 
+This package contains contracts used for the Mimic Smart Vault. Smart Vaults provide a set of primitives to allow 
+users to mix them and perform custom operations. Moreover, users can set custom permissions to enable different 
+action patterns to manage their funds. 
 
 ## Setup
 
@@ -43,7 +44,7 @@ From your command line:
 $ git clone https://github.com/mimic-fi/v2-core
 
 # Go into the repository's package
-$ cd v2-core/packages/wallet
+$ cd v2-core/packages/smart-vault
 
 # Install dependencies
 $ yarn

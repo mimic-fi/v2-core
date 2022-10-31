@@ -31,7 +31,7 @@ import './ICurveLiquidityGauge.sol';
 contract Curve3PoolStrategy is IStrategy, BaseImplementation {
     using FixedPoint for uint256;
 
-    // Namespace under which the Wallet is registered in the Mimic Registry
+    // Namespace under which the Strategies implementations are registered in the Mimic Registry
     bytes32 public constant override NAMESPACE = keccak256('STRATEGY');
 
     // Curve 3 pool uses 3 tokens

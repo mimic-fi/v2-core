@@ -31,7 +31,7 @@ import './IAaveV2IncentivesController.sol';
 contract AaveV2Strategy is IStrategy, BaseImplementation {
     using FixedPoint for uint256;
 
-    // Namespace under which the Wallet is registered in the Mimic Registry
+    // Namespace under which the Strategies implementations are registered in the Mimic Registry
     bytes32 public constant override NAMESPACE = keccak256('STRATEGY');
 
     // Token that will be used as the strategy entry point
