@@ -18,7 +18,7 @@ import '@mimic-fi/v2-registry/contracts/implementations/IImplementation.sol';
 
 /**
  * @title IStrategy
- * @dev Strategy interface required by Mimic Wallet. It must follow the IImplementation interface.
+ * @dev Strategy interface required by Mimic Smart Vaults. It must follow the IImplementation interface.
  */
 interface IStrategy is IImplementation {
     /**

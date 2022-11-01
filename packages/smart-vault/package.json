@@ -1,6 +1,6 @@
 {
   "name": "@mimic-fi/v2-smart-vault",
-  "version": "0.0.5",
+  "version": "0.0.7",
   "license": "GPL-3.0",
   "engines": {
     "node": ">=16.0.0"
@@ -22,10 +22,13 @@
   },
   "dependencies": {
     "@mimic-fi/v2-helpers": "0.0.9",
-    "@mimic-fi/v2-registry": "0.0.5"
+    "@mimic-fi/v2-strategies": "0.0.4",
+    "@mimic-fi/v2-price-oracle": "0.0.5",
+    "@mimic-fi/v2-registry": "0.0.5",
+    "@mimic-fi/v2-swap-connector": "0.0.10",
+    "@openzeppelin/contracts": "4.7.0"
   },
   "devDependencies": {
-    "@mimic-fi/v2-wallet": "0.0.7",
     "@nomiclabs/hardhat-ethers": "^2.0.2",
     "@nomiclabs/hardhat-waffle": "^2.0.1",
     "@types/chai": "^4.2.18",

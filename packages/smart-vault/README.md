@@ -30,8 +30,9 @@
 
 ## Content 
 
-This package contains the implementation of the Smart Vault contract of the Mimic protocol.
-The Smart Vault is a contract that simply groups the different components of a Smart Vault.
+This package contains contracts used for the Mimic Smart Vault. Smart Vaults provide a set of primitives to allow 
+users to mix them and perform custom operations. Moreover, users can set custom permissions to enable different 
+action patterns to manage their funds. 
 
 ## Setup
 
