@@ -146,7 +146,7 @@ contract Curve3PoolStrategy is IStrategy, BaseImplementation {
         IERC20(token).approve(address(pool), amount);
         pool.add_liquidity(amounts, minAmountOut);
         uint256 finalPoolTokenBalance = poolToken.balanceOf(address(this));
-        value = finalPoolTokenBalance - initialPoolTokenBalance;
+        value = (finalPoolTokenBalance - initialPoolTokenBalance).mulDown(poolTokenPrice);
 
         // Stake pool tokens
         poolToken.approve(address(gauge), value);
@@ -182,6 +182,7 @@ contract Curve3PoolStrategy is IStrategy, BaseImplementation {
         // Exit pool
         uint256 initialTokenAmount = IERC20(token).balanceOf(address(this));
         pool.remove_liquidity_one_coin(exitPoolTokenAmount, int128(int256(tokenIndex)), minAmountOut);
+
         uint256 finalTokenAmount = IERC20(token).balanceOf(address(this));
         amount = finalTokenAmount - initialTokenAmount;
         value = exitPoolTokenAmount.mulDown(poolTokenPrice);
