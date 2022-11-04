@@ -1,6 +1,6 @@
 {
   "name": "@mimic-fi/v2-price-oracle",
-  "version": "0.0.5",
+  "version": "0.0.6",
   "license": "GPL-3.0",
   "engines": {
     "node": ">=16.0.0"
