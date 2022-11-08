@@ -58,13 +58,25 @@ describe('AaveV2Strategy - USDC', function () {
     expect(await strategy.NAMESPACE()).to.be.equal(ethers.utils.solidityKeccak256(['string'], ['STRATEGY']))
   })
 
+  it('computes the join tokens correctly', async () => {
+    const joinTokens = await strategy.joinTokens()
+    expect(joinTokens).to.have.lengthOf(1)
+    expect(joinTokens[0]).to.be.equal(USDC)
+  })
+
+  it('computes the exit tokens correctly', async () => {
+    const exitTokens = await strategy.exitTokens()
+    expect(exitTokens).to.have.lengthOf(1)
+    expect(exitTokens[0]).to.be.equal(AUSDC)
+  })
+
   it('joins the strategy', async () => {
     await usdc.connect(whale).transfer(strategy.address, JOIN_AMOUNT)
 
     const previousUsdcBalance = await usdc.balanceOf(strategy.address)
     const previousAUsdcBalance = await aUsdc.balanceOf(strategy.address)
 
-    await strategy.join(JOIN_AMOUNT, SLIPPAGE, DATA)
+    await strategy.join([USDC], [JOIN_AMOUNT], SLIPPAGE, DATA)
 
     const currentUsdcBalance = await usdc.balanceOf(strategy.address)
     expect(currentUsdcBalance).to.be.equal(previousUsdcBalance.sub(JOIN_AMOUNT))
@@ -103,8 +115,8 @@ describe('AaveV2Strategy - USDC', function () {
     const previousUsdcBalance = await usdc.balanceOf(strategy.address)
     const previousAUsdcBalance = await aUsdc.balanceOf(strategy.address)
 
-    const ratio = fp(0.5)
-    await strategy.exit(ratio, SLIPPAGE, DATA)
+    const exitAmount = previousAUsdcBalance.div(2)
+    await strategy.exit([AUSDC], [exitAmount], SLIPPAGE, DATA)
 
     const currentValue = await strategy.lastValue(strategy.address)
     expect(currentValue).to.be.lt(previousValue)
@@ -115,7 +127,7 @@ describe('AaveV2Strategy - USDC', function () {
 
     // aUSDC balance should be reduced by the same ratio
     const currentAUsdcBalance = await aUsdc.balanceOf(strategy.address)
-    const expectedAUsdcBalance = previousAUsdcBalance.mul(fp(1).sub(ratio)).div(fp(1))
+    const expectedAUsdcBalance = previousAUsdcBalance.sub(exitAmount)
     expect(currentAUsdcBalance).to.be.at.least(expectedAUsdcBalance.sub(1))
     expect(currentAUsdcBalance).to.be.at.most(expectedAUsdcBalance.add(1))
   })
@@ -123,8 +135,8 @@ describe('AaveV2Strategy - USDC', function () {
   it('exits with a 100%', async () => {
     const previousUsdcBalance = await usdc.balanceOf(strategy.address)
 
-    const ratio = fp(1)
-    await strategy.exit(ratio, SLIPPAGE, DATA)
+    const exitAmount = await aUsdc.balanceOf(strategy.address)
+    await strategy.exit([AUSDC], [exitAmount], SLIPPAGE, DATA)
 
     // More than the entire joined amount should be back to the strategy
     const currentUsdcBalance = await usdc.balanceOf(strategy.address)

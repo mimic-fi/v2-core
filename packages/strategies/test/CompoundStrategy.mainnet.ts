@@ -45,6 +45,18 @@ describe('CompoundStrategy - DAI', function () {
     expect(await strategy.NAMESPACE()).to.be.equal(ethers.utils.solidityKeccak256(['string'], ['STRATEGY']))
   })
 
+  it('computes the join tokens correctly', async () => {
+    const joinTokens = await strategy.joinTokens()
+    expect(joinTokens).to.have.lengthOf(1)
+    expect(joinTokens[0]).to.be.equal(DAI)
+  })
+
+  it('computes the exit tokens correctly', async () => {
+    const exitTokens = await strategy.exitTokens()
+    expect(exitTokens).to.have.lengthOf(1)
+    expect(exitTokens[0]).to.be.equal(CDAI)
+  })
+
   it('joins the strategy', async () => {
     await dai.connect(whale).transfer(strategy.address, JOIN_AMOUNT.mul(2))
 
@@ -52,7 +64,7 @@ describe('CompoundStrategy - DAI', function () {
     const previousDaiBalance = await dai.balanceOf(strategy.address)
     const previousCDaiBalance = await cDai.balanceOf(strategy.address)
 
-    await strategy.join(JOIN_AMOUNT, SLIPPAGE, DATA)
+    await strategy.join([DAI], [JOIN_AMOUNT], SLIPPAGE, DATA)
 
     const currentDaiBalance = await dai.balanceOf(strategy.address)
     expect(currentDaiBalance).to.be.equal(previousDaiBalance.sub(JOIN_AMOUNT))
@@ -81,8 +93,8 @@ describe('CompoundStrategy - DAI', function () {
     const previousDaiBalance = await dai.balanceOf(strategy.address)
     const previousCDaiBalance = await cDai.balanceOf(strategy.address)
 
-    const ratio = fp(0.5)
-    await strategy.exit(ratio, SLIPPAGE, DATA)
+    const exitAmount = previousCDaiBalance.div(2)
+    await strategy.exit([CDAI], [exitAmount], SLIPPAGE, DATA)
 
     const currentValue = await strategy.lastValue(strategy.address)
     expect(currentValue).to.be.lt(previousValue)
@@ -94,7 +106,7 @@ describe('CompoundStrategy - DAI', function () {
 
     // cDAI balance should be reduced by the same ratio
     const currentCDaiBalance = await cDai.balanceOf(strategy.address)
-    const expectedCDaiBalance = previousCDaiBalance.mul(fp(1).sub(ratio)).div(fp(1))
+    const expectedCDaiBalance = previousCDaiBalance.sub(exitAmount)
     expect(currentCDaiBalance).to.be.at.least(expectedCDaiBalance.sub(1))
     expect(currentCDaiBalance).to.be.at.most(expectedCDaiBalance.add(1))
   })
@@ -102,8 +114,8 @@ describe('CompoundStrategy - DAI', function () {
   it('exits with a 100%', async () => {
     const previousDaiBalance = await dai.balanceOf(strategy.address)
 
-    const ratio = fp(1)
-    await strategy.exit(ratio, SLIPPAGE, DATA)
+    const exitAmount = await cDai.balanceOf(strategy.address)
+    await strategy.exit([CDAI], [exitAmount], SLIPPAGE, DATA)
 
     // Entire joined amount should be back to the strategy
     const currentDaiBalance = await dai.balanceOf(strategy.address)

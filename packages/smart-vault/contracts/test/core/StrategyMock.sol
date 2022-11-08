@@ -16,12 +16,12 @@ contract StrategyMock is IStrategy, BaseImplementation {
     bytes32 public constant override NAMESPACE = keccak256('STRATEGY');
 
     address public immutable lpt;
+    address public immutable token;
     address public immutable rewardToken;
-    address public immutable override token;
 
     event Claimed(bytes data);
-    event Joined(uint256 amount, uint256 slippage, bytes data);
-    event Exited(uint256 ratio, uint256 slippage, bytes data);
+    event Joined(address[] tokensIn, uint256[] amountsIn, uint256 slippage, bytes data);
+    event Exited(address[] tokensIn, uint256[] amountsIn, uint256 slippage, bytes data);
 
     constructor(address registry) BaseImplementation(registry) {
         lpt = address(new TokenMock('LPT'));
@@ -39,6 +39,16 @@ contract StrategyMock is IStrategy, BaseImplementation {
         TokenMock(lpt).burn(account, balance / divisor);
     }
 
+    function joinTokens() public view override returns (address[] memory tokens) {
+        tokens = new address[](1);
+        tokens[0] = token;
+    }
+
+    function exitTokens() public view override returns (address[] memory tokens) {
+        tokens = new address[](1);
+        tokens[0] = lpt;
+    }
+
     function valueRate() public pure override returns (uint256) {
         return FixedPoint.ONE;
     }
@@ -48,32 +58,50 @@ contract StrategyMock is IStrategy, BaseImplementation {
     }
 
     function claim(bytes memory data) external override returns (address[] memory tokens, uint256[] memory amounts) {
-        emit Claimed(data);
         uint256 amount = abi.decode(data, (uint256));
         TokenMock(rewardToken).mint(address(this), amount);
-
         tokens = new address[](1);
         tokens[0] = rewardToken;
         amounts = new uint256[](1);
         amounts[0] = amount;
+        emit Claimed(data);
     }
 
-    function join(uint256 amount, uint256 slippage, bytes memory data) external override returns (uint256 value) {
-        value = amount;
-        TokenMock(token).burn(address(this), amount);
-        TokenMock(lpt).mint(address(this), amount);
-        emit Joined(amount, slippage, data);
-    }
-
-    function exit(uint256 ratio, uint256 slippage, bytes memory data)
+    function join(address[] memory tokensIn, uint256[] memory amountsIn, uint256 slippage, bytes memory data)
         external
         override
-        returns (uint256 amount, uint256 value)
+        returns (address[] memory tokensOut, uint256[] memory amountsOut, uint256 value)
     {
-        value = lastValue(address(this)).mulDown(ratio);
-        amount = value.mulDown(valueRate());
-        TokenMock(lpt).burn(address(this), amount);
-        TokenMock(token).mint(address(this), amount);
-        emit Exited(ratio, slippage, data);
+        require(tokensIn.length == 1, 'STRATEGY_INVALID_TOKENS_IN_LEN');
+        require(amountsIn.length == 1, 'STRATEGY_INVALID_AMOUNTS_IN_LEN');
+        require(tokensIn[0] == token, 'STRATEGY_INVALID_JOIN_TOKEN');
+
+        tokensOut = exitTokens();
+        amountsOut = new uint256[](1);
+        amountsOut[0] = amountsIn[0];
+
+        TokenMock(token).burn(address(this), amountsIn[0]);
+        TokenMock(lpt).mint(address(this), amountsOut[0]);
+        value = amountsOut[0].mulDown(valueRate());
+        emit Joined(tokensIn, amountsIn, slippage, data);
+    }
+
+    function exit(address[] memory tokensIn, uint256[] memory amountsIn, uint256 slippage, bytes memory data)
+        external
+        override
+        returns (address[] memory tokensOut, uint256[] memory amountsOut, uint256 value)
+    {
+        require(tokensIn.length == 1, 'STRATEGY_INVALID_TOKENS_IN_LEN');
+        require(amountsIn.length == 1, 'STRATEGY_INVALID_AMOUNTS_IN_LEN');
+        require(tokensIn[0] == lpt, 'STRATEGY_INVALID_EXIT_TOKEN');
+
+        tokensOut = joinTokens();
+        amountsOut = new uint256[](1);
+        amountsOut[0] = amountsIn[0];
+
+        TokenMock(lpt).burn(address(this), amountsIn[0]);
+        TokenMock(token).mint(address(this), amountsOut[0]);
+        value = amountsIn[0].divUp(valueRate());
+        emit Exited(tokensIn, amountsIn, slippage, data);
     }
 }

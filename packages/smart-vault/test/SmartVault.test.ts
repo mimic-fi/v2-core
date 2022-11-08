@@ -1002,10 +1002,10 @@ describe('SmartVault', () => {
             const amount = fp(50)
             const strategyToken = await instanceAt('TokenMock', await strategy.token())
             await strategyToken.mint(smartVault.address, amount)
-            await smartVault.join(strategy.address, amount, 0, '0x')
+            await smartVault.join(strategy.address, [strategyToken.address], [amount], 0, '0x')
             await strategy.mockGains(smartVault.address, 2)
             await priceOracle.mockRate(strategyToken.address, token, fp(1))
-            await smartVault.exit(strategy.address, fp(1), 0, '0x')
+            await smartVault.exit(strategy.address, [await strategy.lpt()], [fp(1)], 0, '0x')
           })
 
           context('when the fee cap is being changed', () => {
@@ -2343,6 +2343,7 @@ describe('SmartVault', () => {
   describe('join', () => {
     let token: Contract, lpt: Contract
 
+    const amount = fp(200)
     const data = '0xabcdef'
 
     beforeEach('load tokens', async () => {
@@ -2357,80 +2358,76 @@ describe('SmartVault', () => {
         smartVault = smartVault.connect(admin)
       })
 
-      context('when the amount is greater than zero', () => {
-        const amount = fp(200)
+      context('when the slippage is valid', async () => {
+        const slippage = fp(0.01)
 
-        context('when the slippage is valid', async () => {
-          const slippage = fp(0.01)
+        context('when the strategy is allowed', () => {
+          beforeEach('allow strategy', async () => {
+            await smartVault.connect(admin).setStrategy(strategy.address, true)
+          })
 
-          context('when the strategy is allowed', () => {
-            beforeEach('allow strategy', async () => {
-              await smartVault.connect(admin).setStrategy(strategy.address, true)
+          context('when the smart vault has enough balance', async () => {
+            beforeEach('mint tokens', async () => {
+              await token.mint(smartVault.address, amount)
             })
 
-            context('when the smart vault has enough balance', async () => {
-              beforeEach('mint tokens', async () => {
-                await token.mint(smartVault.address, amount)
-              })
+            it('receives lp tokens in exchange of strategy tokens', async () => {
+              const previousLptBalance = await lpt.balanceOf(smartVault.address)
+              const previousTokenBalance = await token.balanceOf(smartVault.address)
 
-              it('receives lp tokens in exchange of strategy tokens', async () => {
-                const previousLptBalance = await lpt.balanceOf(smartVault.address)
-                const previousTokenBalance = await token.balanceOf(smartVault.address)
+              await smartVault.join(strategy.address, [token.address], [amount], slippage, data)
 
-                await smartVault.join(strategy.address, amount, slippage, data)
+              const currentLptBalance = await lpt.balanceOf(smartVault.address)
+              expect(currentLptBalance).to.be.equal(previousLptBalance.add(amount))
 
-                const currentLptBalance = await lpt.balanceOf(smartVault.address)
-                expect(currentLptBalance).to.be.equal(previousLptBalance.add(amount))
-
-                const currentTokenBalance = await token.balanceOf(smartVault.address)
-                expect(currentTokenBalance).to.be.equal(previousTokenBalance.sub(amount))
-              })
-
-              it('emits an event', async () => {
-                const tx = await smartVault.join(strategy.address, amount, slippage, data)
-
-                await assertEvent(tx, 'Join', { strategy, invested: amount, slippage, data })
-              })
+              const currentTokenBalance = await token.balanceOf(smartVault.address)
+              expect(currentTokenBalance).to.be.equal(previousTokenBalance.sub(amount))
             })
 
-            context('when the smart vault does not have enough tokens', async () => {
-              it('reverts', async () => {
-                await expect(smartVault.join(strategy.address, amount, slippage, data)).to.be.revertedWith(
-                  'exceeds balance'
-                )
+            it('emits an event', async () => {
+              const tx = await smartVault.join(strategy.address, [token.address], [amount], slippage, data)
+
+              await assertEvent(tx, 'Join', {
+                strategy,
+                tokensIn: [token.address],
+                amountsIn: [amount],
+                tokensOut: [lpt.address],
+                amountsOut: [amount],
+                slippage,
+                data,
               })
             })
           })
 
-          context('when the strategy is not allowed', () => {
-            beforeEach('disallow strategy', async () => {
-              await smartVault.connect(admin).setStrategy(strategy.address, false)
-            })
-
+          context('when the smart vault does not have enough tokens', async () => {
             it('reverts', async () => {
-              await expect(smartVault.join(strategy.address, amount, slippage, data)).to.be.revertedWith(
-                'STRATEGY_NOT_ALLOWED'
-              )
+              await expect(
+                smartVault.join(strategy.address, [token.address], [amount], slippage, data)
+              ).to.be.revertedWith('exceeds balance')
             })
           })
         })
 
-        context('when the slippage is invalid', async () => {
-          const slippage = fp(1.01)
+        context('when the strategy is not allowed', () => {
+          beforeEach('disallow strategy', async () => {
+            await smartVault.connect(admin).setStrategy(strategy.address, false)
+          })
 
           it('reverts', async () => {
-            await expect(smartVault.join(strategy.address, amount, slippage, data)).to.be.revertedWith(
-              'JOIN_SLIPPAGE_ABOVE_ONE'
-            )
+            await expect(
+              smartVault.join(strategy.address, [token.address], [amount], slippage, data)
+            ).to.be.revertedWith('STRATEGY_NOT_ALLOWED')
           })
         })
       })
 
-      context('when the amount is zero', async () => {
-        const amount = 0
+      context('when the slippage is invalid', async () => {
+        const slippage = fp(1.01)
 
         it('reverts', async () => {
-          await expect(smartVault.join(strategy.address, amount, 0, data)).to.be.revertedWith('JOIN_AMOUNT_ZERO')
+          await expect(smartVault.join(strategy.address, [token.address], [amount], slippage, data)).to.be.revertedWith(
+            'JOIN_SLIPPAGE_ABOVE_ONE'
+          )
         })
       })
     })
@@ -2441,7 +2438,9 @@ describe('SmartVault', () => {
       })
 
       it('reverts', async () => {
-        await expect(smartVault.join(strategy.address, 0, 0, data)).to.be.revertedWith('AUTH_SENDER_NOT_ALLOWED')
+        await expect(smartVault.join(strategy.address, [token.address], [amount], 0, data)).to.be.revertedWith(
+          'AUTH_SENDER_NOT_ALLOWED'
+        )
       })
     })
   })
@@ -2470,353 +2469,357 @@ describe('SmartVault', () => {
           const joinRole = smartVault.interface.getSighash('join')
           await smartVault.connect(admin).authorize(admin.address, joinRole)
           await token.mint(smartVault.address, joinAmount)
-          await smartVault.join(strategy.address, joinAmount, 0, data)
+          await smartVault.join(strategy.address, [token.address], [joinAmount], 0, data)
         })
 
         context('when the slippage is valid', async () => {
           const slippage = fp(0.01)
 
-          context('when the given ratio is valid', async () => {
-            context('when the strategy is allowed', () => {
-              beforeEach('allow strategy', async () => {
-                await smartVault.connect(admin).setStrategy(strategy.address, true)
+          context('when the strategy is allowed', () => {
+            beforeEach('allow strategy', async () => {
+              await smartVault.connect(admin).setStrategy(strategy.address, true)
+            })
+
+            async function computeExpectedAmountOut(ratio: BigNumber): Promise<BigNumber> {
+              const currentValue = await strategy.lastValue(smartVault.address)
+              const exitValue = currentValue.mul(ratio).div(fp(1))
+              const valueRate = await strategy.valueRate()
+              return exitValue.mul(valueRate).div(fp(1))
+            }
+
+            async function computeInvestedValueAfterExit(ratio: BigNumber): Promise<BigNumber> {
+              const investedValue = await smartVault.investedValue(strategy.address)
+              const currentValue = await strategy.lastValue(smartVault.address)
+              const valueGains = currentValue.gt(investedValue) ? currentValue.sub(investedValue) : bn(0)
+
+              // If there are no gains, the invested value is reduced by the exit ratio
+              if (valueGains.eq(0)) return investedValue.mul(fp(1).sub(ratio)).div(fp(1))
+
+              // If there are gains but the exit value is less than that, the invested value is still the same.
+              // Otherwise, it should be reduced only by the portion of exit value that doesn't represent gains.
+              const exitValue = currentValue.mul(ratio).div(fp(1))
+              const decrement = exitValue.lte(valueGains) ? bn(0) : exitValue.sub(valueGains)
+              return investedValue.sub(decrement)
+            }
+
+            const itDoesNotAffectTheInvestedValue = (ratio: BigNumber) => {
+              it('does not affect the invested value', async () => {
+                const previousInvestedValue = await smartVault.investedValue(strategy.address)
+
+                const exitAmount = (await lpt.balanceOf(smartVault.address)).mul(ratio).div(fp(1))
+                await smartVault.exit(strategy.address, [lpt.address], [exitAmount], slippage, data)
+
+                const currentInvestedValue = await smartVault.investedValue(strategy.address)
+                expect(currentInvestedValue).to.be.equal(previousInvestedValue)
+              })
+            }
+
+            const itDecreasesTheInvestedValue = (ratio: BigNumber) => {
+              it('decreases the invested value', async () => {
+                const expectedInvestedValue = await computeInvestedValueAfterExit(ratio)
+
+                const exitAmount = (await lpt.balanceOf(smartVault.address)).mul(ratio).div(fp(1))
+                await smartVault.exit(strategy.address, [lpt.address], [exitAmount], slippage, data)
+
+                const currentInvestmentValue = await smartVault.investedValue(strategy.address)
+                expect(currentInvestmentValue).to.be.equal(expectedInvestedValue)
+              })
+            }
+
+            const itDoesNotPayPerformanceFees = (ratio: BigNumber) => {
+              it('does not pay performance fees', async () => {
+                const previousBalance = await token.balanceOf(feeCollector.address)
+
+                const exitAmount = (await lpt.balanceOf(smartVault.address)).mul(ratio).div(fp(1))
+                await smartVault.exit(strategy.address, [lpt.address], [exitAmount], slippage, data)
+
+                const currentBalance = await token.balanceOf(feeCollector.address)
+                expect(currentBalance).to.be.equal(previousBalance)
+              })
+            }
+
+            context('with performance fee', async () => {
+              const performanceFee = fp(0.02)
+
+              beforeEach('set performance fee', async () => {
+                const setPerformanceFeeRole = smartVault.interface.getSighash('setPerformanceFee')
+                await smartVault.connect(admin).authorize(admin.address, setPerformanceFeeRole)
+                await smartVault.connect(admin).setPerformanceFee(performanceFee, fp(1000), token.address, MONTH)
               })
 
-              async function computeExitAmount(ratio: BigNumber): Promise<BigNumber> {
-                const currentValue = await strategy.lastValue(smartVault.address)
-                const exitValue = currentValue.mul(ratio).div(fp(1))
-                const valueRate = await strategy.valueRate()
-                return exitValue.mul(valueRate).div(fp(1))
-              }
-
-              async function computeInvestedValueAfterExit(ratio: BigNumber): Promise<BigNumber> {
+              async function computePerformanceFeeAmount(ratio: BigNumber): Promise<BigNumber> {
                 const investedValue = await smartVault.investedValue(strategy.address)
                 const currentValue = await strategy.lastValue(smartVault.address)
                 const valueGains = currentValue.gt(investedValue) ? currentValue.sub(investedValue) : bn(0)
+                if (valueGains.eq(0)) return bn(0)
 
-                // If there are no gains, the invested value is reduced by the exit ratio
-                if (valueGains.eq(0)) return investedValue.mul(fp(1).sub(ratio)).div(fp(1))
-
-                // If there are gains but the exit value is less than that, the invested value is still the same.
-                // Otherwise, it should be reduced only by the portion of exit value that doesn't represent gains.
                 const exitValue = currentValue.mul(ratio).div(fp(1))
-                const decrement = exitValue.lte(valueGains) ? bn(0) : exitValue.sub(valueGains)
-                return investedValue.sub(decrement)
+                const taxableValue = exitValue.gt(valueGains) ? valueGains : exitValue
+
+                const valueRate = await strategy.valueRate()
+                const taxableAmount = taxableValue.mul(valueRate).div(fp(1))
+                return taxableAmount.mul(performanceFee).div(fp(1))
               }
 
-              const itDoesNotAffectTheInvestedValue = (ratio: BigNumber) => {
-                it('does not affect the invested value', async () => {
-                  const previousInvestedValue = await smartVault.investedValue(strategy.address)
+              const itTransfersTheTokensToTheSmartVault = (ratio: BigNumber) => {
+                it('receives strategy tokens in exchange of lp tokens', async () => {
+                  const expectedAmountOut = await computeExpectedAmountOut(ratio)
+                  const performanceFeeAmount = await computePerformanceFeeAmount(ratio)
+                  const expectedAmountOutAfterFees = expectedAmountOut.sub(performanceFeeAmount)
+                  const previousLptBalance = await lpt.balanceOf(smartVault.address)
+                  const previousTokenBalance = await token.balanceOf(smartVault.address)
 
-                  await smartVault.exit(strategy.address, ratio, slippage, data)
+                  const exitAmount = previousLptBalance.mul(ratio).div(fp(1))
+                  await smartVault.exit(strategy.address, [lpt.address], [exitAmount], slippage, data)
 
-                  const currentInvestedValue = await smartVault.investedValue(strategy.address)
-                  expect(currentInvestedValue).to.be.equal(previousInvestedValue)
+                  const currentTokenBalance = await token.balanceOf(smartVault.address)
+                  const expectedTokenBalance = previousTokenBalance.add(expectedAmountOutAfterFees)
+                  expect(currentTokenBalance).to.be.at.least(expectedTokenBalance.sub(1))
+                  expect(currentTokenBalance).to.be.at.most(expectedTokenBalance.add(1))
+
+                  const currentLptBalance = await lpt.balanceOf(smartVault.address)
+                  expect(currentLptBalance).to.be.equal(previousLptBalance.sub(exitAmount))
+                })
+
+                it('emits an event', async () => {
+                  const expectedAmountOut = await computeExpectedAmountOut(ratio)
+                  const performanceFeeAmount = await computePerformanceFeeAmount(ratio)
+                  const expectedAmountOutAfterFees = expectedAmountOut.sub(performanceFeeAmount)
+
+                  const exitAmount = (await lpt.balanceOf(smartVault.address)).mul(ratio).div(fp(1))
+                  const tx = await smartVault.exit(strategy.address, [lpt.address], [exitAmount], slippage, data)
+
+                  await assertEvent(tx, 'Exit', {
+                    strategy,
+                    tokensIn: [lpt.address],
+                    amountsIn: [exitAmount],
+                    tokensOut: [token.address],
+                    amountsOut: [expectedAmountOutAfterFees],
+                    value: expectedAmountOut, // rate 1
+                    fees: [performanceFeeAmount],
+                  })
                 })
               }
 
-              const itDecreasesTheInvestedValue = (ratio: BigNumber) => {
-                it('decreases the invested value', async () => {
-                  const expectedInvestedValue = await computeInvestedValueAfterExit(ratio)
-
-                  await smartVault.exit(strategy.address, ratio, slippage, data)
-
-                  const currentInvestmentValue = await smartVault.investedValue(strategy.address)
-                  expect(currentInvestmentValue).to.be.equal(expectedInvestedValue)
-                })
-              }
-
-              const itDoesNotPayPerformanceFees = (ratio: BigNumber) => {
-                it('does not pay performance fees', async () => {
+              const itPaysPerformanceFees = (ratio: BigNumber) => {
+                it('pays performance fees to the fee collector', async () => {
                   const previousBalance = await token.balanceOf(feeCollector.address)
+                  const expectedPerformanceFeeAmount = await computePerformanceFeeAmount(ratio)
 
-                  await smartVault.exit(strategy.address, ratio, slippage, data)
+                  const exitAmount = (await lpt.balanceOf(smartVault.address)).mul(ratio).div(fp(1))
+                  await smartVault.exit(strategy.address, [lpt.address], [exitAmount], slippage, data)
 
                   const currentBalance = await token.balanceOf(feeCollector.address)
-                  expect(currentBalance).to.be.equal(previousBalance)
+                  const expectedBalance = previousBalance.add(expectedPerformanceFeeAmount)
+                  expect(currentBalance).to.be.at.least(expectedBalance.sub(1))
+                  expect(currentBalance).to.be.at.most(expectedBalance.add(1))
+                })
+
+                it('updates the total charged fees', async () => {
+                  const previousData = await smartVault.performanceFee()
+                  const expectedPerformanceFeeAmount = await computePerformanceFeeAmount(ratio)
+
+                  const exitAmount = (await lpt.balanceOf(smartVault.address)).mul(ratio).div(fp(1))
+                  await smartVault.exit(strategy.address, [lpt.address], [exitAmount], slippage, data)
+
+                  const currentData = await smartVault.performanceFee()
+                  expect(currentData.pct).to.be.equal(previousData.pct)
+                  expect(currentData.cap).to.be.equal(previousData.cap)
+                  expect(currentData.token).to.be.equal(previousData.token)
+                  expect(currentData.period).to.be.equal(previousData.period)
+                  expect(currentData.totalCharged).to.be.equal(expectedPerformanceFeeAmount)
+                  expect(currentData.nextResetTime).to.be.equal(previousData.nextResetTime)
                 })
               }
 
-              context('with performance fee', async () => {
-                const performanceFee = fp(0.02)
+              context('when the strategy is even', async () => {
+                context('when withdraws half', async () => {
+                  const ratio = fp(0.5)
 
-                beforeEach('set performance fee', async () => {
-                  const setPerformanceFeeRole = smartVault.interface.getSighash('setPerformanceFee')
-                  await smartVault.connect(admin).authorize(admin.address, setPerformanceFeeRole)
-                  await smartVault.connect(admin).setPerformanceFee(performanceFee, fp(1000), token.address, MONTH)
+                  itTransfersTheTokensToTheSmartVault(ratio)
+                  itDecreasesTheInvestedValue(ratio)
+                  itDoesNotPayPerformanceFees(ratio)
                 })
 
-                async function computePerformanceFeeAmount(ratio: BigNumber): Promise<BigNumber> {
-                  const investedValue = await smartVault.investedValue(strategy.address)
-                  const currentValue = await strategy.lastValue(smartVault.address)
-                  const valueGains = currentValue.gt(investedValue) ? currentValue.sub(investedValue) : bn(0)
-                  if (valueGains.eq(0)) return bn(0)
+                context('when withdraws all', async () => {
+                  const ratio = fp(1)
 
-                  const exitValue = currentValue.mul(ratio).div(fp(1))
-                  const taxableValue = exitValue.gt(valueGains) ? valueGains : exitValue
-
-                  const valueRate = await strategy.valueRate()
-                  const taxableAmount = taxableValue.mul(valueRate).div(fp(1))
-                  return taxableAmount.mul(performanceFee).div(fp(1))
-                }
-
-                const itTransfersTheTokensToTheSmartVault = (ratio: BigNumber) => {
-                  it('receives strategy tokens in exchange of lp tokens', async () => {
-                    const exitAmount = await computeExitAmount(ratio)
-                    const performanceFeeAmount = await computePerformanceFeeAmount(ratio)
-                    const expectedAmountAfterFees = exitAmount.sub(performanceFeeAmount)
-                    const previousLptBalance = await lpt.balanceOf(smartVault.address)
-                    const previousTokenBalance = await token.balanceOf(smartVault.address)
-
-                    await smartVault.exit(strategy.address, ratio, slippage, data)
-
-                    const currentTokenBalance = await token.balanceOf(smartVault.address)
-                    const expectedTokenBalance = previousTokenBalance.add(expectedAmountAfterFees)
-                    expect(currentTokenBalance).to.be.at.least(expectedTokenBalance.sub(1))
-                    expect(currentTokenBalance).to.be.at.most(expectedTokenBalance.add(1))
-
-                    const currentLptBalance = await lpt.balanceOf(smartVault.address)
-                    expect(currentLptBalance).to.be.equal(previousLptBalance.sub(exitAmount))
-                  })
-
-                  it('emits an event', async () => {
-                    const exitAmount = await computeExitAmount(ratio)
-                    const performanceFeeAmount = await computePerformanceFeeAmount(ratio)
-                    const expectedAmountAfterFees = exitAmount.sub(performanceFeeAmount)
-
-                    const tx = await smartVault.exit(strategy.address, ratio, slippage, data)
-
-                    await assertEvent(tx, 'Exit', {
-                      strategy,
-                      received: expectedAmountAfterFees,
-                      value: exitAmount, // rate 1
-                      fee: performanceFeeAmount,
-                    })
-                  })
-                }
-
-                const itPaysPerformanceFees = (ratio: BigNumber) => {
-                  it('pays performance fees to the fee collector', async () => {
-                    const previousBalance = await token.balanceOf(feeCollector.address)
-                    const expectedPerformanceFeeAmount = await computePerformanceFeeAmount(ratio)
-
-                    await smartVault.exit(strategy.address, ratio, slippage, data)
-
-                    const currentBalance = await token.balanceOf(feeCollector.address)
-                    const expectedBalance = previousBalance.add(expectedPerformanceFeeAmount)
-                    expect(currentBalance).to.be.at.least(expectedBalance.sub(1))
-                    expect(currentBalance).to.be.at.most(expectedBalance.add(1))
-                  })
-
-                  it('updates the total charged fees', async () => {
-                    const previousData = await smartVault.performanceFee()
-                    const expectedPerformanceFeeAmount = await computePerformanceFeeAmount(ratio)
-
-                    await smartVault.exit(strategy.address, ratio, slippage, data)
-
-                    const currentData = await smartVault.performanceFee()
-                    expect(currentData.pct).to.be.equal(previousData.pct)
-                    expect(currentData.cap).to.be.equal(previousData.cap)
-                    expect(currentData.token).to.be.equal(previousData.token)
-                    expect(currentData.period).to.be.equal(previousData.period)
-                    expect(currentData.totalCharged).to.be.equal(expectedPerformanceFeeAmount)
-                    expect(currentData.nextResetTime).to.be.equal(previousData.nextResetTime)
-                  })
-                }
-
-                context('when the strategy is even', async () => {
-                  context('when withdraws half', async () => {
-                    const ratio = fp(0.5)
-
-                    itTransfersTheTokensToTheSmartVault(ratio)
-                    itDecreasesTheInvestedValue(ratio)
-                    itDoesNotPayPerformanceFees(ratio)
-                  })
-
-                  context('when withdraws all', async () => {
-                    const ratio = fp(1)
-
-                    itTransfersTheTokensToTheSmartVault(ratio)
-                    itDecreasesTheInvestedValue(ratio)
-                    itDoesNotPayPerformanceFees(ratio)
-                  })
-                })
-
-                context('when the strategy reports some gains (2x)', async () => {
-                  beforeEach('mock gains', async () => {
-                    await strategy.mockGains(smartVault.address, 2)
-                  })
-
-                  context('when withdraws only gains', async () => {
-                    const ratio = fp(0.5)
-
-                    itTransfersTheTokensToTheSmartVault(ratio)
-                    itDoesNotAffectTheInvestedValue(ratio)
-                    itPaysPerformanceFees(ratio)
-                  })
-
-                  context('when withdraws more than gains', async () => {
-                    const ratio = fp(0.75)
-
-                    itTransfersTheTokensToTheSmartVault(ratio)
-                    itDecreasesTheInvestedValue(ratio)
-                    itPaysPerformanceFees(ratio)
-                  })
-
-                  context('when withdraws all', async () => {
-                    const ratio = fp(1)
-
-                    itTransfersTheTokensToTheSmartVault(ratio)
-                    itDecreasesTheInvestedValue(ratio)
-                    itPaysPerformanceFees(ratio)
-                  })
-                })
-
-                context('when the strategy reports losses (0.5x)', async () => {
-                  beforeEach('mock losses', async () => {
-                    await strategy.mockLosses(smartVault.address, 2)
-                  })
-
-                  context('when withdraws half', async () => {
-                    const ratio = fp(0.5)
-
-                    itTransfersTheTokensToTheSmartVault(ratio)
-                    itDecreasesTheInvestedValue(ratio)
-                    itDoesNotPayPerformanceFees(ratio)
-                  })
-
-                  context('when withdraws all', async () => {
-                    const ratio = fp(1)
-
-                    itTransfersTheTokensToTheSmartVault(ratio)
-                    itDecreasesTheInvestedValue(ratio)
-                    itDoesNotPayPerformanceFees(ratio)
-                  })
+                  itTransfersTheTokensToTheSmartVault(ratio)
+                  itDecreasesTheInvestedValue(ratio)
+                  itDoesNotPayPerformanceFees(ratio)
                 })
               })
 
-              context('without performance fee', async () => {
-                const itTransfersTheTokensToTheSmartVault = (ratio: BigNumber) => {
-                  it('receives strategy tokens in exchange of lp tokens', async () => {
-                    const exitAmount = await computeExitAmount(ratio)
-                    const previousLptBalance = await lpt.balanceOf(smartVault.address)
-                    const previousTokenBalance = await token.balanceOf(smartVault.address)
-
-                    await smartVault.exit(strategy.address, ratio, slippage, data)
-
-                    const currentTokenBalance = await token.balanceOf(smartVault.address)
-                    const expectedTokenBalance = previousTokenBalance.add(exitAmount)
-                    expect(currentTokenBalance).to.be.at.least(expectedTokenBalance.sub(1))
-                    expect(currentTokenBalance).to.be.at.most(expectedTokenBalance.add(1))
-
-                    const currentLptBalance = await lpt.balanceOf(smartVault.address)
-                    expect(currentLptBalance).to.be.equal(previousLptBalance.sub(exitAmount))
-                  })
-
-                  it('emits an event', async () => {
-                    const exitAmount = await computeExitAmount(ratio)
-
-                    const tx = await smartVault.exit(strategy.address, ratio, slippage, data)
-
-                    await assertEvent(tx, 'Exit', {
-                      received: exitAmount,
-                      value: exitAmount, // rate 1
-                      fee: 0,
-                    })
-                  })
-                }
-
-                context('when the strategy is even', async () => {
-                  context('when withdraws half', async () => {
-                    const ratio = fp(0.5)
-
-                    itTransfersTheTokensToTheSmartVault(ratio)
-                    itDecreasesTheInvestedValue(ratio)
-                    itDoesNotPayPerformanceFees(ratio)
-                  })
-
-                  context('when withdraws all', async () => {
-                    const ratio = fp(1)
-
-                    itTransfersTheTokensToTheSmartVault(ratio)
-                    itDecreasesTheInvestedValue(ratio)
-                    itDoesNotPayPerformanceFees(ratio)
-                  })
+              context('when the strategy reports some gains (2x)', async () => {
+                beforeEach('mock gains', async () => {
+                  await strategy.mockGains(smartVault.address, 2)
                 })
 
-                context('when the strategy reports some gains (2x)', async () => {
-                  beforeEach('mock gains', async () => {
-                    await strategy.mockGains(smartVault.address, 2)
-                  })
+                context('when withdraws only gains', async () => {
+                  const ratio = fp(0.5)
 
-                  context('when withdraws only gains', async () => {
-                    const ratio = fp(0.5)
-
-                    itTransfersTheTokensToTheSmartVault(ratio)
-                    itDoesNotAffectTheInvestedValue(ratio)
-                    itDoesNotPayPerformanceFees(ratio)
-                  })
-
-                  context('when withdraws more than gains', async () => {
-                    const ratio = fp(0.75)
-
-                    itTransfersTheTokensToTheSmartVault(ratio)
-                    itDecreasesTheInvestedValue(ratio)
-                    itDoesNotPayPerformanceFees(ratio)
-                  })
-
-                  context('when withdraws all', async () => {
-                    const ratio = fp(1)
-
-                    itTransfersTheTokensToTheSmartVault(ratio)
-                    itDecreasesTheInvestedValue(ratio)
-                    itDoesNotPayPerformanceFees(ratio)
-                  })
+                  itTransfersTheTokensToTheSmartVault(ratio)
+                  itDoesNotAffectTheInvestedValue(ratio)
+                  itPaysPerformanceFees(ratio)
                 })
 
-                context('when the strategy reports losses (0.5x)', async () => {
-                  beforeEach('mock losses', async () => {
-                    await strategy.mockLosses(smartVault.address, 2)
-                  })
+                context('when withdraws more than gains', async () => {
+                  const ratio = fp(0.75)
 
-                  context('when withdraws half', async () => {
-                    const ratio = fp(0.5)
+                  itTransfersTheTokensToTheSmartVault(ratio)
+                  itDecreasesTheInvestedValue(ratio)
+                  itPaysPerformanceFees(ratio)
+                })
 
-                    itTransfersTheTokensToTheSmartVault(ratio)
-                    itDecreasesTheInvestedValue(ratio)
-                    itDoesNotPayPerformanceFees(ratio)
-                  })
+                context('when withdraws all', async () => {
+                  const ratio = fp(1)
 
-                  context('when withdraws all', async () => {
-                    const ratio = fp(1)
+                  itTransfersTheTokensToTheSmartVault(ratio)
+                  itDecreasesTheInvestedValue(ratio)
+                  itPaysPerformanceFees(ratio)
+                })
+              })
 
-                    itTransfersTheTokensToTheSmartVault(ratio)
-                    itDecreasesTheInvestedValue(ratio)
-                    itDoesNotPayPerformanceFees(ratio)
-                  })
+              context('when the strategy reports losses (0.5x)', async () => {
+                beforeEach('mock losses', async () => {
+                  await strategy.mockLosses(smartVault.address, 2)
+                })
+
+                context('when withdraws half', async () => {
+                  const ratio = fp(0.5)
+
+                  itTransfersTheTokensToTheSmartVault(ratio)
+                  itDecreasesTheInvestedValue(ratio)
+                  itDoesNotPayPerformanceFees(ratio)
+                })
+
+                context('when withdraws all', async () => {
+                  const ratio = fp(1)
+
+                  itTransfersTheTokensToTheSmartVault(ratio)
+                  itDecreasesTheInvestedValue(ratio)
+                  itDoesNotPayPerformanceFees(ratio)
                 })
               })
             })
 
-            context('when the strategy is not allowed', () => {
-              beforeEach('disallow strategy', async () => {
-                await smartVault.connect(admin).setStrategy(strategy.address, false)
+            context('without performance fee', async () => {
+              const itTransfersTheTokensToTheSmartVault = (ratio: BigNumber) => {
+                it('receives strategy tokens in exchange of lp tokens', async () => {
+                  const expectedAmountOut = await computeExpectedAmountOut(ratio)
+                  const previousLptBalance = await lpt.balanceOf(smartVault.address)
+                  const previousTokenBalance = await token.balanceOf(smartVault.address)
+
+                  const exitAmount = previousLptBalance.mul(ratio).div(fp(1))
+                  await smartVault.exit(strategy.address, [lpt.address], [exitAmount], slippage, data)
+
+                  const currentTokenBalance = await token.balanceOf(smartVault.address)
+                  const expectedTokenBalance = previousTokenBalance.add(expectedAmountOut)
+                  expect(currentTokenBalance).to.be.at.least(expectedTokenBalance.sub(1))
+                  expect(currentTokenBalance).to.be.at.most(expectedTokenBalance.add(1))
+
+                  const currentLptBalance = await lpt.balanceOf(smartVault.address)
+                  expect(currentLptBalance).to.be.equal(previousLptBalance.sub(exitAmount))
+                })
+
+                it('emits an event', async () => {
+                  const expectedAmountOut = await computeExpectedAmountOut(ratio)
+
+                  const exitAmount = (await lpt.balanceOf(smartVault.address)).mul(ratio).div(fp(1))
+                  const tx = await smartVault.exit(strategy.address, [lpt.address], [exitAmount], slippage, data)
+
+                  await assertEvent(tx, 'Exit', {
+                    strategy,
+                    tokensIn: [lpt.address],
+                    amountsIn: [exitAmount],
+                    tokensOut: [token.address],
+                    amountsOut: [expectedAmountOut],
+                    value: expectedAmountOut, // rate 1
+                    fees: [bn(0)],
+                  })
+                })
+              }
+
+              context('when the strategy is even', async () => {
+                context('when withdraws half', async () => {
+                  const ratio = fp(0.5)
+
+                  itTransfersTheTokensToTheSmartVault(ratio)
+                  itDecreasesTheInvestedValue(ratio)
+                  itDoesNotPayPerformanceFees(ratio)
+                })
+
+                context('when withdraws all', async () => {
+                  const ratio = fp(1)
+
+                  itTransfersTheTokensToTheSmartVault(ratio)
+                  itDecreasesTheInvestedValue(ratio)
+                  itDoesNotPayPerformanceFees(ratio)
+                })
               })
 
-              it('reverts', async () => {
-                await expect(smartVault.exit(strategy.address, fp(1), slippage, data)).to.be.revertedWith(
-                  'STRATEGY_NOT_ALLOWED'
-                )
+              context('when the strategy reports some gains (2x)', async () => {
+                beforeEach('mock gains', async () => {
+                  await strategy.mockGains(smartVault.address, 2)
+                })
+
+                context('when withdraws only gains', async () => {
+                  const ratio = fp(0.5)
+
+                  itTransfersTheTokensToTheSmartVault(ratio)
+                  itDoesNotAffectTheInvestedValue(ratio)
+                  itDoesNotPayPerformanceFees(ratio)
+                })
+
+                context('when withdraws more than gains', async () => {
+                  const ratio = fp(0.75)
+
+                  itTransfersTheTokensToTheSmartVault(ratio)
+                  itDecreasesTheInvestedValue(ratio)
+                  itDoesNotPayPerformanceFees(ratio)
+                })
+
+                context('when withdraws all', async () => {
+                  const ratio = fp(1)
+
+                  itTransfersTheTokensToTheSmartVault(ratio)
+                  itDecreasesTheInvestedValue(ratio)
+                  itDoesNotPayPerformanceFees(ratio)
+                })
+              })
+
+              context('when the strategy reports losses (0.5x)', async () => {
+                beforeEach('mock losses', async () => {
+                  await strategy.mockLosses(smartVault.address, 2)
+                })
+
+                context('when withdraws half', async () => {
+                  const ratio = fp(0.5)
+
+                  itTransfersTheTokensToTheSmartVault(ratio)
+                  itDecreasesTheInvestedValue(ratio)
+                  itDoesNotPayPerformanceFees(ratio)
+                })
+
+                context('when withdraws all', async () => {
+                  const ratio = fp(1)
+
+                  itTransfersTheTokensToTheSmartVault(ratio)
+                  itDecreasesTheInvestedValue(ratio)
+                  itDoesNotPayPerformanceFees(ratio)
+                })
               })
             })
           })
 
-          context('when the given ratio is not valid', async () => {
-            const ratio = fp(10)
+          context('when the strategy is not allowed', () => {
+            beforeEach('disallow strategy', async () => {
+              await smartVault.connect(admin).setStrategy(strategy.address, false)
+            })
 
             it('reverts', async () => {
-              await expect(smartVault.exit(strategy.address, ratio, slippage, data)).to.be.revertedWith(
-                'EXIT_INVALID_RATIO'
+              await expect(smartVault.exit(strategy.address, [token.address], [0], slippage, data)).to.be.revertedWith(
+                'STRATEGY_NOT_ALLOWED'
               )
             })
           })
@@ -2826,7 +2829,7 @@ describe('SmartVault', () => {
           const slippage = fp(1.01)
 
           it('reverts', async () => {
-            await expect(smartVault.exit(strategy.address, fp(1), slippage, data)).to.be.revertedWith(
+            await expect(smartVault.exit(strategy.address, [token.address], [0], slippage, data)).to.be.revertedWith(
               'EXIT_SLIPPAGE_ABOVE_ONE'
             )
           })
@@ -2835,7 +2838,9 @@ describe('SmartVault', () => {
 
       context('when the smart vault has not joined before', async () => {
         it('reverts', async () => {
-          await expect(smartVault.exit(strategy.address, fp(1), 0, data)).to.be.revertedWith('EXIT_NO_INVESTED_VALUE')
+          await expect(smartVault.exit(strategy.address, [token.address], [0], 0, data)).to.be.revertedWith(
+            'EXIT_NO_INVESTED_VALUE'
+          )
         })
       })
     })
@@ -2846,7 +2851,9 @@ describe('SmartVault', () => {
       })
 
       it('reverts', async () => {
-        await expect(smartVault.exit(strategy.address, 0, 0, data)).to.be.revertedWith('AUTH_SENDER_NOT_ALLOWED')
+        await expect(smartVault.exit(strategy.address, [token.address], [0], 0, data)).to.be.revertedWith(
+          'AUTH_SENDER_NOT_ALLOWED'
+        )
       })
     })
   })
