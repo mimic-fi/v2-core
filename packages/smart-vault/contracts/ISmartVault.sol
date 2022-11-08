@@ -323,12 +323,12 @@ interface ISmartVault is IPriceFeedProvider, IImplementation, IAuthorizer {
     /**
      * @dev Join a strategy with an amount of tokens
      * @param strategy Address of the strategy to join
-     * @param tokensIn TODO
-     * @param amountsIn TODO
+     * @param tokensIn List of token addresses to join with
+     * @param amountsIn List of token amounts to join with
      * @param slippage Slippage that will be used to compute the join
      * @param data Extra data that may enable or not different behaviors depending on the implementation
-     * @return tokensOut TODO
-     * @return amountsOut TODO
+     * @return tokensOut List of token addresses received after the join
+     * @return amountsOut List of token amounts received after the join
      */
     function join(
         address strategy,
@@ -341,12 +341,12 @@ interface ISmartVault is IPriceFeedProvider, IImplementation, IAuthorizer {
     /**
      * @dev Exit a strategy
      * @param strategy Address of the strategy to exit
-     * @param tokensIn TODO
-     * @param amountsIn TODO
+     * @param tokensIn List of token addresses to exit with
+     * @param amountsIn List of token amounts to exit with
      * @param slippage Slippage that will be used to compute the exit
      * @param data Extra data that may enable or not different behaviors depending on the implementation
-     * @return tokensOut TODO
-     * @return amountsOut Amount of tokens received from the exit
+     * @return tokensOut List of token addresses received after the exit
+     * @return amountsOut List of token amounts received after the exit
      */
     function exit(
         address strategy,

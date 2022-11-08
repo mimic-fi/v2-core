@@ -341,12 +341,12 @@ contract SmartVault is ISmartVault, PriceFeedProvider, InitializableAuthorizedIm
     /**
      * @dev Join a strategy with an amount of tokens. Sender must be authorized.
      * @param strategy Address of the strategy to join
-     * @param tokensIn TODO
-     * @param amountsIn TODO
+     * @param tokensIn List of token addresses to join with
+     * @param amountsIn List of token amounts to join with
      * @param slippage Slippage that will be used to compute the join
      * @param data Extra data passed to the strategy and logged
-     * @return tokensOut TODO
-     * @return amountsOut TODO
+     * @return tokensOut List of token addresses received after the join
+     * @return amountsOut List of token amounts received after the join
      */
     function join(
         address strategy,
@@ -368,12 +368,12 @@ contract SmartVault is ISmartVault, PriceFeedProvider, InitializableAuthorizedIm
     /**
      * @dev Exit a strategy. Sender must be authorized.
      * @param strategy Address of the strategy to exit
-     * @param tokensIn TODO
-     * @param amountsIn TODO
+     * @param tokensIn List of token addresses to exit with
+     * @param amountsIn List of token amounts to exit with
      * @param slippage Slippage that will be used to compute the exit
      * @param data Extra data passed to the strategy and logged
-     * @return tokensOut TODO
-     * @return amountsOut TODO
+     * @return tokensOut List of token addresses received after the exit
+     * @return amountsOut List of token amounts received after the exit
      */
     function exit(
         address strategy,

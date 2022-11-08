@@ -66,7 +66,7 @@ contract CompoundStrategy is IStrategy, BaseImplementation {
     }
 
     /**
-     * @dev TODO
+     * @dev Tokens accepted to join the strategy
      */
     function joinTokens() public view override returns (address[] memory tokens) {
         tokens = new address[](1);
@@ -74,7 +74,7 @@ contract CompoundStrategy is IStrategy, BaseImplementation {
     }
 
     /**
-     * @dev TODO
+     * @dev Tokens accepted to exit the strategy
      */
     function exitTokens() public view override returns (address[] memory tokens) {
         tokens = new address[](1);
@@ -120,10 +120,10 @@ contract CompoundStrategy is IStrategy, BaseImplementation {
 
     /**
      * @dev Invest tokens in Compound
-     * @param tokensIn TODO
-     * @param amountsIn TODO
-     * @return tokensOut TODO
-     * @return amountsOut TODO
+     * @param tokensIn List of token addresses to join with
+     * @param amountsIn List of token amounts to join with
+     * @return tokensOut List of token addresses received after the join
+     * @return amountsOut List of token amounts received after the join
      * @return value Value represented by the joined amount
      */
     function join(address[] memory tokensIn, uint256[] memory amountsIn, uint256, bytes memory)
@@ -154,10 +154,10 @@ contract CompoundStrategy is IStrategy, BaseImplementation {
 
     /**
      * @dev Divest tokens from Compound
-     * @param tokensIn TODO
-     * @param amountsIn TODO
-     * @return tokensOut TODO
-     * @return amountsOut TODO
+     * @param tokensIn List of token addresses to exit with
+     * @param amountsIn List of token amounts to exit with
+     * @return tokensOut List of token addresses received after the exit
+     * @return amountsOut List of token amounts received after the exit
      * @return value Value represented by the exited amount
      */
     function exit(address[] memory tokensIn, uint256[] memory amountsIn, uint256, bytes memory)

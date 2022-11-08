@@ -22,12 +22,12 @@ import '@mimic-fi/v2-registry/contracts/implementations/IImplementation.sol';
  */
 interface IStrategy is IImplementation {
     /**
-     * @dev TODO
+     * @dev Tokens accepted to join the strategy
      */
     function joinTokens() external view returns (address[] memory);
 
     /**
-     * @dev TODO
+     * @dev Tokens accepted to exit the strategy
      */
     function exitTokens() external view returns (address[] memory);
 
@@ -56,12 +56,12 @@ interface IStrategy is IImplementation {
 
     /**
      * @dev Join the interfaced DeFi protocol
-     * @param tokensIn TODO
-     * @param amountsIn TODO
+     * @param tokensIn List of token addresses to join with
+     * @param amountsIn List of token amounts to join with
      * @param slippage Slippage value to join with
      * @param data Arbitrary extra data
-     * @return tokensOut TODO
-     * @return amountsOut TODO
+     * @return tokensOut List of token addresses received after the join
+     * @return amountsOut List of token amounts received after the join
      * @return value Value represented by the joined amount
      */
     function join(address[] memory tokensIn, uint256[] memory amountsIn, uint256 slippage, bytes memory data)
@@ -70,12 +70,12 @@ interface IStrategy is IImplementation {
 
     /**
      * @dev Exit the interfaced DeFi protocol
-     * @param tokensIn TODO
-     * @param amountsIn TODO
+     * @param tokensIn List of token addresses to exit with
+     * @param amountsIn List of token amounts to exit with
      * @param slippage Slippage value to exit with
      * @param data Arbitrary extra data
-     * @return tokensOut TODO
-     * @return amountsOut TODO
+     * @return tokensOut List of token addresses received after the exit
+     * @return amountsOut List of token amounts received after the exit
      * @return value Value represented by the exited amount
      */
     function exit(address[] memory tokensIn, uint256[] memory amountsIn, uint256 slippage, bytes memory data)
