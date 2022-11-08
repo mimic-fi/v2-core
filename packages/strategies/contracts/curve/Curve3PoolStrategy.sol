@@ -24,6 +24,8 @@ import '../IStrategy.sol';
 import './ICurve3Pool.sol';
 import './ICurveLiquidityGauge.sol';
 
+import 'hardhat/console.sol';
+
 /**
  * @title Curve3PoolStrategy
  * @dev TODO
@@ -34,20 +36,30 @@ contract Curve3PoolStrategy is IStrategy, BaseImplementation {
     // Namespace under which the Strategies implementations are registered in the Mimic Registry
     bytes32 public constant override NAMESPACE = keccak256('STRATEGY');
 
-    // Curve 3 pool uses 3 tokens
-    uint256 public constant COINS = 3;
+    // Curve 3 pool uses 3 underlying tokens
+    uint256 public constant UNDERLYING_TOKENS_LENGTH = 3;
+
+    // Curve 3 pool uses 1 pool token
+    uint256 public constant POOL_TOKENS_LENGTH = 1;
 
     // Curve 3 pool uses 1 reward token
-    uint256 public constant REWARDS = 1;
+    uint256 public constant REWARDS_LENGTH = 1;
 
-    // Token that will be used as the strategy entry point
-    address public immutable override token;
+    // Underlying tokens that will be used as the strategy entry point
+    IERC20 public immutable token0;
+    IERC20 public immutable token1;
+    IERC20 public immutable token2;
 
-    // LP token used by the Curve pool
-    IERC20 public poolToken;
+    // Value to scale token amounts to 18 decimals for each of the underlying tokens
+    uint256 public immutable tokenScale0;
+    uint256 public immutable tokenScale1;
+    uint256 public immutable tokenScale2;
 
     // Address of the CRV token used as the reward token of the gauge
-    IERC20 public crv;
+    IERC20 public immutable crv;
+
+    // LP token used by the Curve pool
+    IERC20 public immutable poolToken;
 
     // Curve pool
     ICurve3Pool public immutable pool;
@@ -55,38 +67,63 @@ contract Curve3PoolStrategy is IStrategy, BaseImplementation {
     // Curve pool liquidity gauge
     ICurveLiquidityGauge public immutable gauge;
 
-    // Index of the token entry point in the given Curve pool
-    uint256 public immutable tokenIndex;
-
-    // Value to scale token strategy amounts to 18 decimals
-    uint256 public immutable tokenScale;
-
     /**
      * @dev Creates a new Curve strategy contract
-     * @param _token Token to be used as the strategy entry point
-     * @param _poolToken LP token used by the associated Curve pool
      * @param _pool Curve pool associated to the strategy
+     * @param _poolToken LP token used by the associated Curve pool
      * @param _registry Address of the Mimic Registry to be referenced
      */
-    constructor(address _token, IERC20 _poolToken, ICurve3Pool _pool, ICurveLiquidityGauge _gauge, address _registry)
+    constructor(ICurve3Pool _pool, IERC20 _poolToken, ICurveLiquidityGauge _gauge, address _registry)
         BaseImplementation(_registry)
     {
         require(_gauge.lp_token() == address(_poolToken), 'CURVE_INVALID_POOL_TOKEN');
 
-        token = _token;
+        pool = _pool;
         poolToken = _poolToken;
         crv = IERC20(_gauge.crv_token());
-        pool = _pool;
         gauge = _gauge;
 
-        uint256 index = COINS;
-        for (uint256 i = 0; i < COINS; i++) if (_pool.coins(i) == _token) index = i;
-        require(index < COINS, 'CURVE_COIN_NOT_FOUND');
-        tokenIndex = index;
+        address _token0 = _pool.coins(0);
+        uint256 decimals0 = IERC20Metadata(_token0).decimals();
+        require(decimals0 <= 18, 'CURVE_TOKEN_0_ABOVE_18_DECIMALS');
+        tokenScale0 = 10**(18 - decimals0);
+        token0 = IERC20(_token0);
 
-        uint256 decimals = IERC20Metadata(_token).decimals();
-        require(decimals <= 18, 'CURVE_TOKEN_ABOVE_18_DECIMALS');
-        tokenScale = 10**(18 - decimals);
+        address _token1 = _pool.coins(1);
+        uint256 decimals1 = IERC20Metadata(_token1).decimals();
+        require(decimals1 <= 18, 'CURVE_TOKEN_1_ABOVE_18_DECIMALS');
+        tokenScale1 = 10**(18 - decimals1);
+        token1 = IERC20(_token1);
+
+        address _token2 = _pool.coins(2);
+        uint256 decimals2 = IERC20Metadata(_token2).decimals();
+        require(decimals2 <= 18, 'CURVE_TOKEN_2_ABOVE_18_DECIMALS');
+        tokenScale2 = 10**(18 - decimals2);
+        token2 = IERC20(_token2);
+
+        bool hasExpectedTokens = false;
+        try _pool.coins(UNDERLYING_TOKENS_LENGTH) returns (address) {} catch {
+            hasExpectedTokens = true;
+        }
+        require(hasExpectedTokens, 'CURVE_UNEXPECTED_TOKENS_LENGTH');
+    }
+
+    /**
+     * @dev TODO
+     */
+    function joinTokens() public view override returns (address[] memory tokens) {
+        tokens = new address[](UNDERLYING_TOKENS_LENGTH);
+        tokens[0] = address(token0);
+        tokens[1] = address(token1);
+        tokens[2] = address(token2);
+    }
+
+    /**
+     * @dev TODO
+     */
+    function exitTokens() public view override returns (address[] memory tokens) {
+        tokens = new address[](POOL_TOKENS_LENGTH);
+        tokens[0] = address(poolToken);
     }
 
     /**
@@ -117,73 +154,116 @@ contract Curve3PoolStrategy is IStrategy, BaseImplementation {
         gauge.minter().mint(address(gauge));
         uint256 finalCrvAmount = crv.balanceOf(address(this));
 
-        amounts = new uint256[](REWARDS);
+        amounts = new uint256[](REWARDS_LENGTH);
         amounts[0] = finalCrvAmount - initialCrvAmount;
 
-        tokens = new address[](REWARDS);
+        tokens = new address[](REWARDS_LENGTH);
         tokens[0] = address(crv);
     }
 
     /**
      * @dev Join the associated Curve pool
-     * @param amount Amount of strategy tokens to invest
-     * @param slippage Slippage value to be used to compute the desired min amount out of pool tokens
+     * @param tokensIn TODO
+     * @param amountsIn TODO
+     * @param slippage Slippage value to join with
+     * @return tokensOut TODO
+     * @return amountsOut TODO
      * @return value Value represented by the joined amount
      */
-    function join(uint256 amount, uint256 slippage, bytes memory) external override returns (uint256 value) {
-        if (amount == 0) return 0;
+    function join(address[] memory tokensIn, uint256[] memory amountsIn, uint256 slippage, bytes memory)
+        external
+        override
+        returns (address[] memory tokensOut, uint256[] memory amountsOut, uint256 value)
+    {
+        require(tokensIn.length == UNDERLYING_TOKENS_LENGTH, 'CURVE_INVALID_TOKENS_IN_LENGTH');
+        require(amountsIn.length == UNDERLYING_TOKENS_LENGTH, 'CURVE_INVALID_AMOUNTS_IN_LENGTH');
+        require(tokensIn[0] == address(token0), 'COMPOUND_INVALID_JOIN_TOKEN_0');
+        require(tokensIn[1] == address(token1), 'COMPOUND_INVALID_JOIN_TOKEN_1');
+        require(tokensIn[2] == address(token2), 'COMPOUND_INVALID_JOIN_TOKEN_2');
         require(slippage <= FixedPoint.ONE, 'CURVE_INVALID_SLIPPAGE');
+
+        tokensOut = exitTokens();
+        amountsOut = new uint256[](POOL_TOKENS_LENGTH);
+        uint256 amountIn0 = amountsIn[0];
+        uint256 amountIn1 = amountsIn[1];
+        uint256 amountIn2 = amountsIn[2];
+        if (amountIn0 == 0 && amountIn1 == 0 && amountIn2 == 0) return (tokensOut, amountsOut, 0);
 
         // Compute min amount out of pool tokens
         uint256 poolTokenPrice = pool.get_virtual_price();
-        uint256 expectedAmountOut = (amount * tokenScale).divUp(poolTokenPrice);
+        uint256 scaledAmountIn0 = amountIn0 * tokenScale0;
+        uint256 scaledAmountIn1 = amountIn1 * tokenScale1;
+        uint256 scaledAmountIn2 = amountIn2 * tokenScale2;
+        uint256 expectedAmountOut = (scaledAmountIn0 + scaledAmountIn1 + scaledAmountIn2).divUp(poolTokenPrice);
         uint256 minAmountOut = expectedAmountOut.mulUp(FixedPoint.ONE - slippage);
-        uint256[COINS] memory amounts;
-        amounts[tokenIndex] = amount;
 
         // Join pool
         uint256 initialPoolTokenBalance = poolToken.balanceOf(address(this));
-        IERC20(token).approve(address(pool), amount);
-        pool.add_liquidity(amounts, minAmountOut);
+        if (amountIn0 > 0) token0.approve(address(pool), amountIn0);
+        if (amountIn1 > 0) token1.approve(address(pool), amountIn1);
+        if (amountIn2 > 0) token2.approve(address(pool), amountIn2);
+        pool.add_liquidity([amountIn0, amountIn1, amountIn2], minAmountOut);
+
         uint256 finalPoolTokenBalance = poolToken.balanceOf(address(this));
-        value = finalPoolTokenBalance - initialPoolTokenBalance;
+        amountsOut[0] = finalPoolTokenBalance - initialPoolTokenBalance;
+        value = amountsOut[0].mulDown(poolTokenPrice);
 
         // Stake pool tokens
-        poolToken.approve(address(gauge), value);
-        gauge.deposit(value);
+        poolToken.approve(address(gauge), amountsOut[0]);
+        gauge.deposit(amountsOut[0]);
     }
 
     /**
      * @dev Exit from the associated Curve pool
-     * @param ratio Ratio of the invested position to divest
-     * @param slippage Slippage value to be used to compute the desired min amount out of strategy tokens
-     * @return amount Amount of strategy tokens exited with
+     * @param tokensIn TODO
+     * @param amountsIn TODO
+     * @param slippage Slippage value to exit with
+     * @return tokensOut TODO
+     * @return amountsOut TODO
      * @return value Value represented by the exited amount
      */
-    function exit(uint256 ratio, uint256 slippage, bytes memory)
+    function exit(address[] memory tokensIn, uint256[] memory amountsIn, uint256 slippage, bytes memory)
         external
         override
-        returns (uint256 amount, uint256 value)
+        returns (address[] memory tokensOut, uint256[] memory amountsOut, uint256 value)
     {
-        if (ratio == 0) return (0, 0);
-        require(ratio <= FixedPoint.ONE, 'CURVE_INVALID_RATIO');
+        require(tokensIn.length == POOL_TOKENS_LENGTH, 'CURVE_INVALID_TOKENS_IN_LENGTH');
+        require(amountsIn.length == POOL_TOKENS_LENGTH, 'CURVE_INVALID_AMOUNTS_IN_LENGTH');
+        require(tokensIn[0] == address(poolToken), 'COMPOUND_INVALID_EXIT_TOKEN');
         require(slippage <= FixedPoint.ONE, 'CURVE_INVALID_SLIPPAGE');
+
+        tokensOut = joinTokens();
+        amountsOut = new uint256[](1);
+        uint256 amountIn = amountsIn[0];
+        if (amountIn == 0) return (tokensOut, amountsOut, 0);
 
         // Unstake pool tokens
         uint256 stakedPoolTokenBalance = gauge.balanceOf(address(this));
-        uint256 exitPoolTokenAmount = stakedPoolTokenBalance.mulDown(ratio);
-        gauge.withdraw(exitPoolTokenAmount);
+        require(amountIn <= stakedPoolTokenBalance, 'CURVE_INSUFFICIENT_STAKED_BALANCE');
+        gauge.withdraw(amountIn);
 
         // Compute min amount out of strategy tokens
         uint256 poolTokenPrice = pool.get_virtual_price();
-        uint256 expectedAmountOut = exitPoolTokenAmount.mulUp(poolTokenPrice) / tokenScale;
-        uint256 minAmountOut = expectedAmountOut.mulUp(FixedPoint.ONE - slippage);
+        uint256 expectedAmountOut0 = amountIn.mulUp(poolTokenPrice) / tokenScale0;
+        uint256 expectedAmountOut1 = amountIn.mulUp(poolTokenPrice) / tokenScale1;
+        uint256 expectedAmountOut2 = amountIn.mulUp(poolTokenPrice) / tokenScale2;
+        uint256[3] memory minAmountsOut;
+        minAmountsOut[0] = expectedAmountOut0.mulUp(FixedPoint.ONE - slippage);
+        minAmountsOut[1] = expectedAmountOut1.mulUp(FixedPoint.ONE - slippage);
+        minAmountsOut[2] = expectedAmountOut2.mulUp(FixedPoint.ONE - slippage);
 
         // Exit pool
-        uint256 initialTokenAmount = IERC20(token).balanceOf(address(this));
-        pool.remove_liquidity_one_coin(exitPoolTokenAmount, int128(int256(tokenIndex)), minAmountOut);
-        uint256 finalTokenAmount = IERC20(token).balanceOf(address(this));
-        amount = finalTokenAmount - initialTokenAmount;
-        value = exitPoolTokenAmount.mulDown(poolTokenPrice);
+        uint256 initialTokenBalance0 = token0.balanceOf(address(this));
+        uint256 initialTokenBalance1 = token1.balanceOf(address(this));
+        uint256 initialTokenBalance2 = token2.balanceOf(address(this));
+        uint256 initialPoolTokenBalance = poolToken.balanceOf(address(this));
+        pool.remove_liquidity(amountIn, minAmountsOut);
+
+        amountsOut[0] = token0.balanceOf(address(this)) - initialTokenBalance0;
+        amountsOut[1] = token1.balanceOf(address(this)) - initialTokenBalance1;
+        amountsOut[2] = token2.balanceOf(address(this)) - initialTokenBalance2;
+
+        uint256 finalPoolTokenBalance = poolToken.balanceOf(address(this));
+        value = (initialPoolTokenBalance - finalPoolTokenBalance).mulDown(poolTokenPrice);
     }
 }

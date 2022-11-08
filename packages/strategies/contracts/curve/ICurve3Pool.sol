@@ -27,5 +27,5 @@ interface ICurve3Pool {
 
     function add_liquidity(uint256[3] memory amounts, uint256 minAmount) external;
 
-    function remove_liquidity_one_coin(uint256 amount, int128 i, uint256 minAmount) external;
+    function remove_liquidity(uint256 amount, uint256[3] memory minAmounts) external;
 }
