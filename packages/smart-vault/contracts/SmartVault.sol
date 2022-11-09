@@ -357,9 +357,11 @@ contract SmartVault is ISmartVault, PriceFeedProvider, InitializableAuthorizedIm
     ) external override auth returns (address[] memory tokensOut, uint256[] memory amountsOut) {
         require(isStrategyAllowed[strategy], 'STRATEGY_NOT_ALLOWED');
         require(slippage <= FixedPoint.ONE, 'JOIN_SLIPPAGE_ABOVE_ONE');
+        require(tokensIn.length == amountsIn.length, 'JOIN_INPUT_INVALID_LENGTH');
 
         uint256 value;
         (tokensOut, amountsOut, value) = strategy.join(tokensIn, amountsIn, slippage, data);
+        require(tokensOut.length == amountsOut.length, 'JOIN_OUTPUT_INVALID_LENGTH');
 
         investedValue[strategy] = investedValue[strategy] + value;
         emit Join(strategy, tokensIn, amountsIn, tokensOut, amountsOut, value, slippage, data);
@@ -385,9 +387,11 @@ contract SmartVault is ISmartVault, PriceFeedProvider, InitializableAuthorizedIm
         require(isStrategyAllowed[strategy], 'STRATEGY_NOT_ALLOWED');
         require(investedValue[strategy] > 0, 'EXIT_NO_INVESTED_VALUE');
         require(slippage <= FixedPoint.ONE, 'EXIT_SLIPPAGE_ABOVE_ONE');
+        require(tokensIn.length == amountsIn.length, 'EXIT_INPUT_INVALID_LENGTH');
 
         uint256 value;
         (tokensOut, amountsOut, value) = strategy.exit(tokensIn, amountsIn, slippage, data);
+        require(tokensOut.length == amountsOut.length, 'EXIT_OUTPUT_INVALID_LENGTH');
         uint256[] memory performanceFeeAmounts = new uint256[](amountsOut.length);
 
         // It can rely on the last updated value since we have just exited, no need to compute current value
