@@ -81,12 +81,12 @@ interface ISmartVault is IPriceFeedProvider, IImplementation, IAuthorizer {
     /**
      * @dev Emitted every time `wrap` is called
      */
-    event Wrap(uint256 wrapped, bytes data);
+    event Wrap(uint256 amount, uint256 wrapped, bytes data);
 
     /**
      * @dev Emitted every time `unwrap` is called
      */
-    event Unwrap(uint256 unwrapped, bytes data);
+    event Unwrap(uint256 amount, uint256 unwrapped, bytes data);
 
     /**
      * @dev Emitted every time `claim` is called
@@ -96,12 +96,31 @@ interface ISmartVault is IPriceFeedProvider, IImplementation, IAuthorizer {
     /**
      * @dev Emitted every time `join` is called
      */
-    event Join(address indexed strategy, uint256 invested, uint256 value, uint256 slippage, bytes data);
+    event Join(
+        address indexed strategy,
+        address[] tokensIn,
+        uint256[] amountsIn,
+        address[] tokensOut,
+        uint256[] amountsOut,
+        uint256 value,
+        uint256 slippage,
+        bytes data
+    );
 
     /**
      * @dev Emitted every time `exit` is called
      */
-    event Exit(address indexed strategy, uint256 received, uint256 value, uint256 fee, uint256 slippage, bytes data);
+    event Exit(
+        address indexed strategy,
+        address[] tokensIn,
+        uint256[] amountsIn,
+        address[] tokensOut,
+        uint256[] amountsOut,
+        uint256 value,
+        uint256[] fees,
+        uint256 slippage,
+        bytes data
+    );
 
     /**
      * @dev Emitted every time `swap` is called
@@ -304,26 +323,38 @@ interface ISmartVault is IPriceFeedProvider, IImplementation, IAuthorizer {
     /**
      * @dev Join a strategy with an amount of tokens
      * @param strategy Address of the strategy to join
-     * @param amount Amount of strategy tokens to join with
+     * @param tokensIn List of token addresses to join with
+     * @param amountsIn List of token amounts to join with
      * @param slippage Slippage that will be used to compute the join
      * @param data Extra data that may enable or not different behaviors depending on the implementation
-     * @return invested Amount of tokens invested in the strategy
+     * @return tokensOut List of token addresses received after the join
+     * @return amountsOut List of token amounts received after the join
      */
-    function join(address strategy, uint256 amount, uint256 slippage, bytes memory data)
-        external
-        returns (uint256 invested);
+    function join(
+        address strategy,
+        address[] memory tokensIn,
+        uint256[] memory amountsIn,
+        uint256 slippage,
+        bytes memory data
+    ) external returns (address[] memory tokensOut, uint256[] memory amountsOut);
 
     /**
      * @dev Exit a strategy
      * @param strategy Address of the strategy to exit
-     * @param ratio Percentage of the current position that will be exited
+     * @param tokensIn List of token addresses to exit with
+     * @param amountsIn List of token amounts to exit with
      * @param slippage Slippage that will be used to compute the exit
      * @param data Extra data that may enable or not different behaviors depending on the implementation
-     * @return received Amount of tokens received from the exit
+     * @return tokensOut List of token addresses received after the exit
+     * @return amountsOut List of token amounts received after the exit
      */
-    function exit(address strategy, uint256 ratio, uint256 slippage, bytes memory data)
-        external
-        returns (uint256 received);
+    function exit(
+        address strategy,
+        address[] memory tokensIn,
+        uint256[] memory amountsIn,
+        uint256 slippage,
+        bytes memory data
+    ) external returns (address[] memory tokensOut, uint256[] memory amountsOut);
 
     /**
      * @dev Swaps two tokens

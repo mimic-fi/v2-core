@@ -41,14 +41,14 @@ contract CompoundStrategy is IStrategy, BaseImplementation {
     // Namespace under which the Strategies implementations are registered in the Mimic Registry
     bytes32 public constant override NAMESPACE = keccak256('STRATEGY');
 
-    // Token that will be used as the strategy entry point
-    address public immutable override token;
-
-    // Compound token
-    IERC20 public immutable comp;
+    // Underlying token that will be used as the strategy entry point
+    IERC20 public immutable token;
 
     // cToken associated to the strategy token
     ICToken public immutable cToken;
+
+    // Compound token
+    IERC20 public immutable comp;
 
     // Address of the Compound comptroller
     Comptroller public immutable comptroller;
@@ -60,9 +60,25 @@ contract CompoundStrategy is IStrategy, BaseImplementation {
      */
     constructor(ICToken _cToken, address _registry) BaseImplementation(_registry) {
         cToken = _cToken;
-        token = _cToken.underlying();
+        token = IERC20(_cToken.underlying());
         comp = _cToken.comptroller().getCompAddress();
         comptroller = _cToken.comptroller();
+    }
+
+    /**
+     * @dev Tokens accepted to join the strategy
+     */
+    function joinTokens() public view override returns (address[] memory tokens) {
+        tokens = new address[](1);
+        tokens[0] = address(token);
+    }
+
+    /**
+     * @dev Tokens accepted to exit the strategy
+     */
+    function exitTokens() public view override returns (address[] memory tokens) {
+        tokens = new address[](1);
+        tokens[0] = address(cToken);
     }
 
     /**
@@ -104,41 +120,69 @@ contract CompoundStrategy is IStrategy, BaseImplementation {
 
     /**
      * @dev Invest tokens in Compound
-     * @param amount Amount of strategy tokens to invest
+     * @param tokensIn List of token addresses to join with
+     * @param amountsIn List of token amounts to join with
+     * @return tokensOut List of token addresses received after the join
+     * @return amountsOut List of token amounts received after the join
      * @return value Value represented by the joined amount
      */
-    function join(uint256 amount, uint256, bytes memory) external override returns (uint256 value) {
-        if (amount == 0) return 0;
+    function join(address[] memory tokensIn, uint256[] memory amountsIn, uint256, bytes memory)
+        external
+        override
+        returns (address[] memory tokensOut, uint256[] memory amountsOut, uint256 value)
+    {
+        require(tokensIn.length == 1, 'COMPOUND_INVALID_TOKENS_IN_LEN');
+        require(amountsIn.length == 1, 'COMPOUND_INVALID_AMOUNTS_IN_LEN');
+        require(tokensIn[0] == address(token), 'COMPOUND_INVALID_JOIN_TOKEN');
+
+        tokensOut = exitTokens();
+        amountsOut = new uint256[](1);
+        uint256 amountIn = amountsIn[0];
+        if (amountIn == 0) return (tokensOut, amountsOut, 0);
 
         uint256 initialCTokenBalance = cToken.balanceOf(address(this));
-        IERC20(token).approve(address(cToken), 0);
-        IERC20(token).approve(address(cToken), amount);
-        require(cToken.mint(amount) == 0, 'COMPOUND_MINT_FAILED');
+        token.approve(address(cToken), 0);
+        token.approve(address(cToken), amountIn);
+        require(cToken.mint(amountIn) == 0, 'COMPOUND_MINT_FAILED');
 
         uint256 finalCTokenBalance = cToken.balanceOf(address(this));
-        uint256 investedCTokenAmount = finalCTokenBalance - initialCTokenBalance;
+        amountsOut[0] = finalCTokenBalance - initialCTokenBalance;
+
         uint256 cTokenRate = cToken.exchangeRateStored();
-        value = investedCTokenAmount.mulDown(cTokenRate);
+        value = amountsOut[0].mulDown(cTokenRate);
     }
 
     /**
      * @dev Divest tokens from Compound
-     * @param ratio Ratio of the invested position to divest
-     * @return amount Amount of strategy tokens exited with
+     * @param tokensIn List of token addresses to exit with
+     * @param amountsIn List of token amounts to exit with
+     * @return tokensOut List of token addresses received after the exit
+     * @return amountsOut List of token amounts received after the exit
      * @return value Value represented by the exited amount
      */
-    function exit(uint256 ratio, uint256, bytes memory) external override returns (uint256 amount, uint256 value) {
-        if (ratio == 0) return (0, 0);
-        require(ratio <= FixedPoint.ONE, 'COMPOUND_INVALID_RATIO');
+    function exit(address[] memory tokensIn, uint256[] memory amountsIn, uint256, bytes memory)
+        external
+        override
+        returns (address[] memory tokensOut, uint256[] memory amountsOut, uint256 value)
+    {
+        require(tokensIn.length == 1, 'COMPOUND_INVALID_TOKENS_IN_LEN');
+        require(amountsIn.length == 1, 'COMPOUND_INVALID_AMOUNTS_IN_LEN');
+        require(tokensIn[0] == address(cToken), 'COMPOUND_INVALID_EXIT_TOKEN');
 
-        uint256 initialTokenBalance = IERC20(token).balanceOf(address(this));
+        tokensOut = joinTokens();
+        amountsOut = new uint256[](1);
+        uint256 amountIn = amountsIn[0];
+        if (amountIn == 0) return (tokensOut, amountsOut, 0);
+
+        uint256 initialTokenBalance = token.balanceOf(address(this));
         uint256 initialCTokenBalance = cToken.balanceOf(address(this));
-        uint256 exitCTokenAmount = initialCTokenBalance.mulDown(ratio);
-        require(cToken.redeem(exitCTokenAmount) == 0, 'COMPOUND_REDEEM_FAILED');
+        require(cToken.redeem(amountIn) == 0, 'COMPOUND_REDEEM_FAILED');
 
-        uint256 finalTokenBalance = IERC20(token).balanceOf(address(this));
-        amount = finalTokenBalance - initialTokenBalance;
+        uint256 finalTokenBalance = token.balanceOf(address(this));
+        amountsOut[0] = finalTokenBalance - initialTokenBalance;
+
+        uint256 finalCTokenBalance = cToken.balanceOf(address(this));
         uint256 cTokenRate = cToken.exchangeRateStored();
-        value = amount.mulDown(cTokenRate);
+        value = (initialCTokenBalance - finalCTokenBalance).mulDown(cTokenRate);
     }
 }

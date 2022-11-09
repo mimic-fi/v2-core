@@ -40,31 +40,37 @@ library StrategyLib {
      * @dev Delegate-calls a join to a strategy and decodes de expected data
      * IMPORTANT! This helper method does not check any of the given params, these should be checked beforehand.
      */
-    function join(address strategy, uint256 amount, uint256 slippage, bytes memory data)
-        internal
-        returns (uint256 value)
-    {
-        bytes memory joinData = abi.encodeWithSelector(IStrategy.join.selector, amount, slippage, data);
+    function join(
+        address strategy,
+        address[] memory tokensIn,
+        uint256[] memory amountsIn,
+        uint256 slippage,
+        bytes memory data
+    ) internal returns (address[] memory tokensOut, uint256[] memory amountsOut, uint256 value) {
+        bytes memory joinData = abi.encodeWithSelector(IStrategy.join.selector, tokensIn, amountsIn, slippage, data);
 
         // solhint-disable-next-line avoid-low-level-calls
         (bool success, bytes memory returndata) = strategy.delegatecall(joinData);
         Address.verifyCallResult(success, returndata, 'JOIN_CALL_REVERTED');
-        return abi.decode(returndata, (uint256));
+        return abi.decode(returndata, (address[], uint256[], uint256));
     }
 
     /**
      * @dev Delegate-calls a exit to a strategy and decodes de expected data
      * IMPORTANT! This helper method does not check any of the given params, these should be checked beforehand.
      */
-    function exit(address strategy, uint256 ratio, uint256 slippage, bytes memory data)
-        internal
-        returns (uint256 amount, uint256 value)
-    {
-        bytes memory exitData = abi.encodeWithSelector(IStrategy.exit.selector, ratio, slippage, data);
+    function exit(
+        address strategy,
+        address[] memory tokensIn,
+        uint256[] memory amountsIn,
+        uint256 slippage,
+        bytes memory data
+    ) internal returns (address[] memory tokensOut, uint256[] memory amountsOut, uint256 value) {
+        bytes memory exitData = abi.encodeWithSelector(IStrategy.exit.selector, tokensIn, amountsIn, slippage, data);
 
         // solhint-disable-next-line avoid-low-level-calls
         (bool success, bytes memory returndata) = strategy.delegatecall(exitData);
         Address.verifyCallResult(success, returndata, 'EXIT_CALL_REVERTED');
-        return abi.decode(returndata, (uint256, uint256));
+        return abi.decode(returndata, (address[], uint256[], uint256));
     }
 }

@@ -22,12 +22,17 @@ import '@mimic-fi/v2-registry/contracts/implementations/IImplementation.sol';
  */
 interface IStrategy is IImplementation {
     /**
-     * @dev Tells the token that will be used as the strategy entry point
+     * @dev Tokens accepted to join the strategy
      */
-    function token() external view returns (address);
+    function joinTokens() external view returns (address[] memory);
 
     /**
-     * @dev Tells how much a value unit means expressed in the strategy token.
+     * @dev Tokens accepted to exit the strategy
+     */
+    function exitTokens() external view returns (address[] memory);
+
+    /**
+     * @dev Tells how much a value unit means expressed in the asset token.
      * For example, if a strategy has a value of 100 in T0, and then it has a value of 120 in T1,
      * and the value rate is 1.5, it means the strategy has earned 30 strategy tokens between T0 and T1.
      */
@@ -51,20 +56,29 @@ interface IStrategy is IImplementation {
 
     /**
      * @dev Join the interfaced DeFi protocol
-     * @param amount Amount of strategy tokens to join with
+     * @param tokensIn List of token addresses to join with
+     * @param amountsIn List of token amounts to join with
      * @param slippage Slippage value to join with
      * @param data Arbitrary extra data
+     * @return tokensOut List of token addresses received after the join
+     * @return amountsOut List of token amounts received after the join
      * @return value Value represented by the joined amount
      */
-    function join(uint256 amount, uint256 slippage, bytes memory data) external returns (uint256 value);
+    function join(address[] memory tokensIn, uint256[] memory amountsIn, uint256 slippage, bytes memory data)
+        external
+        returns (address[] memory tokensOut, uint256[] memory amountsOut, uint256 value);
 
     /**
      * @dev Exit the interfaced DeFi protocol
-     * @param ratio Ratio to exit with
+     * @param tokensIn List of token addresses to exit with
+     * @param amountsIn List of token amounts to exit with
      * @param slippage Slippage value to exit with
      * @param data Arbitrary extra data
-     * @return amount Amount of strategy tokens exited with
+     * @return tokensOut List of token addresses received after the exit
+     * @return amountsOut List of token amounts received after the exit
      * @return value Value represented by the exited amount
      */
-    function exit(uint256 ratio, uint256 slippage, bytes memory data) external returns (uint256 amount, uint256 value);
+    function exit(address[] memory tokensIn, uint256[] memory amountsIn, uint256 slippage, bytes memory data)
+        external
+        returns (address[] memory tokensOut, uint256[] memory amountsOut, uint256 value);
 }

@@ -34,8 +34,8 @@ contract AaveV2Strategy is IStrategy, BaseImplementation {
     // Namespace under which the Strategies implementations are registered in the Mimic Registry
     bytes32 public constant override NAMESPACE = keccak256('STRATEGY');
 
-    // Token that will be used as the strategy entry point
-    address public immutable override token;
+    // Underlying token that will be used as the strategy entry point
+    IERC20 public immutable token;
 
     // aToken associated to the strategy token
     IAaveV2Token public immutable aToken;
@@ -52,14 +52,30 @@ contract AaveV2Strategy is IStrategy, BaseImplementation {
      * @param _lendingPool AAVE V2 lending pool to be used
      * @param _registry Address of the Mimic Registry to be referenced
      */
-    constructor(address _token, IAaveV2Pool _lendingPool, address _registry) BaseImplementation(_registry) {
-        IAaveV2Pool.ReserveData memory reserveData = _lendingPool.getReserveData(_token);
+    constructor(IERC20 _token, IAaveV2Pool _lendingPool, address _registry) BaseImplementation(_registry) {
+        IAaveV2Pool.ReserveData memory reserveData = _lendingPool.getReserveData(address(_token));
         require(reserveData.aTokenAddress != address(0), 'AAVE_V2_MISSING_A_TOKEN');
 
         token = _token;
         lendingPool = _lendingPool;
         aToken = IAaveV2Token(reserveData.aTokenAddress);
         incentivesController = IAaveV2Token(reserveData.aTokenAddress).getIncentivesController();
+    }
+
+    /**
+     * @dev Tokens accepted to join the strategy
+     */
+    function joinTokens() public view override returns (address[] memory tokens) {
+        tokens = new address[](1);
+        tokens[0] = address(token);
+    }
+
+    /**
+     * @dev Tokens accepted to exit the strategy
+     */
+    function exitTokens() public view override returns (address[] memory tokens) {
+        tokens = new address[](1);
+        tokens[0] = address(aToken);
     }
 
     /**
@@ -98,37 +114,63 @@ contract AaveV2Strategy is IStrategy, BaseImplementation {
 
     /**
      * @dev Deposit tokens in an AAVE lending pool
-     * @param amount Amount of strategy tokens to deposit
+     * @param tokensIn List of token addresses to join with
+     * @param amountsIn List of token amounts to join with
+     * @return tokensOut List of token addresses received after the join
+     * @return amountsOut List of token amounts received after the join
      * @return value Value represented by the joined amount
      */
-    function join(uint256 amount, uint256, bytes memory) external override returns (uint256 value) {
-        if (amount == 0) return 0;
+    function join(address[] memory tokensIn, uint256[] memory amountsIn, uint256, bytes memory)
+        external
+        override
+        returns (address[] memory tokensOut, uint256[] memory amountsOut, uint256 value)
+    {
+        require(tokensIn.length == 1, 'AAVE_V2_INVALID_TOKENS_IN_LEN');
+        require(amountsIn.length == 1, 'AAVE_V2_INVALID_AMOUNTS_IN_LEN');
+        require(tokensIn[0] == address(token), 'AAVE_V2_INVALID_JOIN_TOKEN');
+
+        tokensOut = exitTokens();
+        amountsOut = new uint256[](1);
+        uint256 amountIn = amountsIn[0];
+        if (amountIn == 0) return (tokensOut, amountsOut, 0);
 
         uint256 initialATokenBalance = aToken.balanceOf(address(this));
-        IERC20(token).approve(address(lendingPool), amount);
-        lendingPool.deposit(address(token), amount, address(this), 0);
+        IERC20(token).approve(address(lendingPool), amountIn);
+        lendingPool.deposit(address(token), amountIn, address(this), 0);
 
         uint256 finalATokenBalance = aToken.balanceOf(address(this));
-        value = finalATokenBalance - initialATokenBalance;
+        amountsOut[0] = finalATokenBalance - initialATokenBalance;
+        value = amountsOut[0];
     }
 
     /**
      * @dev Withdraw tokens from the AAVE lending pool
-     * @param ratio Ratio of the invested position to withdraw
-     * @return amount Amount of strategy tokens exited with
+     * @param tokensIn List of token addresses to exit with
+     * @param amountsIn List of token amounts to exit with
+     * @return tokensOut List of token addresses received after the exit
+     * @return amountsOut List of token amounts received after the exit
      * @return value Value represented by the exited amount
      */
-    function exit(uint256 ratio, uint256, bytes memory) external override returns (uint256 amount, uint256 value) {
-        if (ratio == 0) return (0, 0);
-        require(ratio <= FixedPoint.ONE, 'AAVE_V2_INVALID_RATIO');
+    function exit(address[] memory tokensIn, uint256[] memory amountsIn, uint256, bytes memory)
+        external
+        override
+        returns (address[] memory tokensOut, uint256[] memory amountsOut, uint256 value)
+    {
+        require(tokensIn.length == 1, 'AAVE_V2_INVALID_TOKENS_IN_LEN');
+        require(amountsIn.length == 1, 'AAVE_V2_INVALID_AMOUNTS_IN_LEN');
+        require(tokensIn[0] == address(aToken), 'AAVE_V2_INVALID_EXIT_TOKEN');
 
-        uint256 initialTokenBalance = IERC20(token).balanceOf(address(this));
+        tokensOut = joinTokens();
+        amountsOut = new uint256[](1);
+        uint256 amountIn = amountsIn[0];
+        if (amountIn == 0) return (tokensOut, amountsOut, 0);
+
+        uint256 initialTokenBalance = token.balanceOf(address(this));
         uint256 initialATokenBalance = aToken.balanceOf(address(this));
-        uint256 exitATokenAmount = initialATokenBalance.mulDown(ratio);
-        lendingPool.withdraw(address(token), exitATokenAmount, address(this));
+        lendingPool.withdraw(address(token), amountIn, address(this));
 
-        uint256 finalTokenBalance = IERC20(token).balanceOf(address(this));
-        amount = finalTokenBalance - initialTokenBalance;
+        uint256 finalTokenBalance = token.balanceOf(address(this));
+        amountsOut[0] = finalTokenBalance - initialTokenBalance;
 
         uint256 finalATokenBalance = aToken.balanceOf(address(this));
         value = initialATokenBalance - finalATokenBalance;

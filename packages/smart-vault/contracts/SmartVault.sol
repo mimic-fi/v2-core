@@ -300,7 +300,7 @@ contract SmartVault is ISmartVault, PriceFeedProvider, InitializableAuthorizedIm
         uint256 currentBalance = wrappedToken.balanceOf(address(this));
 
         wrapped = currentBalance - previousBalance;
-        emit Wrap(wrapped, data);
+        emit Wrap(amount, wrapped, data);
     }
 
     /**
@@ -317,7 +317,7 @@ contract SmartVault is ISmartVault, PriceFeedProvider, InitializableAuthorizedIm
         uint256 currentBalance = address(this).balance;
 
         unwrapped = currentBalance - previousBalance;
-        emit Unwrap(unwrapped, data);
+        emit Unwrap(amount, unwrapped, data);
     }
 
     /**
@@ -341,75 +341,85 @@ contract SmartVault is ISmartVault, PriceFeedProvider, InitializableAuthorizedIm
     /**
      * @dev Join a strategy with an amount of tokens. Sender must be authorized.
      * @param strategy Address of the strategy to join
-     * @param amount Amount of strategy tokens to join with
+     * @param tokensIn List of token addresses to join with
+     * @param amountsIn List of token amounts to join with
      * @param slippage Slippage that will be used to compute the join
      * @param data Extra data passed to the strategy and logged
-     * @return invested Amount of tokens invested in the strategy
+     * @return tokensOut List of token addresses received after the join
+     * @return amountsOut List of token amounts received after the join
      */
-    function join(address strategy, uint256 amount, uint256 slippage, bytes memory data)
-        external
-        override
-        auth
-        returns (uint256 invested)
-    {
-        require(amount > 0, 'JOIN_AMOUNT_ZERO');
-        require(slippage <= FixedPoint.ONE, 'JOIN_SLIPPAGE_ABOVE_ONE');
+    function join(
+        address strategy,
+        address[] memory tokensIn,
+        uint256[] memory amountsIn,
+        uint256 slippage,
+        bytes memory data
+    ) external override auth returns (address[] memory tokensOut, uint256[] memory amountsOut) {
         require(isStrategyAllowed[strategy], 'STRATEGY_NOT_ALLOWED');
+        require(slippage <= FixedPoint.ONE, 'JOIN_SLIPPAGE_ABOVE_ONE');
 
-        address token = IStrategy(strategy).token();
-        uint256 initialAmount = IERC20(token).balanceOf(address(this));
-        uint256 value = strategy.join(amount, slippage, data);
-        uint256 finalAmount = IERC20(token).balanceOf(address(this));
+        uint256 value;
+        (tokensOut, amountsOut, value) = strategy.join(tokensIn, amountsIn, slippage, data);
 
-        invested = initialAmount - finalAmount;
         investedValue[strategy] = investedValue[strategy] + value;
-        emit Join(strategy, invested, value, slippage, data);
+        emit Join(strategy, tokensIn, amountsIn, tokensOut, amountsOut, value, slippage, data);
     }
 
     /**
      * @dev Exit a strategy. Sender must be authorized.
      * @param strategy Address of the strategy to exit
-     * @param ratio Percentage of the current position that will be exited
+     * @param tokensIn List of token addresses to exit with
+     * @param amountsIn List of token amounts to exit with
      * @param slippage Slippage that will be used to compute the exit
      * @param data Extra data passed to the strategy and logged
-     * @return received Amount of tokens received from the exit
+     * @return tokensOut List of token addresses received after the exit
+     * @return amountsOut List of token amounts received after the exit
      */
-    function exit(address strategy, uint256 ratio, uint256 slippage, bytes memory data)
-        external
-        override
-        auth
-        returns (uint256 received)
-    {
-        require(ratio > 0 && ratio <= FixedPoint.ONE, 'EXIT_INVALID_RATIO');
-        require(slippage <= FixedPoint.ONE, 'EXIT_SLIPPAGE_ABOVE_ONE');
-        require(investedValue[strategy] > 0, 'EXIT_NO_INVESTED_VALUE');
+    function exit(
+        address strategy,
+        address[] memory tokensIn,
+        uint256[] memory amountsIn,
+        uint256 slippage,
+        bytes memory data
+    ) external override auth returns (address[] memory tokensOut, uint256[] memory amountsOut) {
         require(isStrategyAllowed[strategy], 'STRATEGY_NOT_ALLOWED');
+        require(investedValue[strategy] > 0, 'EXIT_NO_INVESTED_VALUE');
+        require(slippage <= FixedPoint.ONE, 'EXIT_SLIPPAGE_ABOVE_ONE');
 
-        uint256 performanceFeeAmount;
-        (uint256 amount, uint256 exitValue) = strategy.exit(ratio, slippage, data);
+        uint256 value;
+        (tokensOut, amountsOut, value) = strategy.exit(tokensIn, amountsIn, slippage, data);
+        uint256[] memory performanceFeeAmounts = new uint256[](amountsOut.length);
+
         // It can rely on the last updated value since we have just exited, no need to compute current value
-        uint256 valueBeforeExit = lastValue(strategy) + exitValue;
+        uint256 valueBeforeExit = lastValue(strategy) + value;
         if (valueBeforeExit <= investedValue[strategy]) {
-            // There were losses, invested value is simply reduced using the exited ratio
-            // No need for checked math as we are checking it manually beforehand
-            // Invested value is round up to avoid interpreting losses due to rounding errors
-            investedValue[strategy] = investedValue[strategy].mulUp(FixedPoint.ONE.uncheckedSub(ratio));
+            // There were losses, invested value is simply reduced using the exited ratio compared to the value
+            // before exit. Invested value is round up to avoid interpreting losses due to rounding errors
+            investedValue[strategy] -= investedValue[strategy].mulUp(value).divUp(valueBeforeExit);
         } else {
-            address token = IStrategy(strategy).token();
             // If value gains are greater than the exit value, it means only gains are being withdrawn. In that case
             // the taxable amount is the entire exited amount, otherwise it should be the equivalent gains ratio of it.
-            uint256 valueGains = valueBeforeExit - investedValue[strategy];
-            uint256 taxableAmount = valueGains > exitValue ? amount : ((amount * valueGains) / exitValue);
-            performanceFeeAmount = _payFee(token, taxableAmount, performanceFee);
+            uint256 valueGains = valueBeforeExit.uncheckedSub(investedValue[strategy]);
+            bool onlyGains = valueGains >= value;
+
             // If the exit value is greater than the value gains, the invested value should be reduced by the portion
             // of the invested value being exited. Otherwise, it's still the same, only gains are being withdrawn.
             // No need for checked math as we are checking it manually beforehand
-            uint256 decrement = exitValue > valueGains ? (exitValue.uncheckedSub(valueGains)) : 0;
+            uint256 decrement = onlyGains ? 0 : value.uncheckedSub(valueGains);
             investedValue[strategy] = investedValue[strategy] - decrement;
+
+            // Compute performance fees per token out
+            for (uint256 i = 0; i < tokensOut.length; i = i.uncheckedAdd(1)) {
+                address token = tokensOut[i];
+                uint256 amount = amountsOut[i];
+                uint256 taxableAmount = onlyGains ? amount : ((amount * valueGains) / value);
+                uint256 feeAmount = _payFee(token, taxableAmount, performanceFee);
+                amountsOut[i] = amount - feeAmount;
+                performanceFeeAmounts[i] = feeAmount;
+            }
         }
 
-        received = amount - performanceFeeAmount;
-        emit Exit(strategy, received, exitValue, performanceFeeAmount, slippage, data);
+        emit Exit(strategy, tokensIn, amountsIn, tokensOut, amountsOut, value, performanceFeeAmounts, slippage, data);
     }
 
     /**
