@@ -399,12 +399,12 @@ contract SmartVault is ISmartVault, PriceFeedProvider, InitializableAuthorizedIm
         } else {
             // If value gains are greater than the exit value, it means only gains are being withdrawn. In that case
             // the taxable amount is the entire exited amount, otherwise it should be the equivalent gains ratio of it.
-            uint256 valueGains = valueBeforeExit - investedValue[strategy];
+            uint256 valueGains = valueBeforeExit.uncheckedSub(investedValue[strategy]);
+            bool onlyGains = valueGains >= value;
 
             // If the exit value is greater than the value gains, the invested value should be reduced by the portion
             // of the invested value being exited. Otherwise, it's still the same, only gains are being withdrawn.
             // No need for checked math as we are checking it manually beforehand
-            bool onlyGains = valueGains >= value;
             uint256 decrement = onlyGains ? 0 : value.uncheckedSub(valueGains);
             investedValue[strategy] = investedValue[strategy] - decrement;
 
