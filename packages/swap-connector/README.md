@@ -56,18 +56,10 @@ $ yarn test
 
 ## Security
 
-<blockquote style="background: rgba(197,127,66,0.34); border: #ffffff6b; text: #f5fffa">
-  <h5 style="color: rgba(225,111,12,0.82)">⚠️ Auditing</h5>
-  <p>The status of our contracts are considered as experimental and should be used at your own risk.</p>
-</blockquote>
+To read more about our auditing and related security processes please refer to the [security section](https://docs.mimic.fi/miscellaneous/security) of our docs site.
 
-Even though all our smart contracts have been reviewed and supervised with security researchers, currently we are going
-through a formal audit process with one of the top firms in the industry. We will disclose the results and takeovers as 
-soon as we finish the process.
-
-Hopefully soon we will be able to communicate a bug bounty program for the hacker community. However, if you found any 
-potential issue in any of our smart contracts or in any piece of code you consider critical for the safety of the 
-protocol, please contact us through <a href="mailto:security@mimic.fi">security@mimic.fi</a>.
+However, if you found any potential issue in any of our smart contracts or in any piece of code you consider critical 
+for the safety of the protocol, please contact us through <a href="mailto:security@mimic.fi">security@mimic.fi</a>.
 
 ## License
 
