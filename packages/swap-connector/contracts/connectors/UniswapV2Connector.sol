@@ -82,7 +82,7 @@ contract UniswapV2Connector {
         address factory = uniswapV2Router.factory();
         address[] memory tokens = Arrays.from(tokenIn, tokenOut);
         _validatePool(factory, tokenIn, tokenOut);
-        return uniswapV2Router.swapExactTokensForTokens(amountIn, minAmountOut, tokens, msg.sender, block.timestamp);
+        return uniswapV2Router.swapExactTokensForTokens(amountIn, minAmountOut, tokens, address(this), block.timestamp);
     }
 
     /**
@@ -107,7 +107,7 @@ contract UniswapV2Connector {
         for (uint256 i = 0; i < tokens.length.uncheckedSub(1); i = i.uncheckedAdd(1)) {
             _validatePool(factory, tokens[i], tokens[i.uncheckedAdd(1)]);
         }
-        return uniswapV2Router.swapExactTokensForTokens(amountIn, minAmountOut, tokens, msg.sender, block.timestamp);
+        return uniswapV2Router.swapExactTokensForTokens(amountIn, minAmountOut, tokens, address(this), block.timestamp);
     }
 
     /**
