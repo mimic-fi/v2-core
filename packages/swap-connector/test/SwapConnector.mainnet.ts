@@ -79,24 +79,24 @@ describe('SwapConnector', () => {
   const itSingleSwapsCorrectly = (source: number, usdcWethData: string, wethUsdcData: string) => {
     it('swaps correctly USDC-WETH', async () => {
       const amountIn = fp(10e3).div(1e12) // USDC 6 decimals
-      const previousBalance = await weth.balanceOf(WHALE)
+      const previousBalance = await weth.balanceOf(connector.address)
       await usdc.connect(whale).transfer(connector.address, amountIn)
 
       await connector.connect(whale).swap(source, USDC, WETH, amountIn, 0, usdcWethData)
 
-      const currentBalance = await weth.balanceOf(WHALE)
+      const currentBalance = await weth.balanceOf(connector.address)
       const expectedMinAmountOut = await getExpectedMinAmountOut(USDC, WETH, amountIn)
       expect(currentBalance.sub(previousBalance)).to.be.at.least(expectedMinAmountOut)
     })
 
     it('swaps correctly WETH-USDC', async () => {
       const amountIn = fp(3)
-      const previousBalance = await usdc.balanceOf(WHALE)
+      const previousBalance = await usdc.balanceOf(connector.address)
       await weth.connect(whale).transfer(connector.address, amountIn)
 
       await connector.connect(whale).swap(source, WETH, USDC, amountIn, 0, wethUsdcData)
 
-      const currentBalance = await usdc.balanceOf(WHALE)
+      const currentBalance = await usdc.balanceOf(connector.address)
       const expectedMinAmountOut = await getExpectedMinAmountOut(WETH, USDC, amountIn)
       expect(currentBalance.sub(previousBalance)).to.be.at.least(expectedMinAmountOut)
     })
@@ -105,24 +105,24 @@ describe('SwapConnector', () => {
   const itBatchSwapsCorrectly = (source: number, usdcWbtcData: string, wbtcUsdcData: string) => {
     it('swaps correctly USDC-WBTC', async () => {
       const amountIn = fp(10e3).div(1e12) // USDC 6 decimals
-      const previousBalance = await wbtc.balanceOf(WHALE)
+      const previousBalance = await wbtc.balanceOf(connector.address)
       await usdc.connect(whale).transfer(connector.address, amountIn)
 
       await connector.connect(whale).swap(source, USDC, WBTC, amountIn, 0, usdcWbtcData)
 
-      const currentBalance = await wbtc.balanceOf(WHALE)
+      const currentBalance = await wbtc.balanceOf(connector.address)
       const expectedMinAmountOut = await getExpectedMinAmountOut(USDC, WBTC, amountIn)
       expect(currentBalance.sub(previousBalance)).to.be.at.least(expectedMinAmountOut)
     })
 
     it('swaps correctly WTBC-USDC', async () => {
       const amountIn = fp(1).div(1e10) // WBTC 8 decimals
-      const previousBalance = await usdc.balanceOf(WHALE)
+      const previousBalance = await usdc.balanceOf(connector.address)
       await wbtc.connect(whale).transfer(connector.address, amountIn)
 
       await connector.connect(whale).swap(source, WBTC, USDC, amountIn, 0, wbtcUsdcData)
 
-      const currentBalance = await usdc.balanceOf(WHALE)
+      const currentBalance = await usdc.balanceOf(connector.address)
       const expectedMinAmountOut = await getExpectedMinAmountOut(WBTC, USDC, amountIn)
       expect(currentBalance.sub(previousBalance)).to.be.at.least(expectedMinAmountOut)
     })

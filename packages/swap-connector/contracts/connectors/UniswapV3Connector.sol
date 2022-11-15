@@ -92,7 +92,7 @@ contract UniswapV3Connector {
         input.tokenIn = tokenIn;
         input.tokenOut = tokenOut;
         input.fee = fee;
-        input.recipient = msg.sender;
+        input.recipient = address(this);
         input.deadline = block.timestamp;
         input.amountIn = amountIn;
         input.amountOutMinimum = minAmountOut;
@@ -130,7 +130,7 @@ contract UniswapV3Connector {
         input.path = _encodePoolPath(tokens, fees);
         input.amountIn = amountIn;
         input.amountOutMinimum = minAmountOut;
-        input.recipient = msg.sender;
+        input.recipient = address(this);
         input.deadline = block.timestamp;
         return uniswapV3Router.exactInput(input);
     }

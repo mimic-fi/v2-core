@@ -169,7 +169,7 @@ contract BalancerV2Connector {
             IBalancerV2Vault.FundManagement({
                 sender: address(this),
                 fromInternalBalance: false,
-                recipient: payable(msg.sender),
+                recipient: payable(address(this)),
                 toInternalBalance: false
             });
     }
