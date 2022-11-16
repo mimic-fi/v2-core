@@ -18,35 +18,37 @@ import '@openzeppelin/contracts/token/ERC20/IERC20.sol';
 import '@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol';
 import '@openzeppelin/contracts/utils/Address.sol';
 
-import '../interfaces/IParaswapV5Augustus.sol';
+import '../interfaces/IOneInchV5AggregationRouter.sol';
+
+import 'hardhat/console.sol';
 
 /**
- * @title ParaswapV5Connector
- * @dev Interfaces with Paraswap V5 to swap tokens
+ * @title OneInchV5Connector
+ * @dev Interfaces with 1inch V5 to swap tokens
  */
-contract ParaswapV5Connector {
+contract OneInchV5Connector {
     using SafeERC20 for IERC20;
 
-    // Reference to Paraswap V5 Augustus swapper
-    IParaswapV5Augustus private immutable paraswapV5Augustus;
+    // Reference to 1inch aggregation router v5
+    IOneInchV5AggregationRouter private immutable oneInchV5Router;
 
     /**
-     * @dev Initializes the ParaswapV5Connector contract
-     * @param _paraswapV5Augustus Paraswap V5 augusts reference
+     * @dev Initializes the OneInchV5Connector contract
+     * @param _oneInchV5Router 1inch aggregation router v5 reference
      */
-    constructor(address _paraswapV5Augustus) {
-        paraswapV5Augustus = IParaswapV5Augustus(_paraswapV5Augustus);
+    constructor(address _oneInchV5Router) {
+        oneInchV5Router = IOneInchV5AggregationRouter(_oneInchV5Router);
     }
 
     /**
-     * @dev Internal function to swap two tokens through Paraswap V5
+     * @dev Internal function to swap two tokens through 1Inch V5
      * @param tokenIn Token being sent
      * @param tokenOut Token being received
      * @param amountIn Amount of tokenIn being swapped
      * @param minAmountOut Minimum amount of tokenOut willing to receive
-     * @param data Calldata to be sent to the Augusuts swapper
+     * @param data Calldata to be sent to the 1inch aggregation router
      */
-    function _swapParaswapV5(
+    function _swapOneInchV5(
         address tokenIn,
         address tokenOut,
         uint256 amountIn,
@@ -55,12 +57,11 @@ contract ParaswapV5Connector {
     ) internal returns (uint256 amountOut) {
         uint256 preBalanceOut = IERC20(tokenOut).balanceOf(address(this));
 
-        address tokenTransferProxy = paraswapV5Augustus.getTokenTransferProxy();
-        IERC20(tokenIn).safeApprove(tokenTransferProxy, amountIn);
-        Address.functionCall(address(paraswapV5Augustus), data, 'PARASWAP_V5_SWAP_FAILED');
+        IERC20(tokenIn).safeApprove(address(oneInchV5Router), amountIn);
+        Address.functionCall(address(oneInchV5Router), data, '1INCH_V5_SWAP_FAILED');
 
         uint256 postBalanceOut = IERC20(tokenOut).balanceOf(address(this));
         amountOut = postBalanceOut - preBalanceOut;
-        require(amountOut >= minAmountOut, 'PARASWAP_V5_MIN_AMOUNT');
+        require(amountOut >= minAmountOut, '1INCH_V5_MIN_AMOUNT');
     }
 }
