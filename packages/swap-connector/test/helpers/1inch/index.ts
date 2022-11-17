@@ -1,43 +1,37 @@
-import { bn, currentBlockNumber, getForkedNetwork } from '@mimic-fi/v2-helpers'
+import { currentBlockNumber, getForkedNetwork } from '@mimic-fi/v2-helpers'
 import { BigNumber, Contract } from 'ethers'
 import fs from 'fs'
 import hre from 'hardhat'
 import { HardhatNetworkConfig } from 'hardhat/types'
 import path from 'path'
 
-import { getParaswapSwapData, SwapData } from '../../../src/paraswap'
+import { get1inchSwapData } from '../../../src/1inch'
 
-type Fixture = SwapData & {
+type Fixture = {
   tokenIn: string
   tokenOut: string
   amountIn: string
+  slippage: number
+  data: string
 }
 
-export async function loadOrGetParaswapSwapData(
+export async function loadOrGet1inchSwapData(
   sender: Contract,
   tokenIn: Contract,
   tokenOut: Contract,
   amountIn: BigNumber,
   slippage: number
-): Promise<SwapData> {
+): Promise<string> {
   const network = getForkedNetwork(hre)
   const config = hre.network.config as HardhatNetworkConfig
   const blockNumber = config?.forking?.blockNumber?.toString() || (await currentBlockNumber()).toString()
 
   const fixture = await readFixture(tokenIn, tokenOut, network, blockNumber)
-  if (fixture) {
-    return {
-      data: fixture.data,
-      sig: fixture.sig,
-      signer: fixture.signer,
-      minAmountOut: bn(fixture.minAmountOut),
-      expectedAmountOut: bn(fixture.expectedAmountOut),
-    }
-  }
+  if (fixture) return fixture.data
 
-  const swapData = await getParaswapSwapData(sender, tokenIn, tokenOut, amountIn, slippage)
-  await saveFixture(tokenIn, tokenOut, amountIn, swapData, network, blockNumber)
-  return swapData
+  const data = await get1inchSwapData(sender, tokenIn, tokenOut, amountIn, slippage)
+  await saveFixture(tokenIn, tokenOut, amountIn, slippage, data, network, blockNumber)
+  return data
 }
 
 async function readFixture(
@@ -56,19 +50,17 @@ async function saveFixture(
   tokenIn: Contract,
   tokenOut: Contract,
   amountIn: BigNumber,
-  swapData: SwapData,
+  slippage: number,
+  data: string,
   network: string,
   blockNumber: string
 ): Promise<void> {
   const output = {
-    data: swapData.data,
-    sig: swapData.sig,
-    signer: swapData.signer,
     tokenIn: tokenIn.address,
     tokenOut: tokenOut.address,
     amountIn: amountIn.toString(),
-    minAmountOut: swapData.minAmountOut.toString(),
-    expectedAmountOut: swapData.expectedAmountOut.toString(),
+    slippage,
+    data,
   }
 
   const fixturesPath = path.join(__dirname, 'fixtures')

@@ -10,6 +10,7 @@ const SOURCE = {
   UNISWAP_V3: 1,
   BALANCER_V2: 2,
   PARASWAP_V5: 3,
+  ONE_INCH_V5: 3,
 }
 
 /* eslint-disable no-secrets/no-secrets */
@@ -23,6 +24,7 @@ const UNISWAP_V2_ROUTER = '0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D'
 const UNISWAP_V3_ROUTER = '0xE592427A0AEce92De3Edee1F18E0157C05861564'
 const BALANCER_V2_VAULT = '0xBA12222222228d8Ba445958a75a0704d566BF2C8'
 const PARASWAP_V5_AUGUSTUS = '0xdef171fe48cf0115b1d80b88dc8eab59176fee57'
+const ONE_INCH_V5_ROUTER = '0x1111111254EEB25477B68fb85Ed929f73A960582'
 
 const CHAINLINK_ORACLE_USDC_ETH = '0x986b5E1e1755e3C2440e960477f25201B0a8bbD4'
 const CHAINLINK_ORACLE_WBTC_ETH = '0xdeb288F737066589598e9214E782fa5A8eD689e8'
@@ -61,7 +63,14 @@ describe('SmartVault', () => {
   })
 
   before('set smart vault swap connector', async () => {
-    const arg = [UNISWAP_V2_ROUTER, UNISWAP_V3_ROUTER, BALANCER_V2_VAULT, PARASWAP_V5_AUGUSTUS, registry.address]
+    const arg = [
+      UNISWAP_V2_ROUTER,
+      UNISWAP_V3_ROUTER,
+      BALANCER_V2_VAULT,
+      PARASWAP_V5_AUGUSTUS,
+      ONE_INCH_V5_ROUTER,
+      registry.address,
+    ]
     swapConnector = await deploy('@mimic-fi/v2-swap-connector/artifacts/contracts/SwapConnector.sol/SwapConnector', arg)
     await registry.connect(admin).register(await swapConnector.NAMESPACE(), swapConnector.address, true)
 

@@ -14,6 +14,7 @@ describe('SwapConnector', () => {
       ZERO_ADDRESS,
       ZERO_ADDRESS,
       ZERO_ADDRESS,
+      ZERO_ADDRESS,
       registry.address,
     ])
   })

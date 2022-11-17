@@ -17,7 +17,7 @@ export type SwapData = {
   expectedAmountOut: BigNumber
 }
 
-export async function getSwapData(
+export async function getParaswapSwapData(
   sender: Contract,
   tokenIn: Contract,
   tokenOut: Contract,
