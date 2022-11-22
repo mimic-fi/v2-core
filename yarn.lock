@@ -569,6 +569,20 @@
     tweetnacl "^1.0.3"
     tweetnacl-util "^0.15.1"
 
+"@mimic-fi/v2-helpers@0.0.10":
+  version "0.0.10"
+  resolved "https://registry.yarnpkg.com/@mimic-fi/v2-helpers/-/v2-helpers-0.0.10.tgz#bf1aefe40abbc9ee240fb452e3fa6310a67200c8"
+  integrity sha512-+CRUYwebCHSxEbHmzD1cX1yiIb8EUeMUMCJVgYTfRg7EYattexGAhz6a02OtfPRZ0mRvH4qmHwcWtkT5OiCP5w==
+  dependencies:
+    "@nomiclabs/hardhat-ethers" "^2.0.2"
+    "@nomiclabs/hardhat-waffle" "^2.0.1"
+    "@types/chai" "^4.2.18"
+    "@types/mocha" "^8.2.2"
+    chai "^4.2.0"
+    decimal.js "^10.3.1"
+    ethers "^5.0.8"
+    hardhat "^2.4.1"
+
 "@noble/hashes@1.1.2", "@noble/hashes@~1.1.1":
   version "1.1.2"
   resolved "https://registry.yarnpkg.com/@noble/hashes/-/hashes-1.1.2.tgz#e9e035b9b166ca0af657a7848eb2718f0f22f183"
