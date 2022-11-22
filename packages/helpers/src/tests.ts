@@ -60,6 +60,8 @@ async function runForkTests(
   const forkingNetworkConfig = hre.config.networks[forkingNetworkName] as HttpNetworkConfig
   if (!forkingNetworkConfig.url) throw Error(`Could not find a RPC url in network config for ${forkingNetworkName}`)
 
+  if (args.chainId) hre.config.networks.hardhat.chainId = args.chainId
+
   await hre.network.provider.request({
     method: 'hardhat_reset',
     params: [{ forking: { jsonRpcUrl: forkingNetworkConfig.url, blockNumber: args.blockNumber } }],
