@@ -15,7 +15,13 @@
   "devDependencies": {},
   "workspaces": {
     "packages": [
-      "packages/*"
+      "packages/helpers",
+      "packages/registry",
+      "packages/price-oracle",
+      "packages/swap-connector",
+      "packages/bridge-connector",
+      "packages/strategies",
+      "packages/smart-vault"
     ]
   }
 }
