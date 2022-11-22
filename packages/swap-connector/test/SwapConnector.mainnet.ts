@@ -1,5 +1,5 @@
 import { defaultAbiCoder } from '@ethersproject/abi'
-import { deploy, fp, impersonate, instanceAt, pct, ZERO_ADDRESS } from '@mimic-fi/v2-helpers'
+import { deploy, fp, impersonate, instanceAt, pct, toUSDC, toWBTC, ZERO_ADDRESS } from '@mimic-fi/v2-helpers'
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/dist/src/signer-with-address'
 import { expect } from 'chai'
 import { BigNumber, Contract } from 'ethers'
@@ -78,7 +78,7 @@ describe('SwapConnector', () => {
 
   const itSingleSwapsCorrectly = (source: number, usdcWethData: string, wethUsdcData: string) => {
     it('swaps correctly USDC-WETH', async () => {
-      const amountIn = fp(10e3).div(1e12) // USDC 6 decimals
+      const amountIn = toUSDC(10e3)
       const previousBalance = await weth.balanceOf(connector.address)
       await usdc.connect(whale).transfer(connector.address, amountIn)
 
@@ -104,7 +104,7 @@ describe('SwapConnector', () => {
 
   const itBatchSwapsCorrectly = (source: number, usdcWbtcData: string, wbtcUsdcData: string) => {
     it('swaps correctly USDC-WBTC', async () => {
-      const amountIn = fp(10e3).div(1e12) // USDC 6 decimals
+      const amountIn = toUSDC(10e3) // USDC 6 decimals
       const previousBalance = await wbtc.balanceOf(connector.address)
       await usdc.connect(whale).transfer(connector.address, amountIn)
 
@@ -116,7 +116,7 @@ describe('SwapConnector', () => {
     })
 
     it('swaps correctly WTBC-USDC', async () => {
-      const amountIn = fp(1).div(1e10) // WBTC 8 decimals
+      const amountIn = toWBTC(1) // WBTC 8 decimals
       const previousBalance = await usdc.balanceOf(connector.address)
       await wbtc.connect(whale).transfer(connector.address, amountIn)
 
@@ -191,7 +191,7 @@ describe('SwapConnector', () => {
     const source = SOURCE.PARASWAP_V5
 
     it('swaps correctly USDC-WETH', async () => {
-      const amountIn = fp(10e3).div(1e12) // USDC 6 decimals
+      const amountIn = toUSDC(10e3)
       await usdc.connect(whale).transfer(connector.address, amountIn)
 
       const { minAmountOut, data } = await getParaSwapData(connector, usdc, weth, amountIn, SLIPPAGE)
@@ -215,7 +215,7 @@ describe('SwapConnector', () => {
     })
 
     it('swaps correctly USDC-WBTC', async () => {
-      const amountIn = fp(10e3).div(1e12) // USDC 6 decimals
+      const amountIn = toUSDC(10e3)
       await usdc.connect(whale).transfer(connector.address, amountIn)
 
       const { minAmountOut, data } = await getParaSwapData(connector, usdc, wbtc, amountIn, SLIPPAGE)
@@ -227,7 +227,7 @@ describe('SwapConnector', () => {
     })
 
     it('swaps correctly WTBC-USDC', async () => {
-      const amountIn = fp(1).div(1e10) // WBTC 8 decimals
+      const amountIn = toWBTC(1)
       await wbtc.connect(whale).transfer(connector.address, amountIn)
 
       const { minAmountOut, data } = await getParaSwapData(connector, wbtc, usdc, amountIn, SLIPPAGE)

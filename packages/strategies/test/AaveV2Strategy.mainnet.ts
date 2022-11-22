@@ -7,6 +7,7 @@ import {
   impersonate,
   incrementBlocks,
   instanceAt,
+  toUSDC,
   YEAR,
 } from '@mimic-fi/v2-helpers'
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/dist/src/signer-with-address'
@@ -25,8 +26,6 @@ const LENDING_POOL = '0x7d2768dE32b0b80b7a3454c06BdAc94A69DDc7A9'
 describe('AaveV2Strategy - USDC', function () {
   let strategy: Contract, usdc: Contract, aUsdc: Contract, registry: Contract
   let whale: SignerWithAddress
-
-  const toUSDC = (amount: number) => fp(amount).div(1e12)
 
   const DATA = '0x'
   const SLIPPAGE = 0
