@@ -1,4 +1,4 @@
-import { deploy, fp, getSigners, impersonate, instanceAt } from '@mimic-fi/v2-helpers'
+import { deploy, fp, getSigners, impersonate, instanceAt, toUSDC, toWBTC } from '@mimic-fi/v2-helpers'
 import { createClone } from '@mimic-fi/v2-registry'
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/dist/src/signer-with-address'
 import { expect } from 'chai'
@@ -99,7 +99,7 @@ describe('SmartVault', () => {
 
   const itSingleSwapsCorrectly = (source: number, usdcWethData: string, wethUsdcData: string) => {
     it('swaps correctly USDC-WETH', async () => {
-      const amountIn = fp(10e3).div(1e12) // USDC 6 decimals
+      const amountIn = toUSDC(10e3)
       const previousBalance = await weth.balanceOf(smartVault.address)
       await usdc.connect(whale).transfer(smartVault.address, amountIn)
 
@@ -125,7 +125,7 @@ describe('SmartVault', () => {
 
   const itBatchSwapsCorrectly = (source: number, usdcWbtcData: string, wbtcUsdcData: string) => {
     it('swaps correctly USDC-WBTC', async () => {
-      const amountIn = fp(10e3).div(1e12) // USDC 6 decimals
+      const amountIn = toUSDC(10e3)
       const previousBalance = await wbtc.balanceOf(smartVault.address)
       await usdc.connect(whale).transfer(smartVault.address, amountIn)
 
@@ -137,7 +137,7 @@ describe('SmartVault', () => {
     })
 
     it('swaps correctly WTBC-USDC', async () => {
-      const amountIn = fp(1).div(1e10) // WBTC 8 decimals
+      const amountIn = toWBTC(1)
       const previousBalance = await usdc.balanceOf(smartVault.address)
       await wbtc.connect(whale).transfer(smartVault.address, amountIn)
 

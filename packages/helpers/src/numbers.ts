@@ -9,6 +9,12 @@ export const decimal = (x: BigNumberish | Decimal): Decimal => new Decimal(x.toS
 
 export const fp = (x: number | string | Decimal): BigNumber => bn(decimal(x).mul(SCALING_FACTOR))
 
+export const toWBTC = (x: number | string | Decimal): BigNumber => fp(x).div(1e10)
+
+export const toUSDC = (x: number | string | Decimal): BigNumber => fp(x).div(1e12)
+
+export const toUSDT = toUSDC
+
 export const pct = (x: BigNumber, p: number): BigNumber => x.mul(fp(p)).div(fp(1))
 
 export const bn = (x: BigNumberish | Decimal): BigNumber => {
