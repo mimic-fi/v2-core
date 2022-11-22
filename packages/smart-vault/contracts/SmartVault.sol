@@ -526,7 +526,7 @@ contract SmartVault is ISmartVault, PriceFeedProvider, InitializableAuthorizedIm
      */
     function _safeTransfer(address token, address to, uint256 amount) internal {
         if (amount == 0) return;
-        if (token == Denominations.NATIVE_TOKEN) Address.sendValue(payable(to), amount);
+        if (Denominations.isNativeToken(token)) Address.sendValue(payable(to), amount);
         else IERC20(token).safeTransfer(to, amount);
     }
 
