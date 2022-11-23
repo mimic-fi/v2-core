@@ -23,7 +23,7 @@ contract SwapConnectorMock is ISwapConnector, BaseImplementation {
     }
 
     function swap(
-        ISwapConnector.Source, /* source */
+        uint8, /* source */
         address tokenIn,
         address tokenOut,
         uint256 amountIn,

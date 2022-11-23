@@ -42,7 +42,7 @@ interface ISwapConnector is IImplementation {
      * @param data Encoded data to specify different swap parameters depending on the source picked
      */
     function swap(
-        Source source,
+        uint8 source,
         address tokenIn,
         address tokenOut,
         uint256 amountIn,
