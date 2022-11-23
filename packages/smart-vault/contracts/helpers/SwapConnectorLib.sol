@@ -38,7 +38,7 @@ library SwapConnectorLib {
     ) internal returns (uint256 amountOut) {
         bytes memory swapData = abi.encodeWithSelector(
             ISwapConnector.swap.selector,
-            ISwapConnector.Source(source),
+            source,
             tokenIn,
             tokenOut,
             amountIn,
