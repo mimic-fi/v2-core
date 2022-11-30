@@ -35,7 +35,8 @@ contract HopConnector {
     using UncheckedMath for uint256;
     using Denominations for address;
 
-    uint256 private constant ETHEREUM_CHAIN_ID = 1;
+    uint256 private constant MAINNET_CHAIN_ID = 1;
+    uint256 private constant GOERLI_CHAIN_ID = 5;
 
     /**
      * @dev Internal function to bridge assets using Hop Exchange
@@ -45,8 +46,8 @@ contract HopConnector {
      * @param data ABI encoded data expected to include different information depending on source and destination chains
      */
     function _bridgeHop(uint256 chainId, address token, uint256 amount, bytes memory data) internal {
-        bool toL2 = chainId != ETHEREUM_CHAIN_ID;
-        bool fromL1 = block.chainid == ETHEREUM_CHAIN_ID;
+        bool toL2 = !_isL1(chainId);
+        bool fromL1 = _isL1(block.chainid);
 
         if (fromL1 && toL2) _bridgeFromL1ToL2(chainId, token, amount, data);
         else if (!fromL1 && toL2) _bridgeFromL2ToL2(chainId, token, amount, data);
@@ -143,5 +144,13 @@ contract HopConnector {
             destinationMinAmount,
             deadline
         );
+    }
+
+    /**
+     * @dev Tells if a chain ID refers to L1 or not: currently only Ethereum Mainnet or Goerli
+     * @param chainId ID of the chain being queried
+     */
+    function _isL1(uint256 chainId) private pure returns (bool) {
+        return chainId == MAINNET_CHAIN_ID || chainId == GOERLI_CHAIN_ID;
     }
 }
