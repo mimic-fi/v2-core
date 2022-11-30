@@ -27,7 +27,7 @@ import '../interfaces/IHopL1Bridge.sol';
 
 /**
  * @title HopConnector
- * @dev Interfaces with Hop to bridge tokens
+ * @dev Interfaces with Hop Exchange to bridge tokens
  */
 contract HopConnector {
     using SafeERC20 for IERC20;
@@ -37,6 +37,13 @@ contract HopConnector {
 
     uint256 private constant ETHEREUM_CHAIN_ID = 1;
 
+    /**
+     * @dev Internal function to bridge assets using Hop Exchange
+     * @param chainId ID of the destination chain
+     * @param token Address of the token to be bridged
+     * @param amount Amount of tokens to be bridged
+     * @param data ABI encoded data expected to include different information depending on source and destination chains
+     */
     function _bridgeHop(uint256 chainId, address token, uint256 amount, bytes memory data) internal {
         bool toL2 = chainId != ETHEREUM_CHAIN_ID;
         bool fromL1 = block.chainid == ETHEREUM_CHAIN_ID;
@@ -47,6 +54,18 @@ contract HopConnector {
         else revert('HOP_BRIDGE_OP_NOT_SUPPORTED');
     }
 
+    /**
+     * @dev Internal function to bridge assets from L1 to L2
+     * @param chainId ID of the destination chain
+     * @param token Address of the token to be bridged
+     * @param amount Amount of tokens to be bridged
+     * @param data ABI encoded data to include:
+     * - bridge: address of the Hop bridge corresponding to the token to be bridged
+     * - slippage: slippage to be applied on L2 when swapping the hToken for the token to be bridged
+     * - deadline: deadline to be applied on L2 when swapping the hToken for the token to be bridged
+     * - relayer: only used if a 3rd party is relaying the transfer on the user's behalf
+     * - relayer fee: only used if a 3rd party is relaying the transfer on the user's behalf
+     */
     function _bridgeFromL1ToL2(uint256 chainId, address token, uint256 amount, bytes memory data) private {
         (address hopBridge, uint256 slippage, uint256 deadline, address relayer, uint256 relayerFee) = abi.decode(
             data,
@@ -64,6 +83,17 @@ contract HopConnector {
         bridge.sendToL2(chainId, address(this), amount, minAmount, deadline, relayer, relayerFee);
     }
 
+    /**
+     * @dev Internal function to bridge assets from L2 to L1
+     * @param chainId ID of the destination chain
+     * @param token Address of the token to be bridged
+     * @param amount Amount of tokens to be bridged
+     * @param data ABI encoded data to include:
+     * - amm: address of the Hop AMM corresponding to the token to be bridged
+     * - slippage: slippage to be applied on L2 when swapping the token for the hToken to be bridged
+     * - deadline: deadline to be applied on L2 when swapping the token for the hToken to be bridged
+     * - bonder fee: must be computed using the Hop SDK or API
+     */
     function _bridgeFromL2ToL1(uint256 chainId, address token, uint256 amount, bytes memory data) private {
         (address hopAMM, uint256 bonderFee, uint256 slippage) = abi.decode(data, (address, uint256, uint256));
         require(slippage <= FixedPoint.ONE, 'HOP_BRIDGE_INVALID_SLIPPAGE');
@@ -77,6 +107,17 @@ contract HopConnector {
         amm.swapAndSend(chainId, address(this), amount, bonderFee, minAmount, block.timestamp, 0, 0);
     }
 
+    /**
+     * @dev Internal function to bridge assets from L2 to L2
+     * @param chainId ID of the destination chain
+     * @param token Address of the token to be bridged
+     * @param amount Amount of tokens to be bridged
+     * @param data ABI encoded data to include:
+     * - amm: address of the Hop AMM corresponding to the token to be bridged
+     * - slippage: slippage to be applied on both L2s when swapping the token for the hToken to be bridged
+     * - deadline: deadline to be applied on the destination L2 when swapping the hToken for the token to be bridged
+     * - bonder fee: must be computed using the Hop SDK or API
+     */
     function _bridgeFromL2ToL2(uint256 chainId, address token, uint256 amount, bytes memory data) private {
         (address hopAMM, uint256 bonderFee, uint256 slippage, uint256 deadline) = abi.decode(
             data,
