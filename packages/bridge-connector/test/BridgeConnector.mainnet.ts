@@ -34,7 +34,13 @@ describe('BridgeConnector', () => {
       const amount = toUSDC(3)
       const slippage = fp(0.03)
       const deadline = MAX_UINT256
-      const data = defaultAbiCoder.encode(['address', 'uint256', 'uint256'], [HOP_USDC_BRIDGE, slippage, deadline])
+      const relayer = ZERO_ADDRESS
+      const relayerFee = 0
+
+      const data = defaultAbiCoder.encode(
+        ['address', 'uint256', 'uint256', 'address', 'uint256'],
+        [HOP_USDC_BRIDGE, slippage, deadline, relayer, relayerFee]
+      )
 
       it('should send the tokens to the bridge', async () => {
         const previousSenderBalance = await usdc.balanceOf(whale.address)

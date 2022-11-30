@@ -35,14 +35,10 @@ contract HopConnector {
     using Denominations for address;
 
     uint256 private constant ETHEREUM_CHAIN_ID = 1;
-    uint256 private constant POLYGON_CHAIN_ID = 137;
-    uint256 private constant GNOSIS_CHAIN_ID = 100;
-    uint256 private constant OPTIMISM_CHAIN_ID = 10;
-    uint256 private constant ARBITRUM_CHAIN_ID = 42161;
 
     function _bridgeHop(uint256 chainId, address token, uint256 amount, bytes memory data) internal {
-        bool toL2 = _isLayer2(chainId);
-        bool fromL1 = _isLayer1(block.chainid);
+        bool toL2 = chainId != ETHEREUM_CHAIN_ID;
+        bool fromL1 = block.chainid == ETHEREUM_CHAIN_ID;
 
         if (fromL1 && toL2) _bridgeFromL1ToL2(chainId, token, amount, data);
         else if (!fromL1 && toL2) _bridgeFromL2ToL2(chainId, token, amount, data);
@@ -51,78 +47,51 @@ contract HopConnector {
     }
 
     function _bridgeFromL1ToL2(uint256 chainId, address token, uint256 amount, bytes memory data) private {
-        (address hopBridge, uint256 slippage, uint256 deadline) = abi.decode(data, (address, uint256, uint256));
+        (address hopBridge, uint256 slippage, uint256 deadline, address relayer, uint256 relayerFee) = abi.decode(
+            data,
+            (address, uint256, uint256, address, uint256)
+        );
+
         require(slippage <= FixedPoint.ONE, 'HOP_BRIDGE_INVALID_SLIPPAGE');
         require(deadline > block.timestamp, 'HOP_BRIDGE_INVALID_DEADLINE');
 
         IHopL1Bridge bridge = IHopL1Bridge(hopBridge);
         require(bridge.l1CanonicalToken() == token, 'HOP_BRIDGE_TOKEN_DOES_NOT_MATCH');
-
-        if (!token.isNativeToken()) IERC20(token).safeApprove(hopBridge, amount);
-        uint256 value = token.isNativeToken() ? amount : 0;
-        require(value == msg.value, 'HOP_CONNECTOR_INVALID_VALUE');
+        IERC20(token).safeApprove(hopBridge, amount);
 
         uint256 minAmount = amount.mulUp(FixedPoint.ONE.uncheckedSub(slippage));
-        bridge.sendToL2{ value: value }(
-            chainId,
-            address(this),
-            amount,
-            minAmount,
-            deadline,
-            address(0), // No relayer
-            0 // No relayer fee
-        );
+        bridge.sendToL2(chainId, address(this), amount, minAmount, deadline, relayer, relayerFee);
     }
 
     function _bridgeFromL2ToL1(uint256 chainId, address token, uint256 amount, bytes memory data) private {
         (address hopAMM, uint256 bonderFee, uint256 slippage) = abi.decode(data, (address, uint256, uint256));
-        require(amount > bonderFee, 'HOP_BRIDGE_INVALID_BONDER_FEE');
         require(slippage <= FixedPoint.ONE, 'HOP_BRIDGE_INVALID_SLIPPAGE');
 
         IHopL2AMM amm = IHopL2AMM(hopAMM);
         require(amm.l2CanonicalToken() == token, 'HOP_AMM_TOKEN_DOES_NOT_MATCH');
-
-        if (!token.isNativeToken()) IERC20(token).safeApprove(hopAMM, amount);
-        uint256 value = token.isNativeToken() ? amount : 0;
-        require(value == msg.value, 'HOP_CONNECTOR_INVALID_VALUE');
+        IERC20(token).safeApprove(hopAMM, amount);
 
         uint256 minAmount = amount.mulUp(FixedPoint.ONE.uncheckedSub(slippage));
-        amm.swapAndSend{ value: value }(
-            chainId,
-            address(this),
-            amount,
-            bonderFee,
-            minAmount,
-            block.timestamp,
-            0, // No destination min amount needed since there is no AMM on L1
-            0 // No destination deadline needed since there is no AMM on L1
-        );
+        // No destination min amount nor deadline needed since there is no AMM on L1
+        amm.swapAndSend(chainId, address(this), amount, bonderFee, minAmount, block.timestamp, 0, 0);
     }
 
     function _bridgeFromL2ToL2(uint256 chainId, address token, uint256 amount, bytes memory data) private {
-        (
-            address hopAMM,
-            uint256 bonderFee,
-            uint256 currentSlippage,
-            uint256 destinationSlippage,
-            uint256 destinationDeadline
-        ) = abi.decode(data, (address, uint256, uint256, uint256, uint256));
+        (address hopAMM, uint256 bonderFee, uint256 slippage, uint256 deadline) = abi.decode(
+            data,
+            (address, uint256, uint256, uint256)
+        );
 
-        require(amount > bonderFee, 'HOP_BRIDGE_INVALID_BONDER_FEE');
-        require(currentSlippage <= FixedPoint.ONE, 'HOP_BRIDGE_INVALID_SLIPPAGE');
-        require(destinationSlippage <= FixedPoint.ONE, 'HOP_BRIDGE_INVALID_SLIPPAGE');
-        require(destinationDeadline > block.timestamp, 'HOP_BRIDGE_INVALID_DEADLINE');
+        require(slippage <= FixedPoint.ONE, 'HOP_BRIDGE_INVALID_SLIPPAGE');
+        require(deadline > block.timestamp, 'HOP_BRIDGE_INVALID_DEADLINE');
 
         IHopL2AMM amm = IHopL2AMM(hopAMM);
         require(amm.l2CanonicalToken() == token, 'HOP_AMM_TOKEN_DOES_NOT_MATCH');
+        IERC20(token).safeApprove(hopAMM, amount);
 
-        if (!token.isNativeToken()) IERC20(token).safeApprove(hopAMM, amount);
-        uint256 value = token.isNativeToken() ? amount : 0;
-        require(value == msg.value, 'HOP_CONNECTOR_INVALID_VALUE');
-
-        uint256 currentMinAmount = amount.mulUp(FixedPoint.ONE.uncheckedSub(currentSlippage));
-        uint256 destinationMinAmount = amount.mulUp(FixedPoint.ONE.uncheckedSub(destinationSlippage));
-        amm.swapAndSend{ value: value }(
+        uint256 currentMinAmount = amount.mulUp(FixedPoint.ONE.uncheckedSub(slippage));
+        uint256 destinationMinAmount = amount.mulUp(FixedPoint.ONE.uncheckedSub(slippage));
+        amm.swapAndSend(
             chainId,
             address(this),
             amount,
@@ -130,19 +99,7 @@ contract HopConnector {
             currentMinAmount,
             block.timestamp,
             destinationMinAmount,
-            destinationDeadline
+            deadline
         );
-    }
-
-    function _isLayer1(uint256 chainId) private pure returns (bool) {
-        return chainId == ETHEREUM_CHAIN_ID;
-    }
-
-    function _isLayer2(uint256 chainId) private pure returns (bool) {
-        return
-            chainId == POLYGON_CHAIN_ID ||
-            chainId == GNOSIS_CHAIN_ID ||
-            chainId == OPTIMISM_CHAIN_ID ||
-            chainId == ARBITRUM_CHAIN_ID;
     }
 }

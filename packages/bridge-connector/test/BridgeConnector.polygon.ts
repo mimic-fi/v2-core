@@ -91,8 +91,8 @@ describe('BridgeConnector', () => {
       const bonderFee = toUSDC(0.03)
       const deadline = MAX_UINT256
       const data = defaultAbiCoder.encode(
-        ['address', 'uint256', 'uint256', 'uint256', 'uint256'],
-        [HOP_USDC_AMM, bonderFee, slippage, slippage, deadline]
+        ['address', 'uint256', 'uint256', 'uint256'],
+        [HOP_USDC_AMM, bonderFee, slippage, deadline]
       )
 
       it('should send the canonical tokens to the exchange', async () => {
