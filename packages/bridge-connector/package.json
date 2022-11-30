@@ -2,6 +2,8 @@
   "name": "@mimic-fi/v2-bridge-connector",
   "version": "0.0.1",
   "license": "GPL-3.0",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
   "engines": {
     "node": ">=16.0.0"
   },
@@ -9,10 +11,11 @@
     "artifacts/contracts/**/*",
     "!artifacts/contracts/test/*",
     "contracts/**/*",
-    "!contracts/test/*"
+    "!contracts/test/*",
+    "dist"
   ],
   "scripts": {
-    "build": "yarn compile",
+    "build": "yarn compile && rm -rf dist && tsc",
     "compile": "hardhat compile",
     "lint": "yarn lint:solidity && yarn lint:typescript",
     "lint:solidity": "solhint 'contracts/**/*.sol' --config ../../node_modules/solhint-config-mimic/index.js",
@@ -32,6 +35,7 @@
     "@nomiclabs/hardhat-waffle": "^2.0.1",
     "@types/chai": "^4.2.18",
     "@types/mocha": "^8.2.2",
+    "axios": "^1.1.2",
     "chai": "^4.2.0",
     "eslint-config-mimic": "^0.0.2",
     "ethereum-waffle": "^3.3.0",
@@ -44,6 +48,7 @@
     "typescript": "~4.3.4"
   },
   "eslintConfig": {
-    "extends": "eslint-config-mimic"
+    "extends": "eslint-config-mimic",
+    "ignorePatterns": ["dist"]
   }
 }

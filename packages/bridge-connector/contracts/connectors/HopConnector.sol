@@ -16,6 +16,7 @@ pragma solidity ^0.8.0;
 
 import '@openzeppelin/contracts/token/ERC20/IERC20.sol';
 import '@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol';
+import '@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol';
 
 import '@mimic-fi/v2-helpers/contracts/math/FixedPoint.sol';
 import '@mimic-fi/v2-helpers/contracts/math/UncheckedMath.sol';

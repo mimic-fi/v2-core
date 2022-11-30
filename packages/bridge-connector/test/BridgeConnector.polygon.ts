@@ -2,7 +2,9 @@ import { defaultAbiCoder } from '@ethersproject/abi'
 import { deploy, fp, impersonate, instanceAt, MAX_UINT256, toUSDC, ZERO_ADDRESS } from '@mimic-fi/v2-helpers'
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/dist/src/signer-with-address'
 import { expect } from 'chai'
-import { Contract } from 'ethers'
+import { BigNumber, Contract } from 'ethers'
+
+import { getHopBonderFee } from '../src/hop'
 
 /* eslint-disable no-secrets/no-secrets */
 
@@ -17,17 +19,20 @@ const HOP_USDC_AMM = '0x76b22b8C1079A44F1211D867D68b1eda76a635A7'
 describe('BridgeConnector', () => {
   let connector: Contract, usdc: Contract, whale: SignerWithAddress
 
+  const FROM_CHAIN_ID = 137
+
   before('create bridge connector', async () => {
     connector = await deploy('BridgeConnector', [ZERO_ADDRESS])
   })
 
   before('load tokens and accounts', async () => {
-    usdc = await instanceAt('IERC20', USDC)
+    usdc = await instanceAt('IERC20Metadata', USDC)
     whale = await impersonate(WHALE, fp(100))
   })
 
   context('Hop', () => {
     let amm: Contract, hUsdc: Contract, exchange: string
+    let data: string, bonderFee: BigNumber
 
     const source = SOURCE.HOP
 
@@ -38,11 +43,15 @@ describe('BridgeConnector', () => {
     })
 
     context('bridge to mainnet', () => {
-      const chainId = 1
-      const amount = toUSDC(3)
-      const slippage = fp(0.03)
-      const bonderFee = toUSDC(0.03)
-      const data = defaultAbiCoder.encode(['address', 'uint256', 'uint256'], [HOP_USDC_AMM, bonderFee, slippage])
+      const DEST_CHAIN_ID = 1
+
+      const amount = toUSDC(300)
+      const slippage = 0.03
+
+      beforeEach('estimate bonder fee and compute data', async () => {
+        bonderFee = await getHopBonderFee(FROM_CHAIN_ID, DEST_CHAIN_ID, usdc, amount, slippage)
+        data = defaultAbiCoder.encode(['address', 'uint256', 'uint256'], [HOP_USDC_AMM, bonderFee, fp(slippage)])
+      })
 
       it('should send the canonical tokens to the exchange', async () => {
         const previousSenderBalance = await usdc.balanceOf(whale.address)
@@ -50,7 +59,7 @@ describe('BridgeConnector', () => {
         const previousConnectorBalance = await usdc.balanceOf(connector.address)
 
         await usdc.connect(whale).transfer(connector.address, amount)
-        await connector.connect(whale).bridge(source, chainId, USDC, amount, data)
+        await connector.connect(whale).bridge(source, DEST_CHAIN_ID, USDC, amount, data)
 
         const currentSenderBalance = await usdc.balanceOf(whale.address)
         expect(currentSenderBalance).to.be.equal(previousSenderBalance.sub(amount))
@@ -66,9 +75,9 @@ describe('BridgeConnector', () => {
         const previousBridgeHopUsdcBalance = await hUsdc.totalSupply()
 
         await usdc.connect(whale).transfer(connector.address, amount)
-        await connector.connect(whale).bridge(source, chainId, USDC, amount, data)
+        await connector.connect(whale).bridge(source, DEST_CHAIN_ID, USDC, amount, data)
 
-        const minAmount = amount.sub(amount.mul(slippage).div(fp(1)))
+        const minAmount = amount.sub(amount.mul(fp(slippage)).div(fp(1)))
         const burnedAmount = previousBridgeHopUsdcBalance.sub(await hUsdc.totalSupply())
         expect(burnedAmount).to.be.at.least(minAmount)
       })
@@ -77,7 +86,7 @@ describe('BridgeConnector', () => {
         const previousAmmUsdcBalance = await usdc.balanceOf(HOP_USDC_AMM)
 
         await usdc.connect(whale).transfer(connector.address, amount)
-        await connector.connect(whale).bridge(source, chainId, USDC, amount, data)
+        await connector.connect(whale).bridge(source, DEST_CHAIN_ID, USDC, amount, data)
 
         const currentAmmUsdcBalance = await usdc.balanceOf(HOP_USDC_AMM)
         expect(currentAmmUsdcBalance).to.be.equal(previousAmmUsdcBalance)
@@ -85,15 +94,19 @@ describe('BridgeConnector', () => {
     })
 
     context('bridge to arbitrum', () => {
-      const chainId = 42161
-      const amount = toUSDC(3)
-      const slippage = fp(0.03)
-      const bonderFee = toUSDC(0.03)
+      const DEST_CHAIN_ID = 42161
+
+      const amount = toUSDC(300)
+      const slippage = 0.03
       const deadline = MAX_UINT256
-      const data = defaultAbiCoder.encode(
-        ['address', 'uint256', 'uint256', 'uint256'],
-        [HOP_USDC_AMM, bonderFee, slippage, deadline]
-      )
+
+      beforeEach('estimate bonder fee and compute data', async () => {
+        bonderFee = await getHopBonderFee(FROM_CHAIN_ID, DEST_CHAIN_ID, usdc, amount, slippage)
+        data = defaultAbiCoder.encode(
+          ['address', 'uint256', 'uint256', 'uint256'],
+          [HOP_USDC_AMM, bonderFee, fp(slippage), deadline]
+        )
+      })
 
       it('should send the canonical tokens to the exchange', async () => {
         const previousSenderBalance = await usdc.balanceOf(whale.address)
@@ -101,7 +114,7 @@ describe('BridgeConnector', () => {
         const previousConnectorBalance = await usdc.balanceOf(connector.address)
 
         await usdc.connect(whale).transfer(connector.address, amount)
-        await connector.connect(whale).bridge(source, chainId, USDC, amount, data)
+        await connector.connect(whale).bridge(source, DEST_CHAIN_ID, USDC, amount, data)
 
         const currentSenderBalance = await usdc.balanceOf(whale.address)
         expect(currentSenderBalance).to.be.equal(previousSenderBalance.sub(amount))
@@ -117,9 +130,9 @@ describe('BridgeConnector', () => {
         const previousBridgeHopUsdcBalance = await hUsdc.totalSupply()
 
         await usdc.connect(whale).transfer(connector.address, amount)
-        await connector.connect(whale).bridge(source, chainId, USDC, amount, data)
+        await connector.connect(whale).bridge(source, DEST_CHAIN_ID, USDC, amount, data)
 
-        const minAmount = amount.sub(amount.mul(slippage).div(fp(1)))
+        const minAmount = amount.sub(amount.mul(fp(slippage)).div(fp(1)))
         const burnedAmount = previousBridgeHopUsdcBalance.sub(await hUsdc.totalSupply())
         expect(burnedAmount).to.be.at.least(minAmount)
       })
@@ -128,7 +141,7 @@ describe('BridgeConnector', () => {
         const previousAmmUsdcBalance = await usdc.balanceOf(HOP_USDC_AMM)
 
         await usdc.connect(whale).transfer(connector.address, amount)
-        await connector.connect(whale).bridge(source, chainId, USDC, amount, data)
+        await connector.connect(whale).bridge(source, DEST_CHAIN_ID, USDC, amount, data)
 
         const currentAmmUsdcBalance = await usdc.balanceOf(HOP_USDC_AMM)
         expect(currentAmmUsdcBalance).to.be.equal(previousAmmUsdcBalance)
