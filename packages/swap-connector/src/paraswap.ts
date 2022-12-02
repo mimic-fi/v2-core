@@ -1,7 +1,6 @@
 import { bn, currentTimestamp, MINUTE, pct } from '@mimic-fi/v2-helpers'
 import axios, { AxiosError } from 'axios'
 import { BigNumber, Contract } from 'ethers'
-import { ethers } from 'hardhat'
 
 const PARASWAP_URL = 'https://apiv5.paraswap.io'
 
@@ -71,6 +70,7 @@ export async function postTransactions(
   minAmountOut: BigNumber,
   priceRoute: { [key: string]: string }
 ): Promise<TransactionsResponse> {
+  const { ethers } = await import('hardhat')
   return axios.post(
     `${PARASWAP_URL}/transactions/1`,
     {

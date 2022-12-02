@@ -14,7 +14,6 @@ import {
   NATIVE_TOKEN_ADDRESS,
   ZERO_ADDRESS,
 } from '@mimic-fi/v2-helpers'
-import { createClone } from '@mimic-fi/v2-registry'
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/dist/src/signer-with-address'
 import { expect } from 'chai'
 import { BigNumber, Contract } from 'ethers'
@@ -33,13 +32,12 @@ describe('SmartVault', () => {
   beforeEach('deploy smart vault', async () => {
     registry = await deploy('@mimic-fi/v2-registry/artifacts/contracts/registry/Registry.sol/Registry', [admin.address])
     wrappedNativeToken = await deploy('WrappedNativeTokenMock')
-    smartVault = await createClone(
-      registry,
-      admin,
-      'SmartVault',
-      [wrappedNativeToken.address, registry.address],
-      [admin.address]
-    )
+    const implementation = await deploy('SmartVault', [wrappedNativeToken.address, registry.address])
+    await registry.connect(admin).register(await implementation.NAMESPACE(), implementation.address, false)
+    const initializeData = implementation.interface.encodeFunctionData('initialize', [admin.address])
+    const tx = await registry.clone(implementation.address, initializeData)
+    const event = await assertEvent(tx, 'Cloned', { implementation })
+    smartVault = await instanceAt('SmartVault', event.args.instance)
   })
 
   beforeEach('deploy smart vault dependencies', async () => {

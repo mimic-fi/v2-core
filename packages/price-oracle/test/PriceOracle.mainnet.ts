@@ -1,4 +1,4 @@
-import { assertAlmostEqual, deploy, fp, ZERO_ADDRESS } from '@mimic-fi/v2-helpers'
+import { assertAlmostEqual, deploy, fp, getSigner, impersonate, ZERO_ADDRESS } from '@mimic-fi/v2-helpers'
 import { Contract } from 'ethers'
 
 /* eslint-disable no-secrets/no-secrets */
@@ -19,6 +19,10 @@ describe('PriceOracle', () => {
   const ETH_USD = 1610
   const ETH_BTC = 0.0754
   const BTC_USD = ETH_USD / ETH_BTC
+
+  before('fund deployer', async () => {
+    await impersonate((await getSigner()).address, fp(1000))
+  })
 
   before('create price oracle', async () => {
     oracle = await deploy('PriceOracle', [WETH, ZERO_ADDRESS])

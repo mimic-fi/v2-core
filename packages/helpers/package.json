@@ -24,18 +24,17 @@
     "prepare": "yarn build"
   },
   "dependencies": {
-    "@nomiclabs/hardhat-ethers": "^2.0.2",
-    "@nomiclabs/hardhat-waffle": "^2.0.1",
+    "@nomiclabs/hardhat-ethers": "^2.2.1",
+    "@nomiclabs/hardhat-waffle": "^2.0.3",
     "@types/chai": "^4.2.18",
     "@types/mocha": "^8.2.2",
     "chai": "^4.2.0",
     "decimal.js": "^10.3.1",
-    "ethers": "^5.0.8",
-    "hardhat": "^2.4.1"
+    "hardhat": "^2.12.3"
   },
   "devDependencies": {
     "eslint-config-mimic": "^0.0.2",
-    "ethereum-waffle": "^3.3.0",
+    "ethereum-waffle": "^3.4.4",
     "solhint-config-mimic": "^0.0.1",
     "ts-node": "^8.10.2",
     "typescript": "~4.3.4"

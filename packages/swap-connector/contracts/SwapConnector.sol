@@ -25,7 +25,7 @@ import './connectors/OneInchV5Connector.sol';
 
 /**
  * @title SwapConnector
- * @dev Swap Connector implementation that IHopRouter.sol with Uniswap V2, Uniswap V3, Balancer V2, Paraswap V5,
+ * @dev Swap Connector implementation that interfaces with Uniswap V2, Uniswap V3, Balancer V2, Paraswap V5,
  * and 1inch V5.
  *
  * It inherits from BaseImplementation which means it's implementation can be used directly from the Mimic Registry,

@@ -1,7 +1,9 @@
 {
-  "name": "@mimic-fi/v2-price-oracle",
-  "version": "0.0.7",
+  "name": "@mimic-fi/v2-bridge-connector",
+  "version": "0.0.1",
   "license": "GPL-3.0",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
   "engines": {
     "node": ">=16.0.0"
   },
@@ -9,21 +11,25 @@
     "artifacts/contracts/**/*",
     "!artifacts/contracts/test/*",
     "contracts/**/*",
-    "!contracts/test/*"
+    "!contracts/test/*",
+    "dist"
   ],
   "scripts": {
-    "build": "yarn compile",
+    "build": "yarn compile && rm -rf dist && tsc",
     "compile": "hardhat compile",
     "lint": "yarn lint:solidity && yarn lint:typescript",
     "lint:solidity": "solhint 'contracts/**/*.sol' --config ../../node_modules/solhint-config-mimic/index.js",
     "lint:typescript": "eslint . --ext .ts",
     "test": "hardhat test",
-    "test:mainnet": "yarn test --fork mainnet --block-number 15396575",
+    "test:mainnet": "yarn test --fork mainnet --block-number 15746646 --chain-id 1",
+    "test:polygon": "yarn test --fork polygon --block-number 35905800 --chain-id 137",
+    "test:optimism": "yarn test --fork optimism --block-number 44387006 --chain-id 10",
+    "test:arbitrum": "yarn test --fork arbitrum --block-number 42815589 --chain-id 42161 --fork-ignore-unknown-tx-type true",
+    "test:gnosis": "yarn test --fork gnosis --block-number 25247822 --chain-id 100",
     "prepare": "yarn build"
   },
   "dependencies": {
-    "@chainlink/contracts": "^0.2.1",
-    "@mimic-fi/v2-helpers": "0.0.10",
+    "@mimic-fi/v2-helpers": "0.0.11",
     "@mimic-fi/v2-registry": "0.0.7",
     "@openzeppelin/contracts": "4.7.0"
   },
@@ -32,6 +38,7 @@
     "@nomiclabs/hardhat-waffle": "^2.0.3",
     "@types/chai": "^4.2.18",
     "@types/mocha": "^8.2.2",
+    "axios": "^1.1.2",
     "chai": "^4.2.0",
     "eslint-config-mimic": "^0.0.2",
     "ethereum-waffle": "^3.4.4",
@@ -43,6 +50,7 @@
     "typescript": "~4.3.4"
   },
   "eslintConfig": {
-    "extends": "eslint-config-mimic"
+    "extends": "eslint-config-mimic",
+    "ignorePatterns": ["dist"]
   }
 }
