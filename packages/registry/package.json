@@ -2,8 +2,6 @@
   "name": "@mimic-fi/v2-registry",
   "version": "0.0.7",
   "license": "GPL-3.0",
-  "main": "dist/index.js",
-  "types": "dist/index.d.ts",
   "engines": {
     "node": ">=16.0.0"
   },
@@ -11,11 +9,10 @@
     "artifacts/contracts/**/*",
     "!artifacts/contracts/test/*",
     "contracts/**/*",
-    "!contracts/test/*",
-    "dist"
+    "!contracts/test/*"
   ],
   "scripts": {
-    "build": "yarn compile && rm -rf dist && tsc",
+    "build": "yarn compile",
     "compile": "hardhat compile",
     "lint": "yarn lint:solidity && yarn lint:typescript",
     "lint:solidity": "solhint 'contracts/**/*.sol' --config ../../node_modules/solhint-config-mimic/index.js",

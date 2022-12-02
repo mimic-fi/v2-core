@@ -1,5 +1,4 @@
-import { deploy, fp, getSigners, impersonate, instanceAt, toUSDC, toWBTC } from '@mimic-fi/v2-helpers'
-import { createClone } from '@mimic-fi/v2-registry'
+import { assertEvent, deploy, fp, getSigners, impersonate, instanceAt, toUSDC, toWBTC } from '@mimic-fi/v2-helpers'
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/dist/src/signer-with-address'
 import { expect } from 'chai'
 import { BigNumber, Contract } from 'ethers'
@@ -44,7 +43,12 @@ describe('SmartVault', () => {
 
   before('deploy smart vault', async () => {
     registry = await deploy('@mimic-fi/v2-registry/artifacts/contracts/registry/Registry.sol/Registry', [admin.address])
-    smartVault = await createClone(registry, admin, 'SmartVault', [WETH, registry.address], [admin.address])
+    const implementation = await deploy('SmartVault', [WETH, registry.address])
+    await registry.connect(admin).register(await implementation.NAMESPACE(), implementation.address, false)
+    const initializeData = implementation.interface.encodeFunctionData('initialize', [admin.address])
+    const tx = await registry.clone(implementation.address, initializeData)
+    const event = await assertEvent(tx, 'Cloned', { implementation })
+    smartVault = await instanceAt('SmartVault', event.args.instance)
   })
 
   before('set smart vault price oracle', async () => {

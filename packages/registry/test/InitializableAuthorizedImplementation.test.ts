@@ -1,9 +1,7 @@
-import { deploy, getSigners } from '@mimic-fi/v2-helpers'
+import { assertEvent, deploy, getSigners, instanceAt } from '@mimic-fi/v2-helpers'
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/dist/src/signer-with-address'
 import { expect } from 'chai'
 import { Contract } from 'ethers'
-
-import { createClone } from '../'
 
 /* eslint-disable no-secrets/no-secrets */
 
@@ -17,13 +15,12 @@ describe('InitializableAuthorizedImplementation', () => {
 
   beforeEach('deploy instance', async () => {
     registry = await deploy('Registry', [admin.address])
-    instance = await createClone(
-      registry,
-      admin,
-      'InitializableAuthorizedImplementationMock',
-      [registry.address],
-      [admin.address]
-    )
+    const implementation = await deploy('InitializableAuthorizedImplementationMock', [registry.address])
+    await registry.connect(admin).register(await implementation.NAMESPACE(), implementation.address, false)
+    const initializeData = implementation.interface.encodeFunctionData('initialize', [admin.address])
+    const tx = await registry.clone(implementation.address, initializeData)
+    const event = await assertEvent(tx, 'Cloned', { implementation })
+    instance = await instanceAt('InitializableAuthorizedImplementationMock', event.args.instance)
   })
 
   describe('initialize', () => {
