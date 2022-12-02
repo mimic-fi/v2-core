@@ -31,15 +31,16 @@ describe('BridgeConnector', () => {
     const HOP_USDC_BRIDGE = '0x3666f603Cc164936C1b87e207F36BEBa4AC5f18a'
 
     function bridgesToL2Properly(chainId: number) {
-      const amount = toUSDC(3)
       const slippage = fp(0.03)
       const deadline = MAX_UINT256
+      const amountIn = toUSDC(300)
+      const minAmountOut = amountIn.sub(amountIn.mul(slippage).div(fp(1)))
       const relayer = ZERO_ADDRESS
       const relayerFee = 0
 
       const data = defaultAbiCoder.encode(
-        ['address', 'uint256', 'uint256', 'address', 'uint256'],
-        [HOP_USDC_BRIDGE, slippage, deadline, relayer, relayerFee]
+        ['address', 'uint256', 'address', 'uint256'],
+        [HOP_USDC_BRIDGE, deadline, relayer, relayerFee]
       )
 
       it('should send the tokens to the bridge', async () => {
@@ -47,14 +48,14 @@ describe('BridgeConnector', () => {
         const previousBridgeBalance = await usdc.balanceOf(HOP_USDC_BRIDGE)
         const previousConnectorBalance = await usdc.balanceOf(connector.address)
 
-        await usdc.connect(whale).transfer(connector.address, amount)
-        await connector.connect(whale).bridge(source, chainId, USDC, amount, data)
+        await usdc.connect(whale).transfer(connector.address, amountIn)
+        await connector.connect(whale).bridge(source, chainId, USDC, amountIn, minAmountOut, data)
 
         const currentSenderBalance = await usdc.balanceOf(whale.address)
-        expect(currentSenderBalance).to.be.equal(previousSenderBalance.sub(amount))
+        expect(currentSenderBalance).to.be.equal(previousSenderBalance.sub(amountIn))
 
         const currentBridgeBalance = await usdc.balanceOf(HOP_USDC_BRIDGE)
-        expect(currentBridgeBalance).to.be.equal(previousBridgeBalance.add(amount))
+        expect(currentBridgeBalance).to.be.equal(previousBridgeBalance.add(amountIn))
 
         const currentConnectorBalance = await usdc.balanceOf(connector.address)
         expect(currentConnectorBalance).to.be.equal(previousConnectorBalance)
@@ -89,7 +90,7 @@ describe('BridgeConnector', () => {
       const destinationChainId = 1
 
       it('reverts', async () => {
-        await expect(connector.bridge(source, destinationChainId, USDC, 0, '0x')).to.be.revertedWith(
+        await expect(connector.bridge(source, destinationChainId, USDC, 0, 0, '0x')).to.be.revertedWith(
           'BRIDGE_CONNECTOR_SAME_CHAIN_OP'
         )
       })
@@ -99,7 +100,7 @@ describe('BridgeConnector', () => {
       const destinationChainId = 5
 
       it('reverts', async () => {
-        await expect(connector.bridge(source, destinationChainId, USDC, 0, '0x')).to.be.revertedWith(
+        await expect(connector.bridge(source, destinationChainId, USDC, 0, 0, '0x')).to.be.revertedWith(
           'HOP_BRIDGE_OP_NOT_SUPPORTED'
         )
       })

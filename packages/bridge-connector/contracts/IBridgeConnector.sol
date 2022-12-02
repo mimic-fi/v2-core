@@ -33,8 +33,16 @@ interface IBridgeConnector is IImplementation {
      * @param source Source to execute the requested bridge op
      * @param chainId ID of the destination chain
      * @param token Address of the token to be bridged
-     * @param amount Amount of tokens to be bridged
+     * @param amountIn Amount of tokens to be bridged
+     * @param minAmountOut Minimum amount of tokens willing to receive on the destination chain
      * @param data ABI encoded data that will depend on the requested source
      */
-    function bridge(Source source, uint256 chainId, address token, uint256 amount, bytes memory data) external;
+    function bridge(
+        Source source,
+        uint256 chainId,
+        address token,
+        uint256 amountIn,
+        uint256 minAmountOut,
+        bytes memory data
+    ) external;
 }
