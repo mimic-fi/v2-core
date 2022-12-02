@@ -48,15 +48,20 @@ contract BridgeConnector is IBridgeConnector, BaseImplementation, HopConnector {
      * @param source Source to execute the requested bridge op
      * @param chainId ID of the destination chain
      * @param token Address of the token to be bridged
-     * @param amount Amount of tokens to be bridged
+     * @param amountIn Amount of tokens to be bridged
+     * @param minAmountOut Minimum amount of tokens willing to receive on the destination chain
      * @param data ABI encoded data that will depend on the requested source
      */
-    function bridge(Source source, uint256 chainId, address token, uint256 amount, bytes memory data)
-        external
-        override
-    {
+    function bridge(
+        Source source,
+        uint256 chainId,
+        address token,
+        uint256 amountIn,
+        uint256 minAmountOut,
+        bytes memory data
+    ) external override {
         require(chainId != block.chainid, 'BRIDGE_CONNECTOR_SAME_CHAIN_OP');
-        if (source == Source.Hop) return _bridgeHop(chainId, token, amount, data);
+        if (source == Source.Hop) return _bridgeHop(chainId, token, amountIn, minAmountOut, data);
         else revert('BRIDGE_CONNECTOR_INVALID_SOURCE');
     }
 }

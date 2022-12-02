@@ -29,19 +29,20 @@ export function itBehavesLikeHopBridgeConnector(
   })
 
   function itBridgesToL2Properly(destinationChainId: number) {
-    const amount = toUSDC(300)
     const slippage = 0.01
     const deadline = MAX_UINT256
+    const amountIn = toUSDC(300)
+    const minAmountOut = amountIn.sub(amountIn.mul(fp(slippage)).div(fp(1)))
 
     if (destinationChainId == sourceChainId) {
       it('reverts', async function () {
-        await expect(this.connector.bridge(SOURCE, destinationChainId, usdcAddress, amount, '0x')).to.be.revertedWith(
-          'BRIDGE_CONNECTOR_SAME_CHAIN_OP'
-        )
+        await expect(
+          this.connector.bridge(SOURCE, destinationChainId, usdcAddress, amountIn, minAmountOut, '0x')
+        ).to.be.revertedWith('BRIDGE_CONNECTOR_SAME_CHAIN_OP')
       })
     } else {
       beforeEach('estimate bonder fee and compute data', async function () {
-        bonderFee = await getHopBonderFee(sourceChainId, destinationChainId, usdc, amount, slippage)
+        bonderFee = await getHopBonderFee(sourceChainId, destinationChainId, usdc, amountIn, slippage)
         data = defaultAbiCoder.encode(
           ['address', 'uint256', 'uint256', 'uint256'],
           [usdcAmmAddress, bonderFee, fp(slippage), deadline]
@@ -53,14 +54,16 @@ export function itBehavesLikeHopBridgeConnector(
         const previousExchangeBalance = await usdc.balanceOf(ammExchangeAddress)
         const previousConnectorBalance = await usdc.balanceOf(this.connector.address)
 
-        await usdc.connect(whale).transfer(this.connector.address, amount)
-        await this.connector.connect(whale).bridge(SOURCE, destinationChainId, usdcAddress, amount, data)
+        await usdc.connect(whale).transfer(this.connector.address, amountIn)
+        await this.connector
+          .connect(whale)
+          .bridge(SOURCE, destinationChainId, usdcAddress, amountIn, minAmountOut, data)
 
         const currentSenderBalance = await usdc.balanceOf(whale.address)
-        expect(currentSenderBalance).to.be.equal(previousSenderBalance.sub(amount))
+        expect(currentSenderBalance).to.be.equal(previousSenderBalance.sub(amountIn))
 
         const currentExchangeBalance = await usdc.balanceOf(ammExchangeAddress)
-        expect(currentExchangeBalance).to.be.equal(previousExchangeBalance.add(amount))
+        expect(currentExchangeBalance).to.be.equal(previousExchangeBalance.add(amountIn))
 
         const currentConnectorBalance = await usdc.balanceOf(this.connector.address)
         expect(currentConnectorBalance).to.be.equal(previousConnectorBalance)
@@ -69,19 +72,22 @@ export function itBehavesLikeHopBridgeConnector(
       it('should burn at least the requested hop tokens', async function () {
         const previousBridgeHopUsdcBalance = await hUsdc.totalSupply()
 
-        await usdc.connect(whale).transfer(this.connector.address, amount)
-        await this.connector.connect(whale).bridge(SOURCE, destinationChainId, usdcAddress, amount, data)
+        await usdc.connect(whale).transfer(this.connector.address, amountIn)
+        await this.connector
+          .connect(whale)
+          .bridge(SOURCE, destinationChainId, usdcAddress, amountIn, minAmountOut, data)
 
-        const minAmount = amount.sub(amount.mul(fp(slippage)).div(fp(1)))
         const burnedAmount = previousBridgeHopUsdcBalance.sub(await hUsdc.totalSupply())
-        expect(burnedAmount).to.be.at.least(minAmount)
+        expect(burnedAmount).to.be.at.least(minAmountOut)
       })
 
       it('does not affect the canonical token balance of the amm', async function () {
         const previousAmmUsdcBalance = await usdc.balanceOf(usdcAmmAddress)
 
-        await usdc.connect(whale).transfer(this.connector.address, amount)
-        await this.connector.connect(whale).bridge(SOURCE, destinationChainId, usdcAddress, amount, data)
+        await usdc.connect(whale).transfer(this.connector.address, amountIn)
+        await this.connector
+          .connect(whale)
+          .bridge(SOURCE, destinationChainId, usdcAddress, amountIn, minAmountOut, data)
 
         const currentAmmUsdcBalance = await usdc.balanceOf(usdcAmmAddress)
         expect(currentAmmUsdcBalance).to.be.equal(previousAmmUsdcBalance)
@@ -115,12 +121,13 @@ export function itBehavesLikeHopBridgeConnector(
 
   context('bridge to mainnet', function () {
     const destinationChainId = 1
-    const amount = toUSDC(300)
     const slippage = 0.03
+    const amountIn = toUSDC(300)
+    const minAmountOut = amountIn.sub(amountIn.mul(fp(slippage)).div(fp(1)))
 
     beforeEach('estimate bonder fee and compute data', async function () {
-      bonderFee = await getHopBonderFee(sourceChainId, destinationChainId, usdc, amount, slippage)
-      data = defaultAbiCoder.encode(['address', 'uint256', 'uint256'], [usdcAmmAddress, bonderFee, fp(slippage)])
+      bonderFee = await getHopBonderFee(sourceChainId, destinationChainId, usdc, amountIn, slippage)
+      data = defaultAbiCoder.encode(['address', 'uint256'], [usdcAmmAddress, bonderFee])
     })
 
     it('should send the canonical tokens to the exchange', async function () {
@@ -128,14 +135,14 @@ export function itBehavesLikeHopBridgeConnector(
       const previousExchangeBalance = await usdc.balanceOf(ammExchangeAddress)
       const previousConnectorBalance = await usdc.balanceOf(this.connector.address)
 
-      await usdc.connect(whale).transfer(this.connector.address, amount)
-      await this.connector.connect(whale).bridge(SOURCE, destinationChainId, usdcAddress, amount, data)
+      await usdc.connect(whale).transfer(this.connector.address, amountIn)
+      await this.connector.connect(whale).bridge(SOURCE, destinationChainId, usdcAddress, amountIn, minAmountOut, data)
 
       const currentSenderBalance = await usdc.balanceOf(whale.address)
-      expect(currentSenderBalance).to.be.equal(previousSenderBalance.sub(amount))
+      expect(currentSenderBalance).to.be.equal(previousSenderBalance.sub(amountIn))
 
       const currentExchangeBalance = await usdc.balanceOf(ammExchangeAddress)
-      expect(currentExchangeBalance).to.be.equal(previousExchangeBalance.add(amount))
+      expect(currentExchangeBalance).to.be.equal(previousExchangeBalance.add(amountIn))
 
       const currentConnectorBalance = await usdc.balanceOf(this.connector.address)
       expect(currentConnectorBalance).to.be.equal(previousConnectorBalance)
@@ -144,10 +151,10 @@ export function itBehavesLikeHopBridgeConnector(
     it('should burn at least the requested hop tokens', async function () {
       const previousBridgeHopUsdcBalance = await hUsdc.totalSupply()
 
-      await usdc.connect(whale).transfer(this.connector.address, amount)
-      await this.connector.connect(whale).bridge(SOURCE, destinationChainId, usdcAddress, amount, data)
+      await usdc.connect(whale).transfer(this.connector.address, amountIn)
+      await this.connector.connect(whale).bridge(SOURCE, destinationChainId, usdcAddress, amountIn, minAmountOut, data)
 
-      const minAmount = amount.sub(amount.mul(fp(slippage)).div(fp(1)))
+      const minAmount = amountIn.sub(amountIn.mul(fp(slippage)).div(fp(1)))
       const burnedAmount = previousBridgeHopUsdcBalance.sub(await hUsdc.totalSupply())
       expect(burnedAmount).to.be.at.least(minAmount)
     })
@@ -155,8 +162,8 @@ export function itBehavesLikeHopBridgeConnector(
     it('does not affect the canonical token balance of the amm', async function () {
       const previousAmmUsdcBalance = await usdc.balanceOf(usdcAmmAddress)
 
-      await usdc.connect(whale).transfer(this.connector.address, amount)
-      await this.connector.connect(whale).bridge(SOURCE, destinationChainId, usdcAddress, amount, data)
+      await usdc.connect(whale).transfer(this.connector.address, amountIn)
+      await this.connector.connect(whale).bridge(SOURCE, destinationChainId, usdcAddress, amountIn, minAmountOut, data)
 
       const currentAmmUsdcBalance = await usdc.balanceOf(usdcAmmAddress)
       expect(currentAmmUsdcBalance).to.be.equal(previousAmmUsdcBalance)
