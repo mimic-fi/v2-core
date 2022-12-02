@@ -19,12 +19,18 @@ export async function getHopBonderFee(
   toChainId: number,
   token: Contract,
   amount: BigNumber,
-  slippage: number
+  slippage: number,
+  tries = 3
 ): Promise<BigNumber> {
   try {
     const { data } = await getQuote(fromChainId, toChainId, token, amount, slippage)
-    if (data.error) throw Error(data.error)
-    return bn(data.bonderFee)
+    if (!data.error) return bn(data.bonderFee)
+
+    const shouldRetry = data.error.includes('Transaction reverted without a reason string') && tries > 0
+    if (!shouldRetry) throw Error(data.error)
+    console.log(`Retrying hop quote...`)
+    await sleep(10)
+    return getHopBonderFee(fromChainId, toChainId, token, amount, slippage, tries - 1)
   } catch (error) {
     if (error instanceof AxiosError) throw Error(error.toString())
     else throw error
@@ -51,4 +57,8 @@ async function getQuote(
       slippage: slippage < 1 ? slippage * 100 : slippage,
     },
   })
+}
+
+async function sleep(seconds: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, seconds * 1000))
 }

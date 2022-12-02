@@ -23,6 +23,9 @@
     "test": "hardhat test",
     "test:mainnet": "yarn test --fork mainnet --block-number 15746646 --chain-id 1",
     "test:polygon": "yarn test --fork polygon --block-number 35905800 --chain-id 137",
+    "test:optimism": "yarn test --fork optimism --block-number 44387006 --chain-id 10",
+    "test:arbitrum": "yarn test --fork arbitrum --block-number 42815589 --chain-id 42161 --fork-ignore-unknown-tx-type true",
+    "test:gnosis": "yarn test --fork gnosis --block-number 25247822 --chain-id 100",
     "prepare": "yarn build"
   },
   "dependencies": {

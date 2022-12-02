@@ -4,11 +4,11 @@ import { itBehavesLikeHopBridgeConnector } from './behaviors/HopL2BridgeConnecto
 
 /* eslint-disable no-secrets/no-secrets */
 
-const USDC = '0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174'
-const WHALE = '0xa8f49d90b24d6a007e5f47bf86d122a9f3211734'
+const USDC = '0xDDAfbb505ad214D7b80b1f830fcCc89B60fb7A83'
+const WHALE = '0xc66825c5c04b3c2ccd536d626934e16248a63f68'
 
 describe('BridgeConnector', () => {
-  const SOURCE_CHAIN_ID = 137
+  const SOURCE_CHAIN_ID = 100
 
   before('create bridge connector', async function () {
     this.connector = await deploy('BridgeConnector', [ZERO_ADDRESS])

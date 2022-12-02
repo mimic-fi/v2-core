@@ -12,7 +12,6 @@ const SOURCE = {
 
 const USDC = '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48'
 const WHALE = '0xf584f8728b874a6a5c7a8d4d387c9aae9172d621'
-const HOP_USDC_BRIDGE = '0x3666f603Cc164936C1b87e207F36BEBa4AC5f18a'
 
 describe('BridgeConnector', () => {
   let connector: Contract, usdc: Contract, whale: SignerWithAddress
@@ -29,8 +28,9 @@ describe('BridgeConnector', () => {
   context('Hop', () => {
     const source = SOURCE.HOP
 
-    context('bridge to polygon', () => {
-      const chainId = 137
+    const HOP_USDC_BRIDGE = '0x3666f603Cc164936C1b87e207F36BEBa4AC5f18a'
+
+    function bridgesToL2Properly(chainId: number) {
       const amount = toUSDC(3)
       const slippage = fp(0.03)
       const deadline = MAX_UINT256
@@ -58,6 +58,50 @@ describe('BridgeConnector', () => {
 
         const currentConnectorBalance = await usdc.balanceOf(connector.address)
         expect(currentConnectorBalance).to.be.equal(previousConnectorBalance)
+      })
+    }
+
+    context('bridge to optimism', () => {
+      const destinationChainId = 10
+
+      bridgesToL2Properly(destinationChainId)
+    })
+
+    context('bridge to polygon', () => {
+      const destinationChainId = 137
+
+      bridgesToL2Properly(destinationChainId)
+    })
+
+    context('bridge to gnosis', () => {
+      const destinationChainId = 100
+
+      bridgesToL2Properly(destinationChainId)
+    })
+
+    context('bridge to arbitrum', () => {
+      const destinationChainId = 42161
+
+      bridgesToL2Properly(destinationChainId)
+    })
+
+    context('bridge to mainnet', () => {
+      const destinationChainId = 1
+
+      it('reverts', async () => {
+        await expect(connector.bridge(source, destinationChainId, USDC, 0, '0x')).to.be.revertedWith(
+          'BRIDGE_CONNECTOR_SAME_CHAIN_OP'
+        )
+      })
+    })
+
+    context('bridge to goerli', () => {
+      const destinationChainId = 5
+
+      it('reverts', async () => {
+        await expect(connector.bridge(source, destinationChainId, USDC, 0, '0x')).to.be.revertedWith(
+          'HOP_BRIDGE_OP_NOT_SUPPORTED'
+        )
       })
     })
   })
