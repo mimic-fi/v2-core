@@ -22,7 +22,7 @@
     "prepare": "yarn build"
   },
   "dependencies": {
-    "@mimic-fi/v2-helpers": "0.0.11",
+    "@mimic-fi/v2-helpers": "0.0.12",
     "@mimic-fi/v2-registry": "0.0.7",
     "@openzeppelin/contracts": "4.7.0"
   },
