@@ -53,7 +53,7 @@ contract BridgeConnector is IBridgeConnector, BaseImplementation, HopConnector {
      * @param data ABI encoded data that will depend on the requested source
      */
     function bridge(
-        Source source,
+        uint8 source,
         uint256 chainId,
         address token,
         uint256 amountIn,
@@ -61,7 +61,7 @@ contract BridgeConnector is IBridgeConnector, BaseImplementation, HopConnector {
         bytes memory data
     ) external override {
         require(chainId != block.chainid, 'BRIDGE_CONNECTOR_SAME_CHAIN_OP');
-        if (source == Source.Hop) return _bridgeHop(chainId, token, amountIn, minAmountOut, data);
+        if (Source(source) == Source.Hop) return _bridgeHop(chainId, token, amountIn, minAmountOut, data);
         else revert('BRIDGE_CONNECTOR_INVALID_SOURCE');
     }
 }

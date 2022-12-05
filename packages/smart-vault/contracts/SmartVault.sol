@@ -25,6 +25,7 @@ import '@mimic-fi/v2-helpers/contracts/utils/Denominations.sol';
 import '@mimic-fi/v2-price-oracle/contracts/oracle/IPriceOracle.sol';
 import '@mimic-fi/v2-price-oracle/contracts/feeds/PriceFeedProvider.sol';
 import '@mimic-fi/v2-strategies/contracts/IStrategy.sol';
+import '@mimic-fi/v2-bridge-connector/contracts/IBridgeConnector.sol';
 import '@mimic-fi/v2-swap-connector/contracts/ISwapConnector.sol';
 import '@mimic-fi/v2-registry/contracts/implementations/InitializableAuthorizedImplementation.sol';
 
@@ -32,11 +33,12 @@ import './ISmartVault.sol';
 import './IWrappedNativeToken.sol';
 import './helpers/StrategyLib.sol';
 import './helpers/SwapConnectorLib.sol';
+import './helpers/BridgeConnectorLib.sol';
 
 /**
  * @title Smart Vault
  * @dev Smart Vault contract where funds are being held offering a bunch of primitives to allow users model any
- * type of action to manage them, these are: collector, withdraw, swap, join, exit, bridge, wrap, and unwrap.
+ * type of action to manage them, these are: collector, withdraw, swap, bridge, join, exit, bridge, wrap, and unwrap.
  *
  * It inherits from InitializableAuthorizedImplementation which means it's implementation can be cloned
  * from the Mimic Registry and should be initialized depending on each case.
@@ -47,6 +49,7 @@ contract SmartVault is ISmartVault, PriceFeedProvider, InitializableAuthorizedIm
     using UncheckedMath for uint256;
     using StrategyLib for address;
     using SwapConnectorLib for address;
+    using BridgeConnectorLib for address;
 
     // Namespace under which the Smart Vault is registered in the Mimic Registry
     bytes32 public constant override NAMESPACE = keccak256('SMART_VAULT');
@@ -75,6 +78,9 @@ contract SmartVault is ISmartVault, PriceFeedProvider, InitializableAuthorizedIm
     // Swap connector reference
     address public override swapConnector;
 
+    // Bridge connector reference
+    address public override bridgeConnector;
+
     // List of allowed strategies indexed by strategy address
     mapping (address => bool) public override isStrategyAllowed;
 
@@ -92,6 +98,9 @@ contract SmartVault is ISmartVault, PriceFeedProvider, InitializableAuthorizedIm
 
     // Swap fee configuration
     Fee public override swapFee;
+
+    // Bridge fee configuration
+    Fee public override bridgeFee;
 
     // Wrapped native token reference
     address public immutable override wrappedNativeToken;
@@ -146,6 +155,14 @@ contract SmartVault is ISmartVault, PriceFeedProvider, InitializableAuthorizedIm
     }
 
     /**
+     * @dev Sets a new bridge connector to a Smart Vault. Sender must be authorized.
+     * @param newBridgeConnector Address of the new bridge connector to be set
+     */
+    function setBridgeConnector(address newBridgeConnector) external override auth {
+        _setBridgeConnector(newBridgeConnector);
+    }
+
+    /**
      * @dev Sets a new fee collector. Sender must be authorized.
      * @param newFeeCollector Address of the new fee collector to be set
      */
@@ -187,6 +204,18 @@ contract SmartVault is ISmartVault, PriceFeedProvider, InitializableAuthorizedIm
     function setSwapFee(uint256 pct, uint256 cap, address token, uint256 period) external override auth {
         _setFeeConfiguration(swapFee, pct, cap, token, period);
         emit SwapFeeSet(pct, cap, token, period);
+    }
+
+    /**
+     * @dev Sets a new bridge fee. Sender must be authorized.
+     * @param pct New bridge fee percentage to be set
+     * @param cap New maximum amount of bridge fees to be charged per period
+     * @param token Address of the token cap to be set
+     * @param period New cap period length in seconds for the bridge fee
+     */
+    function setBridgeFee(uint256 pct, uint256 cap, address token, uint256 period) external override auth {
+        _setFeeConfiguration(bridgeFee, pct, cap, token, period);
+        emit BridgeFeeSet(pct, cap, token, period);
     }
 
     /**
@@ -474,6 +503,48 @@ contract SmartVault is ISmartVault, PriceFeedProvider, InitializableAuthorizedIm
     }
 
     /**
+     * @dev Bridge assets to another chain
+     * @param source Source to request the bridge. It depends on the Bridge Connector attached to a Smart Vault.
+     * @param chainId ID of the destination chain
+     * @param token Address of the token to be bridged
+     * @param amount Amount of tokens to be bridged
+     * @param limitType Bridge limit to be applied: slippage or min amount out
+     * @param limitAmount Amount of the swap limit to be applied depending on limitType
+     * @param data Encoded data to specify different bridge parameters depending on the source picked
+     * @return bridged Amount requested to be bridged after fees
+     */
+    function bridge(
+        uint8 source,
+        uint256 chainId,
+        address token,
+        uint256 amount,
+        BridgeLimit limitType,
+        uint256 limitAmount,
+        bytes memory data
+    ) external override auth returns (uint256 bridged) {
+        require(block.chainid != chainId, 'BRIDGE_SAME_CHAIN');
+        require(bridgeConnector != address(0), 'BRIDGE_CONNECTOR_NOT_SET');
+
+        uint256 bridgeFeeAmount = _payFee(token, amount, bridgeFee);
+        bridged = amount - bridgeFeeAmount;
+
+        uint256 minAmountOut;
+        if (limitType == BridgeLimit.MinAmountOut) {
+            minAmountOut = limitAmount;
+        } else if (limitType == BridgeLimit.Slippage) {
+            require(limitAmount <= FixedPoint.ONE, 'BRIDGE_SLIPPAGE_ABOVE_ONE');
+            // No need for checked math as we are checking it manually beforehand
+            // Always round up the expected min amount out. Limit amount is slippage.
+            minAmountOut = bridged.mulUp(FixedPoint.ONE.uncheckedSub(limitAmount));
+        } else {
+            revert('SWAP_INVALID_LIMIT_TYPE');
+        }
+
+        bridgeConnector.bridge(source, chainId, token, bridged, minAmountOut, data);
+        emit Bridge(source, chainId, token, bridged, minAmountOut, bridgeFeeAmount, data);
+    }
+
+    /**
      * @dev Internal function to pay the amount of fees to be charged based on a fee configuration to the fee collector
      * @param token Token being charged
      * @param amount Token amount to be taxed with fees
@@ -559,6 +630,16 @@ contract SmartVault is ISmartVault, PriceFeedProvider, InitializableAuthorizedIm
         _validateStatelessDependency(newSwapConnector);
         swapConnector = newSwapConnector;
         emit SwapConnectorSet(newSwapConnector);
+    }
+
+    /**
+     * @dev Sets a new bridge connector
+     * @param newBridgeConnector New bridge connector to be set
+     */
+    function _setBridgeConnector(address newBridgeConnector) internal {
+        _validateStatelessDependency(newBridgeConnector);
+        bridgeConnector = newBridgeConnector;
+        emit BridgeConnectorSet(newBridgeConnector);
     }
 
     /**
