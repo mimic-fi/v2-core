@@ -28,6 +28,11 @@ interface ISmartVault is IPriceFeedProvider, IImplementation, IAuthorizer {
         MinAmountOut
     }
 
+    enum BridgeLimit {
+        Slippage,
+        MinAmountOut
+    }
+
     /**
      * @dev Emitted every time a new strategy is set for the Smart Vault
      */
@@ -42,6 +47,11 @@ interface ISmartVault is IPriceFeedProvider, IImplementation, IAuthorizer {
      * @dev Emitted every time a new swap connector is set for the Smart Vault
      */
     event SwapConnectorSet(address indexed swapConnector);
+
+    /**
+     * @dev Emitted every time a new bridge connector is set for the Smart Vault
+     */
+    event BridgeConnectorSet(address indexed bridgeConnector);
 
     /**
      * @dev Emitted every time a new fee collector is set
@@ -62,6 +72,11 @@ interface ISmartVault is IPriceFeedProvider, IImplementation, IAuthorizer {
      * @dev Emitted every time the swap fee percentage is set
      */
     event SwapFeeSet(uint256 pct, uint256 cap, address token, uint256 period);
+
+    /**
+     * @dev Emitted every time the bridge fee percentage is set
+     */
+    event BridgeFeeSet(uint256 pct, uint256 cap, address token, uint256 period);
 
     /**
      * @dev Emitted every time `call` is called
@@ -137,6 +152,19 @@ interface ISmartVault is IPriceFeedProvider, IImplementation, IAuthorizer {
     );
 
     /**
+     * @dev Emitted every time `bridge` is called
+     */
+    event Bridge(
+        uint8 indexed source,
+        uint256 indexed chainId,
+        address indexed token,
+        uint256 amountIn,
+        uint256 minAmountOut,
+        uint256 fee,
+        bytes data
+    );
+
+    /**
      * @dev Tells a strategy is allowed or not
      * @param strategy Address of the strategy being queried
      */
@@ -163,6 +191,11 @@ interface ISmartVault is IPriceFeedProvider, IImplementation, IAuthorizer {
      * @dev Tells the swap connector associated to a Smart Vault
      */
     function swapConnector() external view returns (address);
+
+    /**
+     * @dev Tells the bridge connector associated to a Smart Vault
+     */
+    function bridgeConnector() external view returns (address);
 
     /**
      * @dev Tells the address where fees will be deposited
@@ -194,6 +227,14 @@ interface ISmartVault is IPriceFeedProvider, IImplementation, IAuthorizer {
         returns (uint256 pct, uint256 cap, address token, uint256 period, uint256 totalCharged, uint256 nextResetTime);
 
     /**
+     * @dev Tells the bridge fee configuration
+     */
+    function bridgeFee()
+        external
+        view
+        returns (uint256 pct, uint256 cap, address token, uint256 period, uint256 totalCharged, uint256 nextResetTime);
+
+    /**
      * @dev Tells the address of the wrapped native token
      */
     function wrappedNativeToken() external view returns (address);
@@ -216,6 +257,12 @@ interface ISmartVault is IPriceFeedProvider, IImplementation, IAuthorizer {
      * @param newSwapConnector Address of the new swap connector to be set
      */
     function setSwapConnector(address newSwapConnector) external;
+
+    /**
+     * @dev Sets a new bridge connector to a Smart Vault
+     * @param newBridgeConnector Address of the new bridge connector to be set
+     */
+    function setBridgeConnector(address newBridgeConnector) external;
 
     /**
      * @dev Sets a new fee collector
@@ -249,6 +296,15 @@ interface ISmartVault is IPriceFeedProvider, IImplementation, IAuthorizer {
      * @param period New cap period length in seconds for the swap fee
      */
     function setSwapFee(uint256 pct, uint256 cap, address token, uint256 period) external;
+
+    /**
+     * @dev Sets a new bridge fee configuration
+     * @param pct Bridge fee percentage to be set
+     * @param cap New maximum amount of bridge fees to be charged per period
+     * @param token Address of the token cap to be set
+     * @param period New cap period length in seconds for the bridge fee
+     */
+    function setBridgeFee(uint256 pct, uint256 cap, address token, uint256 period) external;
 
     /**
      * @dev Tells the price of a token (base) in a given quote
@@ -376,4 +432,25 @@ interface ISmartVault is IPriceFeedProvider, IImplementation, IAuthorizer {
         uint256 limitAmount,
         bytes memory data
     ) external returns (uint256 amountOut);
+
+    /**
+     * @dev Bridge assets to another chain
+     * @param source Source to request the bridge. It depends on the Bridge Connector attached to a Smart Vault.
+     * @param chainId ID of the destination chain
+     * @param token Address of the token to be bridged
+     * @param amount Amount of tokens to be bridged
+     * @param limitType Swap limit to be applied: slippage or min amount out
+     * @param limitAmount Amount of the swap limit to be applied depending on limitType
+     * @param data Extra data that may enable or not different behaviors depending on the implementation
+     * @return bridged Amount requested to be bridged after fees
+     */
+    function bridge(
+        uint8 source,
+        uint256 chainId,
+        address token,
+        uint256 amount,
+        BridgeLimit limitType,
+        uint256 limitAmount,
+        bytes memory data
+    ) external returns (uint256 bridged);
 }

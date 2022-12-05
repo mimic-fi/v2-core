@@ -38,7 +38,7 @@ interface IBridgeConnector is IImplementation {
      * @param data ABI encoded data that will depend on the requested source
      */
     function bridge(
-        Source source,
+        uint8 source,
         uint256 chainId,
         address token,
         uint256 amountIn,

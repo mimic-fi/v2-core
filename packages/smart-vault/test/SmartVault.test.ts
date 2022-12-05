@@ -20,8 +20,8 @@ import { BigNumber, Contract } from 'ethers'
 import { ethers } from 'hardhat'
 
 describe('SmartVault', () => {
-  let smartVault: Contract, registry: Contract
-  let strategy: Contract, priceOracle: Contract, swapConnector: Contract, wrappedNativeToken: Contract
+  let smartVault: Contract, registry: Contract, wrappedNativeToken: Contract
+  let strategy: Contract, priceOracle: Contract, swapConnector: Contract, bridgeConnector: Contract
   let admin: SignerWithAddress, other: SignerWithAddress, feeCollector: SignerWithAddress
 
   before('set up signers', async () => {
@@ -62,6 +62,12 @@ describe('SmartVault', () => {
     swapConnector = await deploy('SwapConnectorMock', [registry.address])
     await registry.connect(admin).register(await swapConnector.NAMESPACE(), swapConnector.address, true)
     await smartVault.connect(admin).setSwapConnector(swapConnector.address)
+
+    const setBridgeConnectorRole = smartVault.interface.getSighash('setBridgeConnector')
+    await smartVault.connect(admin).authorize(admin.address, setBridgeConnectorRole)
+    bridgeConnector = await deploy('BridgeConnectorMock', [registry.address])
+    await registry.connect(admin).register(await bridgeConnector.NAMESPACE(), bridgeConnector.address, true)
+    await smartVault.connect(admin).setBridgeConnector(bridgeConnector.address)
   })
 
   describe('initialization', async () => {
@@ -278,6 +284,59 @@ describe('SmartVault', () => {
 
       it('reverts', async () => {
         await expect(smartVault.setSwapConnector(ZERO_ADDRESS)).to.be.revertedWith('AUTH_SENDER_NOT_ALLOWED')
+      })
+    })
+  })
+
+  describe('setBridgeConnector', () => {
+    let newBridgeConnector: Contract
+
+    context('when the sender is authorized', async () => {
+      beforeEach('set sender', async () => {
+        const setBridgeConnectorRole = smartVault.interface.getSighash('setBridgeConnector')
+        await smartVault.connect(admin).authorize(admin.address, setBridgeConnectorRole)
+        smartVault = smartVault.connect(admin)
+      })
+
+      context('when the implementation is registered', async () => {
+        beforeEach('deploy implementation', async () => {
+          newBridgeConnector = await deploy('BridgeConnectorMock', [registry.address])
+          await registry.connect(admin).register(await newBridgeConnector.NAMESPACE(), newBridgeConnector.address, true)
+        })
+
+        it('sets the implementation', async () => {
+          await smartVault.setBridgeConnector(newBridgeConnector.address)
+
+          const bridgeConnector = await smartVault.bridgeConnector()
+          expect(bridgeConnector).to.be.equal(newBridgeConnector.address)
+        })
+
+        it('emits an event', async () => {
+          const tx = await smartVault.setBridgeConnector(newBridgeConnector.address)
+          await assertEvent(tx, 'BridgeConnectorSet', { bridgeConnector: newBridgeConnector })
+        })
+      })
+
+      context('when the implementation is not registered', async () => {
+        beforeEach('deploy implementation', async () => {
+          newBridgeConnector = await deploy('BridgeConnectorMock', [registry.address])
+        })
+
+        it('reverts', async () => {
+          await expect(smartVault.setBridgeConnector(newBridgeConnector.address)).to.be.revertedWith(
+            'DEPENDENCY_NOT_REGISTERED'
+          )
+        })
+      })
+    })
+
+    context('when the sender is not authorized', () => {
+      beforeEach('set sender', () => {
+        smartVault = smartVault.connect(other)
+      })
+
+      it('reverts', async () => {
+        await expect(smartVault.setBridgeConnector(ZERO_ADDRESS)).to.be.revertedWith('AUTH_SENDER_NOT_ALLOWED')
       })
     })
   })
@@ -1453,6 +1512,376 @@ describe('SmartVault', () => {
 
       it('reverts', async () => {
         await expect(smartVault.setSwapFee(0, 0, ZERO_ADDRESS, 0)).to.be.revertedWith('AUTH_SENDER_NOT_ALLOWED')
+      })
+    })
+  })
+
+  describe('setBridgeFee', () => {
+    context('when the sender is authorized', async () => {
+      beforeEach('set sender', async () => {
+        const setBridgeFeeRole = smartVault.interface.getSighash('setBridgeFee')
+        await smartVault.connect(admin).authorize(admin.address, setBridgeFeeRole)
+        smartVault = smartVault.connect(admin)
+      })
+
+      context('when there was no bridge fee set yet', () => {
+        context('when the pct is below one', async () => {
+          const itSetsTheFeeCorrectly = (pct: BigNumberish, cap: BigNumberish, token: string, period: BigNumberish) => {
+            it('sets the bridge fee', async () => {
+              await smartVault.setBridgeFee(pct, cap, token, period)
+
+              const fee = await smartVault.bridgeFee()
+              expect(fee.pct).to.be.equal(pct)
+              expect(fee.cap).to.be.equal(cap)
+              expect(fee.token).to.be.equal(token)
+              expect(fee.period).to.be.equal(period)
+              expect(fee.totalCharged).to.be.equal(0)
+              expect(fee.nextResetTime).to.be.equal(cap != 0 ? (await currentTimestamp()).add(period) : 0)
+            })
+
+            it('emits an event', async () => {
+              const tx = await smartVault.setBridgeFee(pct, cap, token, period)
+              await assertEvent(tx, 'BridgeFeeSet', { pct, cap, token, period })
+            })
+          }
+
+          context('when the pct is not zero', async () => {
+            const pct = fp(0.01)
+
+            context('when the cap is not zero', async () => {
+              const cap = fp(100)
+
+              context('when the token is not zero', async () => {
+                const token = NATIVE_TOKEN_ADDRESS
+
+                context('when the cap period is not zero', async () => {
+                  const period = MONTH
+
+                  itSetsTheFeeCorrectly(pct, cap, token, period)
+                })
+
+                context('when the cap period is zero', async () => {
+                  const period = 0
+
+                  it('reverts', async () => {
+                    await expect(smartVault.setBridgeFee(pct, cap, token, period)).to.be.revertedWith(
+                      'INCONSISTENT_CAP_VALUES'
+                    )
+                  })
+                })
+              })
+
+              context('when the token is zero', async () => {
+                const token = ZERO_ADDRESS
+
+                context('when the cap period is not zero', async () => {
+                  const period = MONTH
+
+                  it('reverts', async () => {
+                    await expect(smartVault.setBridgeFee(pct, cap, token, period)).to.be.revertedWith(
+                      'INCONSISTENT_CAP_VALUES'
+                    )
+                  })
+                })
+
+                context('when the cap period is zero', async () => {
+                  const period = 0
+
+                  it('reverts', async () => {
+                    await expect(smartVault.setBridgeFee(pct, cap, token, period)).to.be.revertedWith(
+                      'INCONSISTENT_CAP_VALUES'
+                    )
+                  })
+                })
+              })
+            })
+
+            context('when the cap is zero', async () => {
+              const cap = 0
+
+              context('when the token is not zero', async () => {
+                const token = NATIVE_TOKEN_ADDRESS
+
+                context('when the cap period is not zero', async () => {
+                  const period = MONTH
+
+                  it('reverts', async () => {
+                    await expect(smartVault.setBridgeFee(pct, cap, token, period)).to.be.revertedWith(
+                      'INCONSISTENT_CAP_VALUES'
+                    )
+                  })
+                })
+
+                context('when the cap period is zero', async () => {
+                  const period = 0
+
+                  it('reverts', async () => {
+                    await expect(smartVault.setBridgeFee(pct, cap, token, period)).to.be.revertedWith(
+                      'INCONSISTENT_CAP_VALUES'
+                    )
+                  })
+                })
+              })
+
+              context('when the token is zero', async () => {
+                const token = ZERO_ADDRESS
+
+                context('when the cap period is not zero', async () => {
+                  const period = MONTH
+
+                  it('reverts', async () => {
+                    await expect(smartVault.setBridgeFee(pct, cap, token, period)).to.be.revertedWith(
+                      'INCONSISTENT_CAP_VALUES'
+                    )
+                  })
+                })
+
+                context('when the cap period is zero', async () => {
+                  const period = 0
+
+                  itSetsTheFeeCorrectly(pct, cap, token, period)
+                })
+              })
+            })
+          })
+
+          context('when the pct is zero', async () => {
+            const pct = 0
+
+            context('when the cap is not zero', async () => {
+              const cap = fp(100)
+
+              context('when the token is not zero', async () => {
+                const token = NATIVE_TOKEN_ADDRESS
+
+                context('when the cap period is not zero', async () => {
+                  const period = MONTH
+
+                  it('reverts', async () => {
+                    await expect(smartVault.setBridgeFee(pct, cap, token, period)).to.be.revertedWith(
+                      'INVALID_CAP_WITH_FEE_ZERO'
+                    )
+                  })
+                })
+
+                context('when the cap period is zero', async () => {
+                  const period = 0
+
+                  it('reverts', async () => {
+                    await expect(smartVault.setBridgeFee(pct, cap, token, period)).to.be.revertedWith(
+                      'INVALID_CAP_WITH_FEE_ZERO'
+                    )
+                  })
+                })
+              })
+
+              context('when the token is zero', async () => {
+                const token = ZERO_ADDRESS
+
+                context('when the cap period is not zero', async () => {
+                  const period = MONTH
+
+                  it('reverts', async () => {
+                    await expect(smartVault.setBridgeFee(pct, cap, token, period)).to.be.revertedWith(
+                      'INVALID_CAP_WITH_FEE_ZERO'
+                    )
+                  })
+                })
+
+                context('when the cap period is zero', async () => {
+                  const period = 0
+
+                  it('reverts', async () => {
+                    await expect(smartVault.setBridgeFee(pct, cap, token, period)).to.be.revertedWith(
+                      'INVALID_CAP_WITH_FEE_ZERO'
+                    )
+                  })
+                })
+              })
+            })
+
+            context('when the cap is zero', async () => {
+              const cap = 0
+
+              context('when the token is not zero', async () => {
+                const token = NATIVE_TOKEN_ADDRESS
+
+                context('when the cap period is not zero', async () => {
+                  const period = MONTH
+
+                  it('reverts', async () => {
+                    await expect(smartVault.setBridgeFee(pct, cap, token, period)).to.be.revertedWith(
+                      'INVALID_CAP_WITH_FEE_ZERO'
+                    )
+                  })
+                })
+
+                context('when the cap period is zero', async () => {
+                  const period = 0
+
+                  it('reverts', async () => {
+                    await expect(smartVault.setBridgeFee(pct, cap, token, period)).to.be.revertedWith(
+                      'INVALID_CAP_WITH_FEE_ZERO'
+                    )
+                  })
+                })
+              })
+
+              context('when the token is zero', async () => {
+                const token = ZERO_ADDRESS
+
+                context('when the cap period is not zero', async () => {
+                  const period = MONTH
+
+                  it('reverts', async () => {
+                    await expect(smartVault.setBridgeFee(pct, cap, token, period)).to.be.revertedWith(
+                      'INVALID_CAP_WITH_FEE_ZERO'
+                    )
+                  })
+                })
+
+                context('when the cap period is zero', async () => {
+                  const period = 0
+
+                  itSetsTheFeeCorrectly(pct, cap, token, period)
+                })
+              })
+            })
+          })
+        })
+
+        context('when the pct is above one', async () => {
+          const pct = fp(1.01)
+
+          it('reverts', async () => {
+            await expect(smartVault.setBridgeFee(pct, 0, ZERO_ADDRESS, 0)).to.be.revertedWith('FEE_PCT_ABOVE_ONE')
+          })
+        })
+      })
+
+      context('when there was a bridge fee already set', () => {
+        const pct = fp(0.01)
+        const cap = fp(200)
+        const period = MONTH * 2
+        const token = NATIVE_TOKEN_ADDRESS
+
+        beforeEach('set bridge fee', async () => {
+          await smartVault.setBridgeFee(pct, cap, token, period)
+        })
+
+        context('when there was no charged fees yet', () => {
+          const rate = 2
+          const newPct = pct.mul(rate)
+          const newCap = cap.mul(rate)
+          const newPeriod = period * rate
+          let newToken: Contract
+
+          beforeEach('deploy new token', async () => {
+            newToken = await deploy('TokenMock', ['TKN'])
+            await priceOracle.mockRate(token, newToken.address, fp(rate))
+          })
+
+          it('sets the bridge fee without updating the next reset time', async () => {
+            const { nextResetTime: previousResetTime } = await smartVault.bridgeFee()
+
+            await smartVault.setBridgeFee(newPct, newCap, newToken.address, newPeriod)
+
+            const fee = await smartVault.bridgeFee()
+            expect(fee.pct).to.be.equal(newPct)
+            expect(fee.cap).to.be.equal(newCap)
+            expect(fee.token).to.be.equal(newToken.address)
+            expect(fee.period).to.be.equal(newPeriod)
+            expect(fee.totalCharged).to.be.equal(0)
+            expect(fee.nextResetTime).to.be.equal(previousResetTime)
+          })
+
+          it('emits an event', async () => {
+            const tx = await smartVault.setBridgeFee(newPct, newCap, newToken.address, newPeriod)
+            await assertEvent(tx, 'BridgeFeeSet', { pct: newPct, cap: newCap, token: newToken, period: newPeriod })
+          })
+        })
+
+        context('when there where some charged fees already', () => {
+          let newToken: Contract
+
+          beforeEach('deploy token', async () => {
+            newToken = await deploy('TokenMock', ['TKN'])
+          })
+
+          beforeEach('accrue bridge fees', async () => {
+            const bridgeRole = smartVault.interface.getSighash('bridge')
+            await smartVault.connect(admin).authorize(admin.address, bridgeRole)
+
+            const amount = fp(10)
+            await newToken.mint(smartVault.address, amount)
+            await priceOracle.mockRate(newToken.address, token, fp(1))
+            await smartVault.bridge(0, 0, newToken.address, amount, 1, 0, '0x')
+          })
+
+          context('when the fee cap is being changed', () => {
+            const rate = 2
+            const newPct = pct.mul(rate)
+            const newCap = cap.mul(rate)
+            const newPeriod = period * rate
+
+            beforeEach('mock new token rate', async () => {
+              await priceOracle.mockRate(token, newToken.address, fp(rate))
+            })
+
+            it('sets the bridge fee without updating the next reset time', async () => {
+              const previousFeeData = await smartVault.bridgeFee()
+
+              await smartVault.setBridgeFee(newPct, newCap, newToken.address, newPeriod)
+
+              const fee = await smartVault.bridgeFee()
+              expect(fee.pct).to.be.equal(newPct)
+              expect(fee.cap).to.be.equal(newCap)
+              expect(fee.token).to.be.equal(newToken.address)
+              expect(fee.period).to.be.equal(newPeriod)
+              expect(fee.totalCharged).to.be.equal(previousFeeData.totalCharged.mul(rate))
+              expect(fee.nextResetTime).to.be.equal(previousFeeData.nextResetTime)
+            })
+
+            it('emits an event', async () => {
+              const tx = await smartVault.setBridgeFee(newPct, newCap, newToken.address, newPeriod)
+              await assertEvent(tx, 'BridgeFeeSet', { pct: newPct, cap: newCap, token: newToken, period: newPeriod })
+            })
+          })
+
+          context('when the fee cap is being removed', () => {
+            const newPct = fp(0.3)
+            const newCap = 0
+            const newPeriod = 0
+            const newToken = ZERO_ADDRESS
+
+            it('sets the bridge fee and resets the totalizators', async () => {
+              await smartVault.setBridgeFee(newPct, newCap, newToken, newPeriod)
+
+              const fee = await smartVault.bridgeFee()
+              expect(fee.pct).to.be.equal(newPct)
+              expect(fee.cap).to.be.equal(newCap)
+              expect(fee.token).to.be.equal(newToken)
+              expect(fee.period).to.be.equal(newPeriod)
+              expect(fee.totalCharged).to.be.equal(0)
+              expect(fee.nextResetTime).to.be.equal(0)
+            })
+
+            it('emits an event', async () => {
+              const tx = await smartVault.setBridgeFee(newPct, newCap, newToken, newPeriod)
+              await assertEvent(tx, 'BridgeFeeSet', { pct: newPct, cap: newCap, token: newToken, period: newPeriod })
+            })
+          })
+        })
+      })
+    })
+
+    context('when the sender is not authorized', () => {
+      beforeEach('set sender', () => {
+        smartVault = smartVault.connect(other)
+      })
+
+      it('reverts', async () => {
+        await expect(smartVault.setBridgeFee(0, 0, ZERO_ADDRESS, 0)).to.be.revertedWith('AUTH_SENDER_NOT_ALLOWED')
       })
     })
   })
@@ -3313,6 +3742,294 @@ describe('SmartVault', () => {
 
       it('reverts', async () => {
         await expect(smartVault.swap(source, tokenIn.address, tokenOut.address, amount, 0, 0, data)).to.be.revertedWith(
+          'AUTH_SENDER_NOT_ALLOWED'
+        )
+      })
+    })
+  })
+
+  describe('bridge', () => {
+    let token: Contract
+
+    const source = 0
+    const chainId = 0
+    const amount = fp(500)
+    const data = '0xabcdef'
+
+    const BRIDGE_LIMIT = { SLIPPAGE: 0, MIN_AMOUNT_OUT: 1 }
+
+    before('deploy tokens', async () => {
+      token = await deploy('TokenMock', ['USDC'])
+    })
+
+    context('when the sender is authorized', () => {
+      let bridge: string
+
+      beforeEach('set sender', async () => {
+        const bridgeRole = smartVault.interface.getSighash('bridge')
+        await smartVault.connect(admin).authorize(admin.address, bridgeRole)
+        smartVault = smartVault.connect(admin)
+      })
+
+      beforeEach('load bridge connector bridge', async () => {
+        bridge = await bridgeConnector.bridgeMock()
+      })
+
+      const itBridgesAsExpected = (limitType: number, limitAmount: BigNumberish) => {
+        context('without bridge fee', () => {
+          const expectedMinAmount =
+            limitType == BRIDGE_LIMIT.MIN_AMOUNT_OUT ? limitAmount : amount.sub(amount.mul(limitAmount).div(fp(1)))
+
+          it('transfers the token to the bridge', async () => {
+            const previousSmartVaultBalance = await token.balanceOf(smartVault.address)
+            const previousConnectorBalance = await token.balanceOf(bridge)
+
+            await smartVault.bridge(source, chainId, token.address, amount, limitType, limitAmount, data)
+
+            const currentSmartVaultBalance = await token.balanceOf(smartVault.address)
+            expect(currentSmartVaultBalance).to.be.equal(previousSmartVaultBalance.sub(amount))
+
+            const currentConnectorBalance = await token.balanceOf(bridge)
+            expect(currentConnectorBalance).to.be.equal(previousConnectorBalance.add(amount))
+          })
+
+          it('emits an event', async () => {
+            const tx = await smartVault.bridge(source, chainId, token.address, amount, limitType, limitAmount, data)
+
+            await assertEvent(tx, 'Bridge', {
+              source,
+              chainId,
+              token,
+              amountIn: amount,
+              minAmountOut: expectedMinAmount,
+              fee: 0,
+              data,
+            })
+          })
+        })
+
+        context('with bridge fee', () => {
+          const bridgeFee = fp(0.01)
+          const bridgeFeeAmount = amount.mul(bridgeFee).div(fp(1))
+
+          beforeEach('authorize', async () => {
+            const setBridgeFeeRole = smartVault.interface.getSighash('setBridgeFee')
+            await smartVault.connect(admin).authorize(admin.address, setBridgeFeeRole)
+          })
+
+          const itBridgesCorrectly = (expectedChargedFees: BigNumber) => {
+            const expectedAmountIn = amount.sub(expectedChargedFees)
+            const expectedMinAmount =
+              limitType == BRIDGE_LIMIT.MIN_AMOUNT_OUT
+                ? limitAmount
+                : expectedAmountIn.sub(expectedAmountIn.mul(limitAmount).div(fp(1)))
+
+            it('transfers the token to the bridge', async () => {
+              const previousBridgeBalance = await token.balanceOf(bridge)
+              const previousSmartVaultBalance = await token.balanceOf(smartVault.address)
+              const previousFeeCollectorBalance = await token.balanceOf(feeCollector.address)
+
+              await smartVault.bridge(source, chainId, token.address, amount, limitType, limitAmount, data)
+
+              const currentSmartVaultBalance = await token.balanceOf(smartVault.address)
+              expect(currentSmartVaultBalance).to.be.equal(previousSmartVaultBalance.sub(amount))
+
+              const currentBridgeBalance = await token.balanceOf(bridge)
+              expect(currentBridgeBalance).to.be.equal(previousBridgeBalance.add(expectedAmountIn))
+
+              const currentFeeCollectorBalance = await token.balanceOf(feeCollector.address)
+              expect(currentFeeCollectorBalance).to.be.equal(previousFeeCollectorBalance.add(expectedChargedFees))
+            })
+
+            it('emits an event', async () => {
+              const tx = await smartVault.bridge(source, chainId, token.address, amount, limitType, limitAmount, data)
+
+              await assertEvent(tx, 'Bridge', {
+                source,
+                chainId,
+                token,
+                amountIn: expectedAmountIn,
+                minAmountOut: expectedMinAmount,
+                fee: expectedChargedFees,
+                data,
+              })
+            })
+          }
+
+          context('without cap', async () => {
+            beforeEach('set bridge fee', async () => {
+              await smartVault.connect(admin).setBridgeFee(bridgeFee, 0, ZERO_ADDRESS, 0)
+            })
+
+            itBridgesCorrectly(bridgeFeeAmount)
+
+            it('does not update the total charged fees', async () => {
+              const previousData = await smartVault.bridgeFee()
+
+              await smartVault.bridge(source, chainId, token.address, amount, limitType, limitAmount, data)
+
+              const currentData = await smartVault.bridgeFee()
+              expect(currentData.pct).to.be.equal(previousData.pct)
+              expect(currentData.cap).to.be.equal(previousData.cap)
+              expect(currentData.period).to.be.equal(previousData.period)
+              expect(currentData.totalCharged).to.be.equal(0)
+              expect(currentData.nextResetTime).to.be.equal(0)
+            })
+          })
+
+          context('with cap', async () => {
+            const period = MONTH
+            const capTokenRate = 2
+            const cap = bridgeFeeAmount.mul(capTokenRate)
+
+            let capToken: Contract
+            let periodStartTime: BigNumber
+
+            beforeEach('deploy cap token', async () => {
+              capToken = await deploy('TokenMock', ['USDT'])
+              await priceOracle.mockRate(token.address, capToken.address, fp(capTokenRate))
+            })
+
+            beforeEach('set bridge fee', async () => {
+              await smartVault.connect(admin).setBridgeFee(bridgeFee, cap, capToken.address, period)
+              periodStartTime = await currentTimestamp()
+            })
+
+            context('when the cap period has not been reached', async () => {
+              itBridgesCorrectly(bridgeFeeAmount)
+
+              it('updates the total charged fees', async () => {
+                const previousData = await smartVault.bridgeFee()
+
+                await smartVault.bridge(source, chainId, token.address, amount, limitType, limitAmount, data)
+
+                const currentData = await smartVault.bridgeFee()
+                expect(currentData.pct).to.be.equal(previousData.pct)
+                expect(currentData.cap).to.be.equal(previousData.cap)
+                expect(currentData.token).to.be.equal(previousData.token)
+                expect(currentData.period).to.be.equal(previousData.period)
+                expect(currentData.totalCharged).to.be.equal(bridgeFeeAmount.mul(capTokenRate))
+                expect(currentData.nextResetTime).to.be.equal(periodStartTime.add(period))
+              })
+            })
+
+            context('when the cap period has been reached', async () => {
+              beforeEach('accrue some charged fees', async () => {
+                await token.mint(smartVault.address, amount.mul(3).div(4))
+
+                const limit = limitType == BRIDGE_LIMIT.SLIPPAGE ? limitAmount : bn(limitAmount).mul(3).div(4)
+                await smartVault.bridge(source, chainId, token.address, amount.mul(3).div(4), limitType, limit, data)
+              })
+
+              context('within the current cap period', async () => {
+                const expectedChargedFees = bridgeFeeAmount.div(4) // already accrued 3/4 of it
+
+                itBridgesCorrectly(expectedChargedFees)
+
+                it('updates the total charged fees', async () => {
+                  const previousData = await smartVault.bridgeFee()
+
+                  await smartVault.bridge(source, chainId, token.address, amount, limitType, limitAmount, data)
+
+                  const currentData = await smartVault.bridgeFee()
+                  expect(currentData.pct).to.be.equal(previousData.pct)
+                  expect(currentData.cap).to.be.equal(previousData.cap)
+                  expect(currentData.token).to.be.equal(previousData.token)
+                  expect(currentData.period).to.be.equal(previousData.period)
+                  expect(currentData.totalCharged).to.be.equal(cap)
+                  expect(currentData.nextResetTime).to.be.equal(periodStartTime.add(period))
+                })
+              })
+
+              context('within the next cap period', async () => {
+                beforeEach('advance time', async () => {
+                  await advanceTime(period + 1)
+                })
+
+                itBridgesCorrectly(bridgeFeeAmount)
+
+                it('updates the total charged fees and the next reset time', async () => {
+                  const previousData = await smartVault.bridgeFee()
+
+                  await smartVault.bridge(source, chainId, token.address, amount, limitType, limitAmount, data)
+
+                  const currentData = await smartVault.bridgeFee()
+                  expect(currentData.pct).to.be.equal(previousData.pct)
+                  expect(currentData.cap).to.be.equal(previousData.cap)
+                  expect(currentData.token).to.be.equal(previousData.token)
+                  expect(currentData.period).to.be.equal(previousData.period)
+                  expect(currentData.totalCharged).to.be.equal(bridgeFeeAmount.mul(capTokenRate))
+                  expect(currentData.nextResetTime).to.be.equal((await currentTimestamp()).add(period))
+                })
+              })
+            })
+          })
+        })
+      }
+
+      context('when using a slippage limit', () => {
+        const limit = BRIDGE_LIMIT.SLIPPAGE
+
+        context('when the given slippage is valid', () => {
+          const slippage = fp(0.02)
+
+          context('when the smart vault has enough balance', () => {
+            beforeEach('mint tokens', async () => {
+              await token.mint(smartVault.address, amount)
+            })
+
+            itBridgesAsExpected(limit, slippage)
+          })
+
+          context('when the smart vault does not have enough balance', () => {
+            it('reverts', async () => {
+              await expect(
+                smartVault.bridge(source, chainId, token.address, amount, limit, slippage, data)
+              ).to.be.revertedWith('ERC20: transfer amount exceeds balance')
+            })
+          })
+        })
+
+        context('when the given slippage is not valid', () => {
+          const slippage = fp(1.01)
+
+          it('reverts', async () => {
+            await expect(
+              smartVault.bridge(source, chainId, token.address, amount, limit, slippage, data)
+            ).to.be.revertedWith('SLIPPAGE_ABOVE_ONE')
+          })
+        })
+      })
+
+      context('when using a min amount out limit', () => {
+        const limit = BRIDGE_LIMIT.MIN_AMOUNT_OUT
+        const minAmountOut = amount.div(2)
+
+        context('when the smart vault has enough balance', () => {
+          beforeEach('mint tokens', async () => {
+            await token.mint(smartVault.address, amount)
+          })
+
+          itBridgesAsExpected(limit, minAmountOut)
+        })
+
+        context('when the smart vault does not have enough balance', () => {
+          it('reverts', async () => {
+            await expect(
+              smartVault.bridge(source, chainId, token.address, amount, limit, minAmountOut, data)
+            ).to.be.revertedWith('ERC20: transfer amount exceeds balance')
+          })
+        })
+      })
+    })
+
+    context('when the sender is not authorized', () => {
+      beforeEach('set sender', async () => {
+        smartVault = smartVault.connect(other)
+      })
+
+      it('reverts', async () => {
+        await expect(smartVault.bridge(source, chainId, token.address, amount, 0, 0, data)).to.be.revertedWith(
           'AUTH_SENDER_NOT_ALLOWED'
         )
       })
