@@ -34,7 +34,7 @@
     "@uniswap/v3-periphery": "^1.4.1"
   },
   "devDependencies": {
-    "@mimic-fi/v2-price-oracle": "0.0.7",
+    "@mimic-fi/v2-price-oracle": "0.0.8",
     "@nomiclabs/hardhat-ethers": "^2.2.1",
     "@nomiclabs/hardhat-waffle": "^2.0.3",
     "@types/chai": "^4.2.18",
