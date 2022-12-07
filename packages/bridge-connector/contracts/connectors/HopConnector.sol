@@ -142,13 +142,16 @@ contract HopConnector {
         IHopL2AMM amm = IHopL2AMM(hopAMM);
         require(amm.l2CanonicalToken() == token, 'HOP_AMM_TOKEN_DOES_NOT_MATCH');
 
+        uint256 diff = amountIn - minAmountOut;
+        uint256 intermediateMinAmountOut = amountIn - (diff / 2);
+
         IERC20(token).safeApprove(hopAMM, amountIn);
         amm.swapAndSend(
             chainId,
             address(this),
             amountIn,
             bonderFee,
-            minAmountOut,
+            intermediateMinAmountOut,
             block.timestamp,
             minAmountOut,
             deadline
