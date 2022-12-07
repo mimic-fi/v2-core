@@ -537,10 +537,14 @@ contract SmartVault is ISmartVault, PriceFeedProvider, InitializableAuthorizedIm
             // Always round up the expected min amount out. Limit amount is slippage.
             minAmountOut = bridged.mulUp(FixedPoint.ONE.uncheckedSub(limitAmount));
         } else {
-            revert('SWAP_INVALID_LIMIT_TYPE');
+            revert('BRIDGE_INVALID_LIMIT_TYPE');
         }
 
+        uint256 preBalanceIn = IERC20(token).balanceOf(address(this));
         bridgeConnector.bridge(source, chainId, token, bridged, minAmountOut, data);
+        uint256 postBalanceIn = IERC20(token).balanceOf(address(this));
+        require(postBalanceIn >= preBalanceIn - bridged, 'BRIDGE_BAD_TOKEN_IN_BALANCE');
+
         emit Bridge(source, chainId, token, bridged, minAmountOut, bridgeFeeAmount, data);
     }
 
