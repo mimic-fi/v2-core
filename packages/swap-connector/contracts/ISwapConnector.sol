@@ -22,14 +22,15 @@ import '@mimic-fi/v2-registry/contracts/implementations/IImplementation.sol';
  */
 interface ISwapConnector is IImplementation {
     /**
-     * @dev Enum identifying the sources proposed: Uniswap V2, Uniswap V3, Balancer V2, Paraswap V5, and 1inch V5.
+     * @dev Enum identifying the sources proposed: Uniswap V2, Uniswap V3, Balancer V2, Paraswap V5, 1inch V5, and Hop.
      */
     enum Source {
         UniswapV2,
         UniswapV3,
         BalancerV2,
         ParaswapV5,
-        OneInchV5
+        OneInchV5,
+        Hop
     }
 
     /**
