@@ -491,10 +491,14 @@ contract SmartVault is ISmartVault, PriceFeedProvider, InitializableAuthorizedIm
             revert('SWAP_INVALID_LIMIT_TYPE');
         }
 
+        uint256 preBalanceIn = IERC20(tokenIn).balanceOf(address(this));
         uint256 preBalanceOut = IERC20(tokenOut).balanceOf(address(this));
         swapConnector.swap(source, tokenIn, tokenOut, amountIn, minAmountOut, data);
-        uint256 postBalanceOut = IERC20(tokenOut).balanceOf(address(this));
-        uint256 amountOutBeforeFees = postBalanceOut - preBalanceOut;
+
+        uint256 postBalanceIn = IERC20(tokenIn).balanceOf(address(this));
+        require(postBalanceIn >= preBalanceIn - amountIn, 'SWAP_BAD_TOKEN_IN_BALANCE');
+
+        uint256 amountOutBeforeFees = IERC20(tokenOut).balanceOf(address(this)) - preBalanceOut;
         require(amountOutBeforeFees >= minAmountOut, 'SWAP_MIN_AMOUNT');
 
         uint256 swapFeeAmount = _payFee(tokenOut, amountOutBeforeFees, swapFee);
