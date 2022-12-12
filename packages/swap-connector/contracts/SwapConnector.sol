@@ -22,11 +22,12 @@ import './connectors/UniswapV3Connector.sol';
 import './connectors/BalancerV2Connector.sol';
 import './connectors/ParaswapV5Connector.sol';
 import './connectors/OneInchV5Connector.sol';
+import './connectors/HopSwapConnector.sol';
 
 /**
  * @title SwapConnector
- * @dev Swap Connector implementation that interfaces with Uniswap V2, Uniswap V3, Balancer V2, Paraswap V5,
- * and 1inch V5.
+ * @dev Swap Connector implementation that interfaces with Uniswap V2, Uniswap V3, Balancer V2, Paraswap V5, 1inch V5,
+ * and Hop.
  *
  * It inherits from BaseImplementation which means it's implementation can be used directly from the Mimic Registry,
  * it does not require initialization.
@@ -43,6 +44,7 @@ contract SwapConnector is
     UniswapV3Connector,
     BalancerV2Connector,
     ParaswapV5Connector,
+    HopSwapConnector,
     OneInchV5Connector
 {
     // Namespace under which the Swap Connector is registered in the Mimic Registry
@@ -69,6 +71,7 @@ contract SwapConnector is
         BalancerV2Connector(balancerV2Vault)
         ParaswapV5Connector(paraswapV5Augustus)
         OneInchV5Connector(oneInchV5Router)
+        HopSwapConnector()
         BaseImplementation(registry)
     {
         // solhint-disable-previous-line no-empty-blocks
@@ -97,6 +100,7 @@ contract SwapConnector is
         else if (s == Source.BalancerV2) return _swapBalancerV2(tokenIn, tokenOut, amountIn, minAmountOut, data);
         else if (s == Source.ParaswapV5) return _swapParaswapV5(tokenIn, tokenOut, amountIn, minAmountOut, data);
         else if (s == Source.OneInchV5) return _swapOneInchV5(tokenIn, tokenOut, amountIn, minAmountOut, data);
+        else if (s == Source.Hop) return _swapHop(tokenIn, tokenOut, amountIn, minAmountOut, data);
         else revert('INVALID_SOURCE');
     }
 }

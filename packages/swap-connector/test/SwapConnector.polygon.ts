@@ -1,5 +1,15 @@
 import { defaultAbiCoder } from '@ethersproject/abi'
-import { deploy, fp, impersonate, instanceAt, pct, toUSDC, toWBTC, ZERO_ADDRESS } from '@mimic-fi/v2-helpers'
+import {
+  deploy,
+  fp,
+  impersonate,
+  instanceAt,
+  MAX_UINT256,
+  pct,
+  toUSDC,
+  toWBTC,
+  ZERO_ADDRESS,
+} from '@mimic-fi/v2-helpers'
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/dist/src/signer-with-address'
 import { expect } from 'chai'
 import { BigNumber, Contract } from 'ethers'
@@ -15,7 +25,7 @@ const SOURCE = {
   BALANCER_V2: 2,
   PARASWAP_V5: 3,
   ONE_INCH_V5: 4,
-  HOP: 6,
+  HOP: 5,
 }
 
 const CHAIN = 137
@@ -301,6 +311,54 @@ describe('SwapConnector', () => {
 
       const currentBalance = await usdc.balanceOf(connector.address)
       const expectedMinAmountOut = await getExpectedMinAmountOut(WBTC, USDC, amountIn)
+      expect(currentBalance.sub(previousBalance)).to.be.at.least(expectedMinAmountOut)
+    })
+  })
+
+  context('hop', async () => {
+    let husdc: Contract, hopSwap: Contract
+
+    const HUSDC = '0x9ec9551d4a1a1593b0ee8124d98590cc71b3b09d'
+    const HOP_USDC_SWAP = '0x5c32143c8b198f392d01f8446b754c181224ac26'
+
+    const source = SOURCE.HOP
+    const data = defaultAbiCoder.encode(['address'], [HOP_USDC_SWAP])
+
+    beforeEach('load contracts', async () => {
+      husdc = await instanceAt('IERC20', HUSDC)
+      hopSwap = await instanceAt('IHopSwap', HOP_USDC_SWAP)
+    })
+
+    it('swaps correctly USDC-hUSDC', async () => {
+      const amountIn = toUSDC(10e3)
+      const expectedMinAmountOut = amountIn.sub(amountIn.mul(fp(SLIPPAGE)).div(fp(1)))
+
+      const previousBalance = await husdc.balanceOf(connector.address)
+      await usdc.connect(whale).transfer(connector.address, amountIn)
+
+      await connector.connect(whale).swap(source, USDC, HUSDC, amountIn, 0, data)
+
+      const currentBalance = await husdc.balanceOf(connector.address)
+      expect(currentBalance.sub(previousBalance)).to.be.at.least(expectedMinAmountOut)
+    })
+
+    it('swaps correctly hUSDC-USDC', async () => {
+      // Swap some USDC for hUSDC to have some balance
+      const amount = toUSDC(10e3)
+      const usdcIndex = await hopSwap.getTokenIndex(USDC)
+      const husdcIndex = await hopSwap.getTokenIndex(HUSDC)
+      await usdc.connect(whale).approve(HOP_USDC_SWAP, amount)
+      await hopSwap.connect(whale).swap(usdcIndex, husdcIndex, amount, 0, MAX_UINT256)
+
+      const amountIn = await husdc.balanceOf(whale.address)
+      const expectedMinAmountOut = amountIn.sub(amountIn.mul(fp(SLIPPAGE)).div(fp(1)))
+
+      const previousBalance = await usdc.balanceOf(connector.address)
+      await husdc.connect(whale).transfer(connector.address, amountIn)
+
+      await connector.connect(whale).swap(source, HUSDC, USDC, amountIn, 0, data)
+
+      const currentBalance = await usdc.balanceOf(connector.address)
       expect(currentBalance.sub(previousBalance)).to.be.at.least(expectedMinAmountOut)
     })
   })
