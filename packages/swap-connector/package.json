@@ -23,6 +23,7 @@
     "test": "hardhat test",
     "test:mainnet": "yarn test --fork mainnet --block-number 16172730",
     "test:polygon": "yarn test --fork polygon --block-number 36549190",
+    "test:optimism": "yarn test --fork optimism --block-number 48655556 --chain-id 10",
     "prepare": "yarn build"
   },
   "dependencies": {
