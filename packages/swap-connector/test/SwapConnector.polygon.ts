@@ -15,30 +15,31 @@ const SOURCE = {
   BALANCER_V2: 2,
   PARASWAP_V5: 3,
   ONE_INCH_V5: 4,
+  HOP: 6,
 }
 
-const CHAIN = 1
+const CHAIN = 137
 
-const USDC = '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48'
-const WETH = '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2'
-const WBTC = '0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599'
-const WHALE = '0xf584f8728b874a6a5c7a8d4d387c9aae9172d621'
+const USDC = '0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174'
+const WETH = '0x7ceB23fD6bC0adD59E62ac25578270cFf1b9f619'
+const WBTC = '0x1bfd67037b42cf73acf2047067bd4f2c47d9bfd6'
+const WHALE = '0x21cb017b40abe17b6dfb9ba64a3ab0f24a7e60ea'
 
-const UNISWAP_V2_ROUTER = '0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D'
+const UNISWAP_V2_ROUTER = '0xa5E0829CaCEd8fFDD4De3c43696c57F7D7A678ff' // QuickSwap
 const UNISWAP_V3_ROUTER = '0xE592427A0AEce92De3Edee1F18E0157C05861564'
 const BALANCER_V2_VAULT = '0xBA12222222228d8Ba445958a75a0704d566BF2C8'
 const PARASWAP_V5_AUGUSTUS = '0xdef171fe48cf0115b1d80b88dc8eab59176fee57'
 const ONE_INCH_V5_ROUTER = '0x1111111254EEB25477B68fb85Ed929f73A960582'
 
-const CHAINLINK_ORACLE_USDC_ETH = '0x986b5E1e1755e3C2440e960477f25201B0a8bbD4'
-const CHAINLINK_ORACLE_WBTC_ETH = '0xdeb288F737066589598e9214E782fa5A8eD689e8'
+const CHAINLINK_ORACLE_USDC_ETH = '0xefb7e6be8356ccc6827799b6a7348ee674a80eae'
+const CHAINLINK_ORACLE_WBTC_USD = '0xc907e116054ad103354f2d350fd2514433d57f6f'
 
 describe('SwapConnector', () => {
   let connector: Contract, priceOracle: Contract, feedsProvider: Contract
   let weth: Contract, wbtc: Contract, usdc: Contract
   let whale: SignerWithAddress
 
-  const SLIPPAGE = 0.03
+  const SLIPPAGE = 0.2
 
   before('create swap connector', async () => {
     connector = await deploy('SwapConnector', [
@@ -64,8 +65,8 @@ describe('SwapConnector', () => {
     )
     await feedsProvider.setPriceFeeds(
       [USDC, WBTC],
-      [WETH, WETH],
-      [CHAINLINK_ORACLE_USDC_ETH, CHAINLINK_ORACLE_WBTC_ETH]
+      [WETH, USDC],
+      [CHAINLINK_ORACLE_USDC_ETH, CHAINLINK_ORACLE_WBTC_USD]
     )
   })
 
@@ -96,7 +97,7 @@ describe('SwapConnector', () => {
     })
 
     it('swaps correctly WETH-USDC', async () => {
-      const amountIn = fp(3)
+      const amountIn = fp(1)
       const previousBalance = await usdc.balanceOf(connector.address)
       await weth.connect(whale).transfer(connector.address, amountIn)
 
@@ -169,16 +170,19 @@ describe('SwapConnector', () => {
 
   context('Balancer V2', () => {
     const source = SOURCE.BALANCER_V2
-    const BALANCER_POOL_WETH_USDC_ID = '0x96646936b91d6b9d7d0c47c496afbf3d6ec7b6f8000200000000000000000019'
-    const BALANCER_POOL_WETH_WBTC_ID = '0xa6f548df93de924d73be7d25dc02554c6bd66db500020000000000000000000e'
 
     context('single swap', () => {
-      const data = defaultAbiCoder.encode(['bytes32'], [BALANCER_POOL_WETH_USDC_ID])
+      const BALANCER_POOL_WETH_WBTC_USDC_ID = '0x03cd191f589d12b0582a99808cf19851e468e6b500010000000000000000000a'
+
+      const data = defaultAbiCoder.encode(['bytes32'], [BALANCER_POOL_WETH_WBTC_USDC_ID])
 
       itSingleSwapsCorrectly(source, data, data)
     })
 
     context('batch swap', () => {
+      const BALANCER_POOL_WETH_USDC_ID = '0x10f21c9bd8128a29aa785ab2de0d044dcdd79436000200000000000000000059'
+      const BALANCER_POOL_WETH_WBTC_ID = '0xcf354603a9aebd2ff9f33e1b04246d8ea204ae9500020000000000000000005a'
+
       const usdcWbtcData = defaultAbiCoder.encode(
         ['address[]', 'bytes32[]'],
         [[WETH], [BALANCER_POOL_WETH_USDC_ID, BALANCER_POOL_WETH_WBTC_ID]]
@@ -209,7 +213,7 @@ describe('SwapConnector', () => {
     })
 
     it('swaps correctly WETH-USDC', async () => {
-      const amountIn = fp(3)
+      const amountIn = fp(1)
       await weth.connect(whale).transfer(connector.address, amountIn)
 
       const { minAmountOut, data } = await loadOrGetParaswapSwapData(CHAIN, connector, weth, usdc, amountIn, SLIPPAGE)
@@ -262,7 +266,7 @@ describe('SwapConnector', () => {
     })
 
     it('swaps correctly WETH-USDC', async () => {
-      const amountIn = fp(3)
+      const amountIn = fp(1)
       const previousBalance = await usdc.balanceOf(connector.address)
       await weth.connect(whale).transfer(connector.address, amountIn)
 

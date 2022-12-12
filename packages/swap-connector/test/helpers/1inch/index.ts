@@ -1,4 +1,4 @@
-import { currentBlockNumber, getForkedNetwork } from '@mimic-fi/v2-helpers'
+import { currentBlockNumber } from '@mimic-fi/v2-helpers'
 import { BigNumber, Contract } from 'ethers'
 import fs from 'fs'
 import hre from 'hardhat'
@@ -16,43 +16,43 @@ type Fixture = {
 }
 
 export async function loadOrGet1inchSwapData(
+  chainId: number,
   sender: Contract,
   tokenIn: Contract,
   tokenOut: Contract,
   amountIn: BigNumber,
   slippage: number
 ): Promise<string> {
-  const network = getForkedNetwork(hre)
   const config = hre.network.config as HardhatNetworkConfig
   const blockNumber = config?.forking?.blockNumber?.toString() || (await currentBlockNumber()).toString()
 
-  const fixture = await readFixture(tokenIn, tokenOut, network, blockNumber)
+  const fixture = await readFixture(chainId, tokenIn, tokenOut, blockNumber)
   if (fixture) return fixture.data
 
-  const data = await get1inchSwapData(sender, tokenIn, tokenOut, amountIn, slippage)
-  await saveFixture(tokenIn, tokenOut, amountIn, slippage, data, network, blockNumber)
+  const data = await get1inchSwapData(chainId, sender, tokenIn, tokenOut, amountIn, slippage)
+  await saveFixture(chainId, tokenIn, tokenOut, amountIn, slippage, data, blockNumber)
   return data
 }
 
 async function readFixture(
+  chainId: number,
   tokenIn: Contract,
   tokenOut: Contract,
-  network: string,
   blockNumber: string
 ): Promise<Fixture | undefined> {
   const swapPath = `${await tokenIn.symbol()}-${await tokenOut.symbol()}.json`
-  const fixturePath = path.join(__dirname, 'fixtures', network, blockNumber, swapPath)
+  const fixturePath = path.join(__dirname, 'fixtures', chainId.toString(), blockNumber, swapPath)
   if (!fs.existsSync(fixturePath)) return undefined
   return JSON.parse(fs.readFileSync(fixturePath).toString())
 }
 
 async function saveFixture(
+  chainId: number,
   tokenIn: Contract,
   tokenOut: Contract,
   amountIn: BigNumber,
   slippage: number,
   data: string,
-  network: string,
   blockNumber: string
 ): Promise<void> {
   const output = {
@@ -66,7 +66,7 @@ async function saveFixture(
   const fixturesPath = path.join(__dirname, 'fixtures')
   if (!fs.existsSync(fixturesPath)) fs.mkdirSync(fixturesPath)
 
-  const networkPath = path.join(fixturesPath, network)
+  const networkPath = path.join(fixturesPath, chainId.toString())
   if (!fs.existsSync(networkPath)) fs.mkdirSync(networkPath)
 
   const blockNumberPath = path.join(networkPath, blockNumber)

@@ -22,6 +22,7 @@
     "lint:typescript": "eslint . --ext .ts",
     "test": "hardhat test",
     "test:mainnet": "yarn test --fork mainnet --block-number 15983200",
+    "test:polygon": "yarn test --fork polygon --block-number 36549190",
     "prepare": "yarn build"
   },
   "dependencies": {

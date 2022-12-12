@@ -17,19 +17,20 @@ export type SwapData = {
 }
 
 export async function getParaswapSwapData(
+  chainId: number,
   sender: Contract,
   tokenIn: Contract,
   tokenOut: Contract,
   amountIn: BigNumber,
   slippage: number
 ): Promise<SwapData> {
-  const prices = await getPrices(sender, tokenIn, tokenOut, amountIn)
+  const prices = await getPrices(chainId, sender, tokenIn, tokenOut, amountIn)
   const priceRoute = prices.data.priceRoute
 
   try {
     const { destAmount } = priceRoute
     const minAmountOut = bn(destAmount).sub(pct(bn(destAmount), slippage))
-    const transactions = await postTransactions(sender, tokenIn, tokenOut, amountIn, minAmountOut, priceRoute)
+    const transactions = await postTransactions(chainId, sender, tokenIn, tokenOut, amountIn, minAmountOut, priceRoute)
     const { data, sig, signer } = transactions.data
     return { data, sig, signer, minAmountOut, expectedAmountOut: bn(destAmount) }
   } catch (error) {
@@ -39,6 +40,7 @@ export async function getParaswapSwapData(
 }
 
 export async function getPrices(
+  chainId: number,
   sender: Contract,
   tokenIn: Contract,
   tokenOut: Contract,
@@ -56,13 +58,14 @@ export async function getPrices(
       destDecimals: await tokenOut.decimals(),
       amount: amountIn.toString(),
       side: 'SELL',
-      network: '1',
+      network: chainId,
       userAddress: sender.address,
     },
   })
 }
 
 export async function postTransactions(
+  chainId: number,
   sender: Contract,
   tokenIn: Contract,
   tokenOut: Contract,
@@ -72,7 +75,7 @@ export async function postTransactions(
 ): Promise<TransactionsResponse> {
   const { ethers } = await import('hardhat')
   return axios.post(
-    `${PARASWAP_URL}/transactions/1`,
+    `${PARASWAP_URL}/transactions/${chainId}`,
     {
       srcToken: tokenIn.address,
       destToken: tokenOut.address,

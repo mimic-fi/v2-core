@@ -150,6 +150,8 @@ jobs:
         run: yarn build
       - name: Test swap connector mainnet
         run: yarn workspace @mimic-fi/v2-swap-connector test:mainnet
+      - name: Test swap connector polygon
+        run: yarn workspace @mimic-fi/v2-swap-connector test:polygon
       - name: Test failure
         uses: rjstone/discord-webhook-notify@v1
         if: failure()
