@@ -38,27 +38,39 @@ describe('BridgeConnector', () => {
       const relayer = ZERO_ADDRESS
       const relayerFee = 0
 
-      const data = defaultAbiCoder.encode(
-        ['address', 'uint256', 'address', 'uint256'],
-        [HOP_USDC_BRIDGE, deadline, relayer, relayerFee]
-      )
+      context('when the data is encoded properly', async () => {
+        const data = defaultAbiCoder.encode(
+          ['address', 'uint256', 'address', 'uint256'],
+          [HOP_USDC_BRIDGE, deadline, relayer, relayerFee]
+        )
 
-      it('should send the tokens to the bridge', async () => {
-        const previousSenderBalance = await usdc.balanceOf(whale.address)
-        const previousBridgeBalance = await usdc.balanceOf(HOP_USDC_BRIDGE)
-        const previousConnectorBalance = await usdc.balanceOf(connector.address)
+        it('should send the tokens to the bridge', async () => {
+          const previousSenderBalance = await usdc.balanceOf(whale.address)
+          const previousBridgeBalance = await usdc.balanceOf(HOP_USDC_BRIDGE)
+          const previousConnectorBalance = await usdc.balanceOf(connector.address)
 
-        await usdc.connect(whale).transfer(connector.address, amountIn)
-        await connector.connect(whale).bridge(source, chainId, USDC, amountIn, minAmountOut, data)
+          await usdc.connect(whale).transfer(connector.address, amountIn)
+          await connector.connect(whale).bridge(source, chainId, USDC, amountIn, minAmountOut, data)
 
-        const currentSenderBalance = await usdc.balanceOf(whale.address)
-        expect(currentSenderBalance).to.be.equal(previousSenderBalance.sub(amountIn))
+          const currentSenderBalance = await usdc.balanceOf(whale.address)
+          expect(currentSenderBalance).to.be.equal(previousSenderBalance.sub(amountIn))
 
-        const currentBridgeBalance = await usdc.balanceOf(HOP_USDC_BRIDGE)
-        expect(currentBridgeBalance).to.be.equal(previousBridgeBalance.add(amountIn))
+          const currentBridgeBalance = await usdc.balanceOf(HOP_USDC_BRIDGE)
+          expect(currentBridgeBalance).to.be.equal(previousBridgeBalance.add(amountIn))
 
-        const currentConnectorBalance = await usdc.balanceOf(connector.address)
-        expect(currentConnectorBalance).to.be.equal(previousConnectorBalance)
+          const currentConnectorBalance = await usdc.balanceOf(connector.address)
+          expect(currentConnectorBalance).to.be.equal(previousConnectorBalance)
+        })
+      })
+
+      context('when the data is not encoded properly', async () => {
+        const data = '0x'
+
+        it('reverts', async function () {
+          await expect(
+            connector.connect(whale).bridge(source, chainId, USDC, amountIn, minAmountOut, data)
+          ).to.be.revertedWith('HOP_INVALID_L1_L2_DATA_LENGTH')
+        })
       })
     }
 
