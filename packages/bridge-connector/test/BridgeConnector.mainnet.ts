@@ -4,11 +4,9 @@ import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/dist/src/signer-wit
 import { expect } from 'chai'
 import { Contract } from 'ethers'
 
-/* eslint-disable no-secrets/no-secrets */
+import { SOURCES } from '../src/constants'
 
-const SOURCE = {
-  HOP: 0,
-}
+/* eslint-disable no-secrets/no-secrets */
 
 const USDC = '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48'
 const WHALE = '0xf584f8728b874a6a5c7a8d4d387c9aae9172d621'
@@ -26,7 +24,7 @@ describe('BridgeConnector', () => {
   })
 
   context('Hop', () => {
-    const source = SOURCE.HOP
+    const source = SOURCES.HOP
 
     const HOP_USDC_BRIDGE = '0x3666f603Cc164936C1b87e207F36BEBa4AC5f18a'
 

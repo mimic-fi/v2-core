@@ -5,6 +5,7 @@ import { expect } from 'chai'
 import { Contract } from 'ethers'
 
 import { getHopBonderFee } from '../../src/hop'
+import { SOURCES } from '../../src/constants'
 
 export function itBehavesLikeHopBridgeConnector(
   sourceChainId: number,
@@ -14,7 +15,7 @@ export function itBehavesLikeHopBridgeConnector(
 ): void {
   let usdc: Contract, whale: SignerWithAddress, amm: Contract, hUsdc: Contract, ammExchangeAddress: string
 
-  const SOURCE = 0 // HOP
+  const source = SOURCES.HOP
 
   before('load tokens and accounts', async function () {
     usdc = await instanceAt('IERC20Metadata', usdcAddress)
@@ -53,7 +54,7 @@ export function itBehavesLikeHopBridgeConnector(
           await usdc.connect(whale).transfer(this.connector.address, amountIn)
           await this.connector
             .connect(whale)
-            .bridge(SOURCE, destinationChainId, usdcAddress, amountIn, minAmountOut, data)
+            .bridge(source, destinationChainId, usdcAddress, amountIn, minAmountOut, data)
 
           const currentSenderBalance = await usdc.balanceOf(whale.address)
           expect(currentSenderBalance).to.be.equal(previousSenderBalance.sub(amountIn))
@@ -71,7 +72,7 @@ export function itBehavesLikeHopBridgeConnector(
           await usdc.connect(whale).transfer(this.connector.address, amountIn)
           await this.connector
             .connect(whale)
-            .bridge(SOURCE, destinationChainId, usdcAddress, amountIn, minAmountOut, data)
+            .bridge(source, destinationChainId, usdcAddress, amountIn, minAmountOut, data)
 
           const currentHopUsdcSupply = await hUsdc.totalSupply()
           const burnedAmount = previousHopUsdcSupply.sub(currentHopUsdcSupply)
@@ -84,7 +85,7 @@ export function itBehavesLikeHopBridgeConnector(
           await usdc.connect(whale).transfer(this.connector.address, amountIn)
           await this.connector
             .connect(whale)
-            .bridge(SOURCE, destinationChainId, usdcAddress, amountIn, minAmountOut, data)
+            .bridge(source, destinationChainId, usdcAddress, amountIn, minAmountOut, data)
 
           const currentAmmUsdcBalance = await usdc.balanceOf(usdcAmmAddress)
           expect(currentAmmUsdcBalance).to.be.equal(previousAmmUsdcBalance)
@@ -97,14 +98,14 @@ export function itBehavesLikeHopBridgeConnector(
 
         it('reverts', async function () {
           await expect(
-            this.connector.bridge(SOURCE, destinationChainId, usdcAddress, amountIn, minAmountOut, data)
+            this.connector.bridge(source, destinationChainId, usdcAddress, amountIn, minAmountOut, data)
           ).to.be.revertedWith(reason)
         })
       })
     } else {
       it('reverts', async function () {
         await expect(
-          this.connector.bridge(SOURCE, destinationChainId, usdcAddress, amountIn, minAmountOut, '0x')
+          this.connector.bridge(source, destinationChainId, usdcAddress, amountIn, minAmountOut, '0x')
         ).to.be.revertedWith('BRIDGE_CONNECTOR_SAME_CHAIN_OP')
       })
     }
@@ -144,7 +145,7 @@ export function itBehavesLikeHopBridgeConnector(
     const destinationChainId = 5
 
     it('reverts', async function () {
-      await expect(this.connector.bridge(SOURCE, destinationChainId, usdcAddress, 0, '0x')).to.be.reverted
+      await expect(this.connector.bridge(source, destinationChainId, usdcAddress, 0, '0x')).to.be.reverted
     })
   })
 }
