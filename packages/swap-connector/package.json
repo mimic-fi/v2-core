@@ -1,6 +1,6 @@
 {
   "name": "@mimic-fi/v2-swap-connector",
-  "version": "0.0.16",
+  "version": "0.0.17",
   "license": "GPL-3.0",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
