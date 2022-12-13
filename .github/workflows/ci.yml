@@ -234,6 +234,12 @@ jobs:
         run: yarn build
       - name: Test smart vault mainnet
         run: yarn workspace @mimic-fi/v2-smart-vault test:mainnet
+      - name: Test smart vault polygon
+        run: yarn workspace @mimic-fi/v2-smart-vault test:polygon
+      - name: Test smart vault optimism
+        run: yarn workspace @mimic-fi/v2-smart-vault test:optimism
+      - name: Test smart vault arbitrum
+        run: yarn workspace @mimic-fi/v2-smart-vault test:arbitrum
       - name: Test failure
         uses: rjstone/discord-webhook-notify@v1
         if: failure()

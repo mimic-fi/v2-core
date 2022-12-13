@@ -4,8 +4,8 @@ import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/dist/src/signer-wit
 import { expect } from 'chai'
 import { Contract } from 'ethers'
 
-import { getHopBonderFee } from '../../src/hop'
 import { SOURCES } from '../../src/constants'
+import { getHopBonderFee } from '../../src/hop'
 
 export function itBehavesLikeHopBridgeConnector(
   sourceChainId: number,
