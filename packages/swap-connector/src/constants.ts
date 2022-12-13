@@ -1,0 +1,8 @@
+export const SOURCES = {
+  UNISWAP_V2: 0,
+  UNISWAP_V3: 1,
+  BALANCER_V2: 2,
+  PARASWAP_V5: 3,
+  ONE_INCH_V5: 4,
+  HOP: 5,
+}

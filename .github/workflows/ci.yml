@@ -152,6 +152,10 @@ jobs:
         run: yarn workspace @mimic-fi/v2-swap-connector test:mainnet
       - name: Test swap connector polygon
         run: yarn workspace @mimic-fi/v2-swap-connector test:polygon
+      - name: Test swap connector optimism
+        run: yarn workspace @mimic-fi/v2-swap-connector test:optimism
+      - name: Test swap connector arbitrum
+        run: yarn workspace @mimic-fi/v2-swap-connector test:arbitrum
       - name: Test failure
         uses: rjstone/discord-webhook-notify@v1
         if: failure()
