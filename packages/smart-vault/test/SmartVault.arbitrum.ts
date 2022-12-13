@@ -1,15 +1,5 @@
-import { SOURCES as BRIDGE_SOURCES } from '@mimic-fi/v2-bridge-connector'
-import {
-  assertEvent,
-  deploy,
-  fp,
-  getSigners,
-  impersonate,
-  instanceAt,
-  MAX_UINT256,
-  toUSDC,
-  ZERO_ADDRESS,
-} from '@mimic-fi/v2-helpers'
+import { getHopBonderFee, SOURCES as BRIDGE_SOURCES } from '@mimic-fi/v2-bridge-connector'
+import { assertEvent, deploy, fp, getSigners, impersonate, instanceAt, MAX_UINT256, toUSDC } from '@mimic-fi/v2-helpers'
 import { SOURCES as SWAP_SOURCES } from '@mimic-fi/v2-swap-connector'
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/dist/src/signer-with-address'
 import { expect } from 'chai'
@@ -18,9 +8,10 @@ import { defaultAbiCoder } from 'ethers/lib/utils'
 
 /* eslint-disable no-secrets/no-secrets */
 
-const USDC = '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48'
-const WETH = '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2'
-const WHALE = '0xf584f8728b874a6a5c7a8d4d387c9aae9172d621'
+const CHAIN = 42161
+const USDC = '0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8'
+const WETH = '0x82af49447d8a07e3bd95bd0d56f35241523fbab1'
+const WHALE = '0x62383739d68dd0f844103db8dfb05a7eded5bbe6'
 
 describe('SmartVault', () => {
   let smartVault: Contract, registry: Contract
@@ -51,15 +42,15 @@ describe('SmartVault', () => {
   context('swap', () => {
     let swapConnector: Contract
 
-    const SLIPPAGE = fp(0.01)
+    const SLIPPAGE = fp(0.02)
     const LIMIT_TYPE = 0 // slippage
 
-    const UNISWAP_V2_ROUTER = '0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D'
+    const UNISWAP_V2_ROUTER = '0x0000000000000000000000000000000000000000' // No support
     const UNISWAP_V3_ROUTER = '0xE592427A0AEce92De3Edee1F18E0157C05861564'
     const BALANCER_V2_VAULT = '0xBA12222222228d8Ba445958a75a0704d566BF2C8'
     const PARASWAP_V5_AUGUSTUS = '0xdef171fe48cf0115b1d80b88dc8eab59176fee57'
     const ONE_INCH_V5_ROUTER = '0x1111111254EEB25477B68fb85Ed929f73A960582'
-    const CHAINLINK_USDC_ETH = '0x986b5E1e1755e3C2440e960477f25201B0a8bbD4'
+    const CHAINLINK_ETH_USD = '0x639fe6ab55c921f74e7fac1ee960c0b6293ba612'
 
     before('set price oracle', async () => {
       const priceOracle = await deploy(
@@ -74,7 +65,7 @@ describe('SmartVault', () => {
 
       const setPriceFeedRole = smartVault.interface.getSighash('setPriceFeeds')
       await smartVault.connect(admin).authorize(admin.address, setPriceFeedRole)
-      await smartVault.connect(admin).setPriceFeeds([USDC], [WETH], [CHAINLINK_USDC_ETH])
+      await smartVault.connect(admin).setPriceFeeds([WETH], [USDC], [CHAINLINK_ETH_USD])
     })
 
     before('set swap connector', async () => {
@@ -104,23 +95,6 @@ describe('SmartVault', () => {
       return expectedAmountOut.sub(expectedAmountOut.mul(SLIPPAGE).div(fp(1)))
     }
 
-    context('Uniswap V2', () => {
-      const source = SWAP_SOURCES.UNISWAP_V2
-      const data = '0x'
-
-      it('swaps correctly USDC-WETH', async () => {
-        const amountIn = toUSDC(10e3)
-        const previousBalance = await weth.balanceOf(smartVault.address)
-        await usdc.connect(whale).transfer(smartVault.address, amountIn)
-
-        await smartVault.connect(whale).swap(source, USDC, WETH, amountIn, LIMIT_TYPE, SLIPPAGE, data)
-
-        const currentBalance = await weth.balanceOf(smartVault.address)
-        const expectedMinAmountOut = await getExpectedMinAmountOut(USDC, WETH, amountIn)
-        expect(currentBalance.sub(previousBalance)).to.be.at.least(expectedMinAmountOut)
-      })
-    })
-
     context('Uniswap V3', () => {
       const source = SWAP_SOURCES.UNISWAP_V3
       const fee = 3000
@@ -141,7 +115,7 @@ describe('SmartVault', () => {
 
     context('Balancer V2', () => {
       const source = SWAP_SOURCES.BALANCER_V2
-      const poolId = '0x96646936b91d6b9d7d0c47c496afbf3d6ec7b6f8000200000000000000000019'
+      const poolId = '0x64541216bafffeec8ea535bb71fbc927831d0595000100000000000000000002'
       const data = defaultAbiCoder.encode(['bytes32'], [poolId])
 
       it('swaps correctly USDC-WETH', async () => {
@@ -183,76 +157,85 @@ describe('SmartVault', () => {
 
     context('Hop', () => {
       const source = BRIDGE_SOURCES.HOP
-      const bridge = '0x3666f603Cc164936C1b87e207F36BEBa4AC5f18a'
+      const hopAmm = '0xe22D2beDb3Eca35E6397e0C6D62857094aA26F52'
 
-      function bridgesToL2Properly(chainId: number) {
+      function itBridgesFromL2Properly(destinationChainId: number) {
+        let data: string, amm: Contract
+
         const amountIn = toUSDC(300)
         const deadline = MAX_UINT256
-        const relayer = ZERO_ADDRESS
-        const relayerFee = 0
 
-        context('when the data is encoded properly', async () => {
-          const data = defaultAbiCoder.encode(
-            ['address', 'uint256', 'address', 'uint256'],
-            [bridge, deadline, relayer, relayerFee]
+        beforeEach('estimate bonder fee and compute data', async () => {
+          amm = await instanceAt(
+            '@mimic-fi/v2-bridge-connector/artifacts/contracts/interfaces/IHopL2AMM.sol/IHopL2AMM',
+            hopAmm
           )
-
-          it('should send the tokens to the bridge', async () => {
-            const previousSenderBalance = await usdc.balanceOf(whale.address)
-            const previousBridgeBalance = await usdc.balanceOf(bridge)
-            const previousSmartVaultBalance = await usdc.balanceOf(smartVault.address)
-
-            await usdc.connect(whale).transfer(smartVault.address, amountIn)
-            await smartVault.connect(whale).bridge(source, chainId, USDC, amountIn, LIMIT_TYPE, SLIPPAGE, data)
-
-            const currentSenderBalance = await usdc.balanceOf(whale.address)
-            expect(currentSenderBalance).to.be.equal(previousSenderBalance.sub(amountIn))
-
-            const currentBridgeBalance = await usdc.balanceOf(bridge)
-            expect(currentBridgeBalance).to.be.equal(previousBridgeBalance.add(amountIn))
-
-            const currentSmartVaultBalance = await usdc.balanceOf(smartVault.address)
-            expect(currentSmartVaultBalance).to.be.equal(previousSmartVaultBalance)
-          })
+          const bonderFee = await getHopBonderFee(CHAIN, destinationChainId, usdc, amountIn, LIMIT_TYPE, SLIPPAGE)
+          data =
+            destinationChainId == 1
+              ? defaultAbiCoder.encode(['address', 'uint256'], [hopAmm, bonderFee])
+              : defaultAbiCoder.encode(['address', 'uint256', 'uint256'], [hopAmm, bonderFee, deadline])
         })
 
-        context('when the data is not encoded properly', async () => {
-          const data = '0x'
+        it('should send the canonical tokens to the exchange', async () => {
+          const ammExchangeAddress = await amm.exchangeAddress()
+          const previousSenderBalance = await usdc.balanceOf(whale.address)
+          const previousExchangeBalance = await usdc.balanceOf(ammExchangeAddress)
+          const previousConnectorBalance = await usdc.balanceOf(bridgeConnector.address)
 
-          it('reverts', async () => {
-            await expect(
-              smartVault.connect(whale).bridge(source, chainId, USDC, amountIn, LIMIT_TYPE, SLIPPAGE, data)
-            ).to.be.revertedWith('HOP_INVALID_L1_L2_DATA_LENGTH')
-          })
+          await usdc.connect(whale).transfer(smartVault.address, amountIn)
+          await smartVault.connect(whale).bridge(source, destinationChainId, USDC, amountIn, LIMIT_TYPE, SLIPPAGE, data)
+
+          const currentSenderBalance = await usdc.balanceOf(whale.address)
+          expect(currentSenderBalance).to.be.equal(previousSenderBalance.sub(amountIn))
+
+          const currentExchangeBalance = await usdc.balanceOf(ammExchangeAddress)
+          expect(currentExchangeBalance).to.be.equal(previousExchangeBalance.add(amountIn))
+
+          const currentConnectorBalance = await usdc.balanceOf(bridgeConnector.address)
+          expect(currentConnectorBalance).to.be.equal(previousConnectorBalance)
+        })
+
+        it('should burn at least the requested hop tokens', async () => {
+          const hUsdc = await instanceAt('IERC20', await amm.hToken())
+          const previousHopUsdcSupply = await hUsdc.totalSupply()
+
+          await usdc.connect(whale).transfer(smartVault.address, amountIn)
+          await smartVault.connect(whale).bridge(source, destinationChainId, USDC, amountIn, LIMIT_TYPE, SLIPPAGE, data)
+
+          const currentHopUsdcSupply = await hUsdc.totalSupply()
+          const burnedAmount = previousHopUsdcSupply.sub(currentHopUsdcSupply)
+          const minAmountOut = amountIn.sub(amountIn.mul(SLIPPAGE).div(fp(1)))
+          expect(burnedAmount).to.be.at.least(minAmountOut)
         })
       }
 
       context('bridge to optimism', () => {
         const destinationChainId = 10
 
-        bridgesToL2Properly(destinationChainId)
-      })
-
-      context('bridge to polygon', () => {
-        const destinationChainId = 137
-
-        bridgesToL2Properly(destinationChainId)
+        itBridgesFromL2Properly(destinationChainId)
       })
 
       context('bridge to gnosis', () => {
         const destinationChainId = 100
 
-        bridgesToL2Properly(destinationChainId)
+        itBridgesFromL2Properly(destinationChainId)
       })
 
-      context('bridge to arbitrum', () => {
-        const destinationChainId = 42161
+      context('bridge to polygon', () => {
+        const destinationChainId = 137
 
-        bridgesToL2Properly(destinationChainId)
+        itBridgesFromL2Properly(destinationChainId)
       })
 
       context('bridge to mainnet', () => {
         const destinationChainId = 1
+
+        itBridgesFromL2Properly(destinationChainId)
+      })
+
+      context('bridge to arbitrum', () => {
+        const destinationChainId = 42161
 
         it('reverts', async () => {
           await expect(

@@ -20,8 +20,6 @@ import '@openzeppelin/contracts/utils/Address.sol';
 
 import '../interfaces/IOneInchV5AggregationRouter.sol';
 
-import 'hardhat/console.sol';
-
 /**
  * @title OneInchV5Connector
  * @dev Interfaces with 1inch V5 to swap tokens
