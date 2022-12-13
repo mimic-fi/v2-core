@@ -197,8 +197,6 @@ jobs:
         run: yarn workspace @mimic-fi/v2-bridge-connector test:optimism
       - name: Test bridge connector arbitrum
         run: yarn workspace @mimic-fi/v2-bridge-connector test:arbitrum
-      - name: Test bridge connector gnosis
-        run: yarn workspace @mimic-fi/v2-bridge-connector test:gnosis
       - name: Test failure
         uses: rjstone/discord-webhook-notify@v1
         if: failure()
