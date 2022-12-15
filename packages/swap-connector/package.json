@@ -25,6 +25,7 @@
     "test:polygon": "yarn test --fork polygon --block-number 36549190",
     "test:optimism": "yarn test --fork optimism --block-number 48655556 --chain-id 10",
     "test:arbitrum": "yarn test --fork arbitrum --block-number 45711544 --chain-id 42161 --fork-ignore-unknown-tx-type true",
+    "test:gnosis": "yarn test --fork gnosis --block-number 25465980 --chain-id 100",
     "prepare": "yarn build"
   },
   "dependencies": {
