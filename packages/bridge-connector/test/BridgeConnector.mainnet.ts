@@ -48,7 +48,7 @@ describe('BridgeConnector', () => {
           const previousConnectorBalance = await usdc.balanceOf(connector.address)
 
           await usdc.connect(whale).transfer(connector.address, amountIn)
-          await connector.connect(whale).bridge(source, chainId, USDC, amountIn, minAmountOut, data)
+          await connector.connect(whale).bridge(source, chainId, USDC, amountIn, minAmountOut, whale.address, data)
 
           const currentSenderBalance = await usdc.balanceOf(whale.address)
           expect(currentSenderBalance).to.be.equal(previousSenderBalance.sub(amountIn))
@@ -66,7 +66,7 @@ describe('BridgeConnector', () => {
 
         it('reverts', async function () {
           await expect(
-            connector.connect(whale).bridge(source, chainId, USDC, amountIn, minAmountOut, data)
+            connector.connect(whale).bridge(source, chainId, USDC, amountIn, minAmountOut, whale.address, data)
           ).to.be.revertedWith('HOP_INVALID_L1_L2_DATA_LENGTH')
         })
       })
@@ -100,7 +100,7 @@ describe('BridgeConnector', () => {
       const destinationChainId = 1
 
       it('reverts', async () => {
-        await expect(connector.bridge(source, destinationChainId, USDC, 0, 0, '0x')).to.be.revertedWith(
+        await expect(connector.bridge(source, destinationChainId, USDC, 0, 0, whale.address, '0x')).to.be.revertedWith(
           'BRIDGE_CONNECTOR_SAME_CHAIN_OP'
         )
       })
@@ -110,7 +110,7 @@ describe('BridgeConnector', () => {
       const destinationChainId = 5
 
       it('reverts', async () => {
-        await expect(connector.bridge(source, destinationChainId, USDC, 0, 0, '0x')).to.be.revertedWith(
+        await expect(connector.bridge(source, destinationChainId, USDC, 0, 0, whale.address, '0x')).to.be.revertedWith(
           'HOP_BRIDGE_OP_NOT_SUPPORTED'
         )
       })

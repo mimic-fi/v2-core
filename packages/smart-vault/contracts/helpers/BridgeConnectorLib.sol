@@ -34,6 +34,7 @@ library BridgeConnectorLib {
         address token,
         uint256 amountIn,
         uint256 minAmountOut,
+        address recipient,
         bytes memory data
     ) internal {
         bytes memory bridgeData = abi.encodeWithSelector(
@@ -43,6 +44,7 @@ library BridgeConnectorLib {
             token,
             amountIn,
             minAmountOut,
+            recipient,
             data
         );
 
