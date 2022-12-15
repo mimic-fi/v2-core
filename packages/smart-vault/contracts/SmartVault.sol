@@ -529,6 +529,7 @@ contract SmartVault is ISmartVault, PriceFeedProvider, InitializableAuthorizedIm
         bytes memory data
     ) external override auth returns (uint256 bridged) {
         require(block.chainid != chainId, 'BRIDGE_SAME_CHAIN');
+        require(recipient != address(0), 'BRIDGE_RECIPIENT_ZERO');
         require(bridgeConnector != address(0), 'BRIDGE_CONNECTOR_NOT_SET');
 
         uint256 bridgeFeeAmount = _payFee(token, amount, bridgeFee);
