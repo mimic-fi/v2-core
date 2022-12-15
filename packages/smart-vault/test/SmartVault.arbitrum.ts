@@ -136,7 +136,7 @@ describe('SmartVault', () => {
     let bridgeConnector: Contract
 
     const LIMIT_TYPE = 0 // slippage
-    const SLIPPAGE = fp(0.002)
+    const SLIPPAGE = 0.002
 
     before('set bridge connector', async () => {
       bridgeConnector = await deploy(
@@ -186,7 +186,7 @@ describe('SmartVault', () => {
           await usdc.connect(whale).transfer(smartVault.address, amountIn)
           await smartVault
             .connect(whale)
-            .bridge(source, destinationChainId, USDC, amountIn, LIMIT_TYPE, SLIPPAGE, smartVault.address, data)
+            .bridge(source, destinationChainId, USDC, amountIn, LIMIT_TYPE, fp(SLIPPAGE), smartVault.address, data)
 
           const currentSenderBalance = await usdc.balanceOf(whale.address)
           expect(currentSenderBalance).to.be.equal(previousSenderBalance.sub(amountIn))
@@ -205,11 +205,11 @@ describe('SmartVault', () => {
           await usdc.connect(whale).transfer(smartVault.address, amountIn)
           await smartVault
             .connect(whale)
-            .bridge(source, destinationChainId, USDC, amountIn, LIMIT_TYPE, SLIPPAGE, smartVault.address, data)
+            .bridge(source, destinationChainId, USDC, amountIn, LIMIT_TYPE, fp(SLIPPAGE), smartVault.address, data)
 
           const currentHopUsdcSupply = await hUsdc.totalSupply()
           const burnedAmount = previousHopUsdcSupply.sub(currentHopUsdcSupply)
-          const minAmountOut = amountIn.sub(amountIn.mul(SLIPPAGE).div(fp(1)))
+          const minAmountOut = amountIn.sub(amountIn.mul(fp(SLIPPAGE)).div(fp(1)))
           expect(burnedAmount).to.be.at.least(minAmountOut)
         })
       }
@@ -245,7 +245,7 @@ describe('SmartVault', () => {
           await expect(
             smartVault
               .connect(whale)
-              .bridge(source, destinationChainId, USDC, 0, LIMIT_TYPE, SLIPPAGE, smartVault.address, '0x')
+              .bridge(source, destinationChainId, USDC, 0, LIMIT_TYPE, fp(SLIPPAGE), smartVault.address, '0x')
           ).to.be.revertedWith('BRIDGE_SAME_CHAIN')
         })
       })
