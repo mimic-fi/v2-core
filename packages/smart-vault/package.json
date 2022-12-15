@@ -31,7 +31,7 @@
     "@mimic-fi/v2-price-oracle": "0.0.8",
     "@mimic-fi/v2-registry": "0.0.7",
     "@mimic-fi/v2-swap-connector": "0.0.18",
-    "@mimic-fi/v2-bridge-connector": "0.0.2",
+    "@mimic-fi/v2-bridge-connector": "0.0.3",
     "@openzeppelin/contracts": "4.7.0"
   },
   "devDependencies": {
