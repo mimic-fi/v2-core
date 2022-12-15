@@ -54,7 +54,7 @@ export function itBehavesLikeHopBridgeConnector(
           await usdc.connect(whale).transfer(this.connector.address, amountIn)
           await this.connector
             .connect(whale)
-            .bridge(source, destinationChainId, usdcAddress, amountIn, minAmountOut, data)
+            .bridge(source, destinationChainId, usdcAddress, amountIn, minAmountOut, whale.address, data)
 
           const currentSenderBalance = await usdc.balanceOf(whale.address)
           expect(currentSenderBalance).to.be.equal(previousSenderBalance.sub(amountIn))
@@ -72,7 +72,7 @@ export function itBehavesLikeHopBridgeConnector(
           await usdc.connect(whale).transfer(this.connector.address, amountIn)
           await this.connector
             .connect(whale)
-            .bridge(source, destinationChainId, usdcAddress, amountIn, minAmountOut, data)
+            .bridge(source, destinationChainId, usdcAddress, amountIn, minAmountOut, whale.address, data)
 
           const currentHopUsdcSupply = await hUsdc.totalSupply()
           const burnedAmount = previousHopUsdcSupply.sub(currentHopUsdcSupply)
@@ -85,7 +85,7 @@ export function itBehavesLikeHopBridgeConnector(
           await usdc.connect(whale).transfer(this.connector.address, amountIn)
           await this.connector
             .connect(whale)
-            .bridge(source, destinationChainId, usdcAddress, amountIn, minAmountOut, data)
+            .bridge(source, destinationChainId, usdcAddress, amountIn, minAmountOut, whale.address, data)
 
           const currentAmmUsdcBalance = await usdc.balanceOf(usdcAmmAddress)
           expect(currentAmmUsdcBalance).to.be.equal(previousAmmUsdcBalance)
@@ -98,14 +98,14 @@ export function itBehavesLikeHopBridgeConnector(
 
         it('reverts', async function () {
           await expect(
-            this.connector.bridge(source, destinationChainId, usdcAddress, amountIn, minAmountOut, data)
+            this.connector.bridge(source, destinationChainId, usdcAddress, amountIn, minAmountOut, whale.address, data)
           ).to.be.revertedWith(reason)
         })
       })
     } else {
       it('reverts', async function () {
         await expect(
-          this.connector.bridge(source, destinationChainId, usdcAddress, amountIn, minAmountOut, '0x')
+          this.connector.bridge(source, destinationChainId, usdcAddress, amountIn, minAmountOut, whale.address, '0x')
         ).to.be.revertedWith('BRIDGE_CONNECTOR_SAME_CHAIN_OP')
       })
     }
@@ -145,7 +145,9 @@ export function itBehavesLikeHopBridgeConnector(
     const destinationChainId = 5
 
     it('reverts', async function () {
-      await expect(this.connector.bridge(source, destinationChainId, usdcAddress, 0, '0x')).to.be.reverted
+      await expect(
+        this.connector.bridge(source, destinationChainId, usdcAddress, 0, whale.address, '0x')
+      ).to.be.reverted
     })
   })
 }

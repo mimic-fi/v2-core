@@ -203,7 +203,9 @@ describe('SmartVault', () => {
             const previousSmartVaultBalance = await usdc.balanceOf(smartVault.address)
 
             await usdc.connect(whale).transfer(smartVault.address, amountIn)
-            await smartVault.connect(whale).bridge(source, chainId, USDC, amountIn, LIMIT_TYPE, SLIPPAGE, data)
+            await smartVault
+              .connect(whale)
+              .bridge(source, chainId, USDC, amountIn, LIMIT_TYPE, SLIPPAGE, smartVault.address, data)
 
             const currentSenderBalance = await usdc.balanceOf(whale.address)
             expect(currentSenderBalance).to.be.equal(previousSenderBalance.sub(amountIn))
@@ -221,7 +223,9 @@ describe('SmartVault', () => {
 
           it('reverts', async () => {
             await expect(
-              smartVault.connect(whale).bridge(source, chainId, USDC, amountIn, LIMIT_TYPE, SLIPPAGE, data)
+              smartVault
+                .connect(whale)
+                .bridge(source, chainId, USDC, amountIn, LIMIT_TYPE, SLIPPAGE, smartVault.address, data)
             ).to.be.revertedWith('HOP_INVALID_L1_L2_DATA_LENGTH')
           })
         })
@@ -256,7 +260,9 @@ describe('SmartVault', () => {
 
         it('reverts', async () => {
           await expect(
-            smartVault.connect(whale).bridge(source, destinationChainId, USDC, 0, LIMIT_TYPE, SLIPPAGE, '0x')
+            smartVault
+              .connect(whale)
+              .bridge(source, destinationChainId, USDC, 0, LIMIT_TYPE, SLIPPAGE, smartVault.address, '0x')
           ).to.be.revertedWith('BRIDGE_SAME_CHAIN')
         })
       })

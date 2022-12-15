@@ -1815,7 +1815,7 @@ describe('SmartVault', () => {
             const amount = fp(10)
             await newToken.mint(smartVault.address, amount)
             await priceOracle.mockRate(newToken.address, token, fp(1))
-            await smartVault.bridge(0, 0, newToken.address, amount, 1, 0, '0x')
+            await smartVault.bridge(0, 0, newToken.address, amount, 1, 0, smartVault.address, '0x')
           })
 
           context('when the fee cap is being changed', () => {
@@ -3784,7 +3784,16 @@ describe('SmartVault', () => {
             const previousSmartVaultBalance = await token.balanceOf(smartVault.address)
             const previousConnectorBalance = await token.balanceOf(bridge)
 
-            await smartVault.bridge(source, chainId, token.address, amount, limitType, limitAmount, data)
+            await smartVault.bridge(
+              source,
+              chainId,
+              token.address,
+              amount,
+              limitType,
+              limitAmount,
+              smartVault.address,
+              data
+            )
 
             const currentSmartVaultBalance = await token.balanceOf(smartVault.address)
             expect(currentSmartVaultBalance).to.be.equal(previousSmartVaultBalance.sub(amount))
@@ -3794,7 +3803,16 @@ describe('SmartVault', () => {
           })
 
           it('emits an event', async () => {
-            const tx = await smartVault.bridge(source, chainId, token.address, amount, limitType, limitAmount, data)
+            const tx = await smartVault.bridge(
+              source,
+              chainId,
+              token.address,
+              amount,
+              limitType,
+              limitAmount,
+              smartVault.address,
+              data
+            )
 
             await assertEvent(tx, 'Bridge', {
               source,
@@ -3829,7 +3847,16 @@ describe('SmartVault', () => {
               const previousSmartVaultBalance = await token.balanceOf(smartVault.address)
               const previousFeeCollectorBalance = await token.balanceOf(feeCollector.address)
 
-              await smartVault.bridge(source, chainId, token.address, amount, limitType, limitAmount, data)
+              await smartVault.bridge(
+                source,
+                chainId,
+                token.address,
+                amount,
+                limitType,
+                limitAmount,
+                smartVault.address,
+                data
+              )
 
               const currentSmartVaultBalance = await token.balanceOf(smartVault.address)
               expect(currentSmartVaultBalance).to.be.equal(previousSmartVaultBalance.sub(amount))
@@ -3842,7 +3869,16 @@ describe('SmartVault', () => {
             })
 
             it('emits an event', async () => {
-              const tx = await smartVault.bridge(source, chainId, token.address, amount, limitType, limitAmount, data)
+              const tx = await smartVault.bridge(
+                source,
+                chainId,
+                token.address,
+                amount,
+                limitType,
+                limitAmount,
+                smartVault.address,
+                data
+              )
 
               await assertEvent(tx, 'Bridge', {
                 source,
@@ -3851,6 +3887,7 @@ describe('SmartVault', () => {
                 amountIn: expectedAmountIn,
                 minAmountOut: expectedMinAmount,
                 fee: expectedChargedFees,
+                recipient: smartVault.address,
                 data,
               })
             })
@@ -3866,7 +3903,16 @@ describe('SmartVault', () => {
             it('does not update the total charged fees', async () => {
               const previousData = await smartVault.bridgeFee()
 
-              await smartVault.bridge(source, chainId, token.address, amount, limitType, limitAmount, data)
+              await smartVault.bridge(
+                source,
+                chainId,
+                token.address,
+                amount,
+                limitType,
+                limitAmount,
+                smartVault.address,
+                data
+              )
 
               const currentData = await smartVault.bridgeFee()
               expect(currentData.pct).to.be.equal(previousData.pct)
@@ -3901,7 +3947,16 @@ describe('SmartVault', () => {
               it('updates the total charged fees', async () => {
                 const previousData = await smartVault.bridgeFee()
 
-                await smartVault.bridge(source, chainId, token.address, amount, limitType, limitAmount, data)
+                await smartVault.bridge(
+                  source,
+                  chainId,
+                  token.address,
+                  amount,
+                  limitType,
+                  limitAmount,
+                  smartVault.address,
+                  data
+                )
 
                 const currentData = await smartVault.bridgeFee()
                 expect(currentData.pct).to.be.equal(previousData.pct)
@@ -3918,7 +3973,16 @@ describe('SmartVault', () => {
                 await token.mint(smartVault.address, amount.mul(3).div(4))
 
                 const limit = limitType == BRIDGE_LIMIT.SLIPPAGE ? limitAmount : bn(limitAmount).mul(3).div(4)
-                await smartVault.bridge(source, chainId, token.address, amount.mul(3).div(4), limitType, limit, data)
+                await smartVault.bridge(
+                  source,
+                  chainId,
+                  token.address,
+                  amount.mul(3).div(4),
+                  limitType,
+                  limit,
+                  smartVault.address,
+                  data
+                )
               })
 
               context('within the current cap period', async () => {
@@ -3929,7 +3993,16 @@ describe('SmartVault', () => {
                 it('updates the total charged fees', async () => {
                   const previousData = await smartVault.bridgeFee()
 
-                  await smartVault.bridge(source, chainId, token.address, amount, limitType, limitAmount, data)
+                  await smartVault.bridge(
+                    source,
+                    chainId,
+                    token.address,
+                    amount,
+                    limitType,
+                    limitAmount,
+                    smartVault.address,
+                    data
+                  )
 
                   const currentData = await smartVault.bridgeFee()
                   expect(currentData.pct).to.be.equal(previousData.pct)
@@ -3951,7 +4024,16 @@ describe('SmartVault', () => {
                 it('updates the total charged fees and the next reset time', async () => {
                   const previousData = await smartVault.bridgeFee()
 
-                  await smartVault.bridge(source, chainId, token.address, amount, limitType, limitAmount, data)
+                  await smartVault.bridge(
+                    source,
+                    chainId,
+                    token.address,
+                    amount,
+                    limitType,
+                    limitAmount,
+                    smartVault.address,
+                    data
+                  )
 
                   const currentData = await smartVault.bridgeFee()
                   expect(currentData.pct).to.be.equal(previousData.pct)
@@ -3984,7 +4066,7 @@ describe('SmartVault', () => {
           context('when the smart vault does not have enough balance', () => {
             it('reverts', async () => {
               await expect(
-                smartVault.bridge(source, chainId, token.address, amount, limit, slippage, data)
+                smartVault.bridge(source, chainId, token.address, amount, limit, slippage, smartVault.address, data)
               ).to.be.revertedWith('ERC20: transfer amount exceeds balance')
             })
           })
@@ -3995,7 +4077,7 @@ describe('SmartVault', () => {
 
           it('reverts', async () => {
             await expect(
-              smartVault.bridge(source, chainId, token.address, amount, limit, slippage, data)
+              smartVault.bridge(source, chainId, token.address, amount, limit, slippage, smartVault.address, data)
             ).to.be.revertedWith('SLIPPAGE_ABOVE_ONE')
           })
         })
@@ -4016,7 +4098,7 @@ describe('SmartVault', () => {
         context('when the smart vault does not have enough balance', () => {
           it('reverts', async () => {
             await expect(
-              smartVault.bridge(source, chainId, token.address, amount, limit, minAmountOut, data)
+              smartVault.bridge(source, chainId, token.address, amount, limit, minAmountOut, smartVault.address, data)
             ).to.be.revertedWith('ERC20: transfer amount exceeds balance')
           })
         })
@@ -4029,9 +4111,9 @@ describe('SmartVault', () => {
       })
 
       it('reverts', async () => {
-        await expect(smartVault.bridge(source, chainId, token.address, amount, 0, 0, data)).to.be.revertedWith(
-          'AUTH_SENDER_NOT_ALLOWED'
-        )
+        await expect(
+          smartVault.bridge(source, chainId, token.address, amount, 0, 0, smartVault.address, data)
+        ).to.be.revertedWith('AUTH_SENDER_NOT_ALLOWED')
       })
     })
   })

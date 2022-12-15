@@ -514,6 +514,7 @@ contract SmartVault is ISmartVault, PriceFeedProvider, InitializableAuthorizedIm
      * @param amount Amount of tokens to be bridged
      * @param limitType Bridge limit to be applied: slippage or min amount out
      * @param limitAmount Amount of the swap limit to be applied depending on limitType
+     * @param recipient Address that will receive the tokens on the destination chain
      * @param data Encoded data to specify different bridge parameters depending on the source picked
      * @return bridged Amount requested to be bridged after fees
      */
@@ -524,6 +525,7 @@ contract SmartVault is ISmartVault, PriceFeedProvider, InitializableAuthorizedIm
         uint256 amount,
         BridgeLimit limitType,
         uint256 limitAmount,
+        address recipient,
         bytes memory data
     ) external override auth returns (uint256 bridged) {
         require(block.chainid != chainId, 'BRIDGE_SAME_CHAIN');
@@ -545,11 +547,11 @@ contract SmartVault is ISmartVault, PriceFeedProvider, InitializableAuthorizedIm
         }
 
         uint256 preBalanceIn = IERC20(token).balanceOf(address(this));
-        bridgeConnector.bridge(source, chainId, token, bridged, minAmountOut, data);
+        bridgeConnector.bridge(source, chainId, token, bridged, minAmountOut, recipient, data);
         uint256 postBalanceIn = IERC20(token).balanceOf(address(this));
         require(postBalanceIn >= preBalanceIn - bridged, 'BRIDGE_BAD_TOKEN_IN_BALANCE');
 
-        emit Bridge(source, chainId, token, bridged, minAmountOut, bridgeFeeAmount, data);
+        emit Bridge(source, chainId, token, bridged, minAmountOut, bridgeFeeAmount, recipient, data);
     }
 
     /**

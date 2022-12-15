@@ -24,9 +24,10 @@ contract BridgeConnectorMock is IBridgeConnector, BaseImplementation {
         address token,
         uint256 amountIn,
         uint256 minAmountOut,
+        address recipient,
         bytes memory data
     ) external override {
         IERC20(token).approve(address(bridgeMock), amountIn);
-        return bridgeMock.bridge(token, amountIn, minAmountOut, data);
+        return bridgeMock.bridge(token, amountIn, minAmountOut, recipient, data);
     }
 }

@@ -56,17 +56,23 @@ contract HopConnector {
      * @param token Address of the token to be bridged
      * @param amountIn Amount of tokens to be bridged
      * @param minAmountOut Minimum amount of tokens willing to receive on the destination chain
+     * @param recipient Address that will receive the tokens on the destination chain
      * @param data ABI encoded data expected to include different information depending on source and destination chains
      */
-    function _bridgeHop(uint256 chainId, address token, uint256 amountIn, uint256 minAmountOut, bytes memory data)
-        internal
-    {
+    function _bridgeHop(
+        uint256 chainId,
+        address token,
+        uint256 amountIn,
+        uint256 minAmountOut,
+        address recipient,
+        bytes memory data
+    ) internal {
         bool toL2 = !_isL1(chainId);
         bool fromL1 = _isL1(block.chainid);
 
-        if (fromL1 && toL2) _bridgeFromL1ToL2(chainId, token, amountIn, minAmountOut, data);
-        else if (!fromL1 && toL2) _bridgeFromL2ToL2(chainId, token, amountIn, minAmountOut, data);
-        else if (!fromL1 && !toL2) _bridgeFromL2ToL1(chainId, token, amountIn, minAmountOut, data);
+        if (fromL1 && toL2) _bridgeFromL1ToL2(chainId, token, amountIn, minAmountOut, recipient, data);
+        else if (!fromL1 && toL2) _bridgeFromL2ToL2(chainId, token, amountIn, minAmountOut, recipient, data);
+        else if (!fromL1 && !toL2) _bridgeFromL2ToL1(chainId, token, amountIn, minAmountOut, recipient, data);
         else revert('HOP_BRIDGE_OP_NOT_SUPPORTED');
     }
 
@@ -76,6 +82,7 @@ contract HopConnector {
      * @param token Address of the token to be bridged
      * @param amountIn Amount of tokens to be bridged
      * @param minAmountOut Minimum amount of tokens willing to receive on the destination chain
+     * @param recipient Address that will receive the tokens on the destination chain
      * @param data ABI encoded data to include:
      * - bridge: address of the Hop bridge corresponding to the token to be bridged
      * - deadline: deadline to be applied on L2 when swapping the hToken for the token to be bridged
@@ -87,6 +94,7 @@ contract HopConnector {
         address token,
         uint256 amountIn,
         uint256 minAmountOut,
+        address recipient,
         bytes memory data
     ) private {
         require(data.length == ENCODED_DATA_FROM_L1_TO_L2_LENGTH, 'HOP_INVALID_L1_L2_DATA_LENGTH');
@@ -100,7 +108,7 @@ contract HopConnector {
         require(deadline > block.timestamp, 'HOP_BRIDGE_INVALID_DEADLINE');
 
         IERC20(token).safeApprove(hopBridge, amountIn);
-        bridge.sendToL2(chainId, address(this), amountIn, minAmountOut, deadline, relayer, relayerFee);
+        bridge.sendToL2(chainId, recipient, amountIn, minAmountOut, deadline, relayer, relayerFee);
     }
 
     /**
@@ -109,6 +117,7 @@ contract HopConnector {
      * @param token Address of the token to be bridged
      * @param amountIn Amount of tokens to be bridged
      * @param minAmountOut Minimum amount of tokens willing to receive on the destination chain
+     * @param recipient Address that will receive the tokens on the destination chain
      * @param data ABI encoded data to include:
      * - amm: address of the Hop AMM corresponding to the token to be bridged
      * - deadline: deadline to be applied on L2 when swapping the token for the hToken to be bridged
@@ -119,6 +128,7 @@ contract HopConnector {
         address token,
         uint256 amountIn,
         uint256 minAmountOut,
+        address recipient,
         bytes memory data
     ) private {
         require(data.length == ENCODED_DATA_FROM_L2_TO_L1_LENGTH, 'HOP_INVALID_L2_L1_DATA_LENGTH');
@@ -128,7 +138,7 @@ contract HopConnector {
         require(amm.l2CanonicalToken() == token, 'HOP_AMM_TOKEN_DOES_NOT_MATCH');
 
         IERC20(token).safeApprove(hopAMM, amountIn);
-        amm.swapAndSend(chainId, address(this), amountIn, bonderFee, minAmountOut, block.timestamp, 0, 0);
+        amm.swapAndSend(chainId, recipient, amountIn, bonderFee, minAmountOut, block.timestamp, 0, 0);
         // No destination min amount nor deadline needed since there is no AMM on L1
     }
 
@@ -138,6 +148,7 @@ contract HopConnector {
      * @param token Address of the token to be bridged
      * @param amountIn Amount of tokens to be bridged
      * @param minAmountOut Minimum amount of tokens willing to receive on the destination chain
+     * @param recipient Address that will receive the tokens on the destination chain
      * @param data ABI encoded data to include:
      * - amm: address of the Hop AMM corresponding to the token to be bridged
      * - deadline: deadline to be applied on the destination L2 when swapping the hToken for the token to be bridged
@@ -148,6 +159,7 @@ contract HopConnector {
         address token,
         uint256 amountIn,
         uint256 minAmountOut,
+        address recipient,
         bytes memory data
     ) private {
         require(data.length == ENCODED_DATA_FROM_L2_TO_L2_LENGTH, 'HOP_INVALID_L2_L2_DATA_LENGTH');
@@ -157,13 +169,11 @@ contract HopConnector {
         require(amm.l2CanonicalToken() == token, 'HOP_AMM_TOKEN_DOES_NOT_MATCH');
         require(deadline > block.timestamp, 'HOP_BRIDGE_INVALID_DEADLINE');
 
-        uint256 diff = amountIn - minAmountOut;
-        uint256 intermediateMinAmountOut = amountIn - (diff / 2);
-
+        uint256 intermediateMinAmountOut = amountIn - ((amountIn - minAmountOut) / 2);
         IERC20(token).safeApprove(hopAMM, amountIn);
         amm.swapAndSend(
             chainId,
-            address(this),
+            recipient,
             amountIn,
             bonderFee,
             intermediateMinAmountOut,

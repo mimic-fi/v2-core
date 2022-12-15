@@ -161,6 +161,7 @@ interface ISmartVault is IPriceFeedProvider, IImplementation, IAuthorizer {
         uint256 amountIn,
         uint256 minAmountOut,
         uint256 fee,
+        address recipient,
         bytes data
     );
 
@@ -441,6 +442,7 @@ interface ISmartVault is IPriceFeedProvider, IImplementation, IAuthorizer {
      * @param amount Amount of tokens to be bridged
      * @param limitType Swap limit to be applied: slippage or min amount out
      * @param limitAmount Amount of the swap limit to be applied depending on limitType
+     * @param recipient Address that will receive the tokens on the destination chain
      * @param data Extra data that may enable or not different behaviors depending on the implementation
      * @return bridged Amount requested to be bridged after fees
      */
@@ -451,6 +453,7 @@ interface ISmartVault is IPriceFeedProvider, IImplementation, IAuthorizer {
         uint256 amount,
         BridgeLimit limitType,
         uint256 limitAmount,
+        address recipient,
         bytes memory data
     ) external returns (uint256 bridged);
 }
