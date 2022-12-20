@@ -22,6 +22,10 @@
       "packages/bridge-connector",
       "packages/strategies",
       "packages/smart-vault"
+    ],
+    "nohoist": [
+      "**/hardhat",
+      "**/hardhat/**"
     ]
   }
 }
