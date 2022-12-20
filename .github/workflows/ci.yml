@@ -1,5 +1,8 @@
 name: CI
 
+env:
+  CI: true
+
 on:
   push:
     branches: "*"
@@ -12,89 +15,44 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v3
-      - name: Install node
-        uses: actions/setup-node@v3
-        with:
-          node-version: 16
-          cache: yarn
-      - name: Install
-        run: yarn --prefer-offline
+      - name: Set up environment
+        uses: ./.github/actions/setup
       - name: Lint
         run: yarn lint
-      - name: Lint failure
-        uses: rjstone/discord-webhook-notify@v1
-        if: failure()
+      - name: Notify discord
+        uses: ./.github/actions/notify-discord
         with:
-          severity: error
-          details: Lint failed!
-          webhookUrl: ${{ secrets.DISCORD_WEBHOOK }}
-      - name: Lint cancelled
-        uses: rjstone/discord-webhook-notify@v1
-        if: cancelled()
-        with:
-          severity: warn
-          details: Lint cancelled!
-          webhookUrl: ${{ secrets.DISCORD_WEBHOOK }}
+          discord-webhook: ${{ secrets.DISCORD_WEBHOOK }}
 
   build:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v3
-      - name: Install node
-        uses: actions/setup-node@v3
-        with:
-          node-version: 16
-          cache: yarn
-      - name: Install
-        run: yarn --prefer-offline
+      - name: Set up environment
+        uses: ./.github/actions/setup
       - name: Build
         run: yarn build
-      - name: Build failure
-        uses: rjstone/discord-webhook-notify@v1
-        if: failure()
+      - name: Notify discord
+        uses: ./.github/actions/notify-discord
         with:
-          severity: error
-          details: Build failed!
-          webhookUrl: ${{ secrets.DISCORD_WEBHOOK }}
-      - name: Build cancelled
-        uses: rjstone/discord-webhook-notify@v1
-        if: cancelled()
-        with:
-          severity: warn
-          details: Build cancelled!
-          webhookUrl: ${{ secrets.DISCORD_WEBHOOK }}
+          discord-webhook: ${{ secrets.DISCORD_WEBHOOK }}
 
   test:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v3
-      - name: Install node
-        uses: actions/setup-node@v3
-        with:
-          node-version: 16
-          cache: yarn
-      - name: Install
-        run: yarn --prefer-offline
+      - name: Set up environment
+        uses: ./.github/actions/setup
       - name: Build
         run: yarn build
       - name: Test
         run: yarn test
-      - name: Test failure
-        uses: rjstone/discord-webhook-notify@v1
-        if: failure()
+      - name: Notify discord
+        uses: ./.github/actions/notify-discord
         with:
-          severity: error
-          details: Test failed!
-          webhookUrl: ${{ secrets.DISCORD_WEBHOOK }}
-      - name: Test cancelled
-        uses: rjstone/discord-webhook-notify@v1
-        if: cancelled()
-        with:
-          severity: warn
-          details: Test cancelled!
-          webhookUrl: ${{ secrets.DISCORD_WEBHOOK }}
+          discord-webhook: ${{ secrets.DISCORD_WEBHOOK }}
 
   integration-price-oracle:
     name: Integration price oracle
@@ -102,33 +60,18 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v3
-      - name: Install node
-        uses: actions/setup-node@v3
-        with:
-          node-version: 16
-          cache: yarn
-      - name: Install
-        run: yarn --prefer-offline
-      - name: Setup hardhat config
+      - name: Set up environment
+        uses: ./.github/actions/setup
+      - name: Set up hardhat config
         run: .github/scripts/setup-hardhat-config.sh ${{secrets.MAINNET_RPC}} ${{secrets.POLYGON_RPC}} ${{secrets.OPTIMISM_RPC}} ${{secrets.ARBITRUM_RPC}} ${{secrets.GNOSIS_RPC}}
       - name: Build
         run: yarn build
       - name: Test price oracle mainnet
         run: yarn workspace @mimic-fi/v2-price-oracle test:mainnet
-      - name: Test failure
-        uses: rjstone/discord-webhook-notify@v1
-        if: failure()
+      - name: Notify discord
+        uses: ./.github/actions/notify-discord
         with:
-          severity: error
-          details: Test failed!
-          webhookUrl: ${{ secrets.DISCORD_WEBHOOK }}
-      - name: Test cancelled
-        uses: rjstone/discord-webhook-notify@v1
-        if: cancelled()
-        with:
-          severity: warn
-          details: Test cancelled!
-          webhookUrl: ${{ secrets.DISCORD_WEBHOOK }}
+          discord-webhook: ${{ secrets.DISCORD_WEBHOOK }}
 
   integration-swap-connector:
     needs: integration-price-oracle
@@ -137,14 +80,9 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v3
-      - name: Install node
-        uses: actions/setup-node@v3
-        with:
-          node-version: 16
-          cache: yarn
-      - name: Install
-        run: yarn --prefer-offline
-      - name: Setup hardhat config
+      - name: Set up environment
+        uses: ./.github/actions/setup
+      - name: Set up hardhat config
         run: .github/scripts/setup-hardhat-config.sh ${{secrets.MAINNET_RPC}} ${{secrets.POLYGON_RPC}} ${{secrets.OPTIMISM_RPC}} ${{secrets.ARBITRUM_RPC}} ${{secrets.GNOSIS_RPC}}
       - name: Build
         run: yarn build
@@ -156,20 +94,10 @@ jobs:
         run: yarn workspace @mimic-fi/v2-swap-connector test:optimism
       - name: Test swap connector arbitrum
         run: yarn workspace @mimic-fi/v2-swap-connector test:arbitrum
-      - name: Test failure
-        uses: rjstone/discord-webhook-notify@v1
-        if: failure()
+      - name: Notify discord
+        uses: ./.github/actions/notify-discord
         with:
-          severity: error
-          details: Test failed!
-          webhookUrl: ${{ secrets.DISCORD_WEBHOOK }}
-      - name: Test cancelled
-        uses: rjstone/discord-webhook-notify@v1
-        if: cancelled()
-        with:
-          severity: warn
-          details: Test cancelled!
-          webhookUrl: ${{ secrets.DISCORD_WEBHOOK }}
+          discord-webhook: ${{ secrets.DISCORD_WEBHOOK }}
 
   integration-bridge-connector:
     needs: integration-swap-connector
@@ -178,14 +106,9 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v3
-      - name: Install node
-        uses: actions/setup-node@v3
-        with:
-          node-version: 16
-          cache: yarn
-      - name: Install
-        run: yarn --prefer-offline
-      - name: Setup hardhat config
+      - name: Set up environment
+        uses: ./.github/actions/setup
+      - name: Set up hardhat config
         run: .github/scripts/setup-hardhat-config.sh ${{secrets.MAINNET_RPC}} ${{secrets.POLYGON_RPC}} ${{secrets.OPTIMISM_RPC}} ${{secrets.ARBITRUM_RPC}} ${{secrets.GNOSIS_RPC}}
       - name: Build
         run: yarn build
@@ -197,20 +120,10 @@ jobs:
         run: yarn workspace @mimic-fi/v2-bridge-connector test:optimism
       - name: Test bridge connector arbitrum
         run: yarn workspace @mimic-fi/v2-bridge-connector test:arbitrum
-      - name: Test failure
-        uses: rjstone/discord-webhook-notify@v1
-        if: failure()
+      - name: Notify discord
+        uses: ./.github/actions/notify-discord
         with:
-          severity: error
-          details: Test failed!
-          webhookUrl: ${{ secrets.DISCORD_WEBHOOK }}
-      - name: Test cancelled
-        uses: rjstone/discord-webhook-notify@v1
-        if: cancelled()
-        with:
-          severity: warn
-          details: Test cancelled!
-          webhookUrl: ${{ secrets.DISCORD_WEBHOOK }}
+          discord-webhook: ${{ secrets.DISCORD_WEBHOOK }}
 
   integration-smart-vault:
     needs: integration-bridge-connector
@@ -219,14 +132,9 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v3
-      - name: Install node
-        uses: actions/setup-node@v3
-        with:
-          node-version: 16
-          cache: yarn
-      - name: Install
-        run: yarn --prefer-offline
-      - name: Setup hardhat config
+      - name: Set up environment
+        uses: ./.github/actions/setup
+      - name: Set up hardhat config
         run: .github/scripts/setup-hardhat-config.sh ${{secrets.MAINNET_RPC}} ${{secrets.POLYGON_RPC}} ${{secrets.OPTIMISM_RPC}} ${{secrets.ARBITRUM_RPC}} ${{secrets.GNOSIS_RPC}}
       - name: Build
         run: yarn build
@@ -238,20 +146,7 @@ jobs:
         run: yarn workspace @mimic-fi/v2-smart-vault test:optimism
       - name: Test smart vault arbitrum
         run: yarn workspace @mimic-fi/v2-smart-vault test:arbitrum
-      - name: Test failure
-        uses: rjstone/discord-webhook-notify@v1
-        if: failure()
+      - name: Notify discord
+        uses: ./.github/actions/notify-discord
         with:
-          severity: error
-          details: Test failed!
-          webhookUrl: ${{ secrets.DISCORD_WEBHOOK }}
-      - name: Test cancelled
-        uses: rjstone/discord-webhook-notify@v1
-        if: cancelled()
-        with:
-          severity: warn
-          details: Test cancelled!
-          webhookUrl: ${{ secrets.DISCORD_WEBHOOK }}
-
-env:
-  CI: true
+          discord-webhook: ${{ secrets.DISCORD_WEBHOOK }}
