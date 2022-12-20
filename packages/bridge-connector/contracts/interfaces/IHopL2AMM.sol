@@ -17,8 +17,6 @@ pragma solidity >=0.8.0;
 interface IHopL2AMM {
     function hToken() external view returns (address);
 
-    function l2CanonicalToken() external view returns (address);
-
     function exchangeAddress() external view returns (address);
 
     /**

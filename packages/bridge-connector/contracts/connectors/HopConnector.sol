@@ -103,12 +103,10 @@ contract HopConnector {
             (address, uint256, address, uint256)
         );
 
-        IHopL1Bridge bridge = IHopL1Bridge(hopBridge);
-        require(bridge.l1CanonicalToken() == token, 'HOP_BRIDGE_TOKEN_DOES_NOT_MATCH');
         require(deadline > block.timestamp, 'HOP_BRIDGE_INVALID_DEADLINE');
 
         IERC20(token).safeApprove(hopBridge, amountIn);
-        bridge.sendToL2(chainId, recipient, amountIn, minAmountOut, deadline, relayer, relayerFee);
+        IHopL1Bridge(hopBridge).sendToL2(chainId, recipient, amountIn, minAmountOut, deadline, relayer, relayerFee);
     }
 
     /**
@@ -134,11 +132,8 @@ contract HopConnector {
         require(data.length == ENCODED_DATA_FROM_L2_TO_L1_LENGTH, 'HOP_INVALID_L2_L1_DATA_LENGTH');
         (address hopAMM, uint256 bonderFee) = abi.decode(data, (address, uint256));
 
-        IHopL2AMM amm = IHopL2AMM(hopAMM);
-        require(amm.l2CanonicalToken() == token, 'HOP_AMM_TOKEN_DOES_NOT_MATCH');
-
         IERC20(token).safeApprove(hopAMM, amountIn);
-        amm.swapAndSend(chainId, recipient, amountIn, bonderFee, minAmountOut, block.timestamp, 0, 0);
+        IHopL2AMM(hopAMM).swapAndSend(chainId, recipient, amountIn, bonderFee, minAmountOut, block.timestamp, 0, 0);
         // No destination min amount nor deadline needed since there is no AMM on L1
     }
 
@@ -165,13 +160,11 @@ contract HopConnector {
         require(data.length == ENCODED_DATA_FROM_L2_TO_L2_LENGTH, 'HOP_INVALID_L2_L2_DATA_LENGTH');
         (address hopAMM, uint256 bonderFee, uint256 deadline) = abi.decode(data, (address, uint256, uint256));
 
-        IHopL2AMM amm = IHopL2AMM(hopAMM);
-        require(amm.l2CanonicalToken() == token, 'HOP_AMM_TOKEN_DOES_NOT_MATCH');
         require(deadline > block.timestamp, 'HOP_BRIDGE_INVALID_DEADLINE');
 
         uint256 intermediateMinAmountOut = amountIn - ((amountIn - minAmountOut) / 2);
         IERC20(token).safeApprove(hopAMM, amountIn);
-        amm.swapAndSend(
+        IHopL2AMM(hopAMM).swapAndSend(
             chainId,
             recipient,
             amountIn,

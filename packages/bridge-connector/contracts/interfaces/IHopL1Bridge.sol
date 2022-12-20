@@ -15,8 +15,6 @@
 pragma solidity >=0.8.0;
 
 interface IHopL1Bridge {
-    function l1CanonicalToken() external view returns (address);
-
     /**
      * @notice To send funds L1->L2, call the sendToL2 method on the L1 Bridge contract
      * @notice `amountOutMin` and `deadline` should be 0 when no swap is intended at the destination.
