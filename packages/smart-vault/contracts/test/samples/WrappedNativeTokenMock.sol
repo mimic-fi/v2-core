@@ -2,7 +2,7 @@
 
 pragma solidity ^0.8.0;
 
-import '../../IWrappedNativeToken.sol';
+import '@mimic-fi/v2-helpers/contracts/utils/IWrappedNativeToken.sol';
 
 contract WrappedNativeTokenMock is IWrappedNativeToken {
     uint8 public decimals = 18;

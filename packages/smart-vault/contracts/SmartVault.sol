@@ -19,18 +19,18 @@ import '@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol';
 import '@openzeppelin/contracts/utils/Address.sol';
 import '@openzeppelin/contracts/utils/math/Math.sol';
 
+import '@mimic-fi/v2-bridge-connector/contracts/IBridgeConnector.sol';
 import '@mimic-fi/v2-helpers/contracts/math/FixedPoint.sol';
 import '@mimic-fi/v2-helpers/contracts/math/UncheckedMath.sol';
 import '@mimic-fi/v2-helpers/contracts/utils/Denominations.sol';
+import '@mimic-fi/v2-helpers/contracts/utils/IWrappedNativeToken.sol';
 import '@mimic-fi/v2-price-oracle/contracts/oracle/IPriceOracle.sol';
 import '@mimic-fi/v2-price-oracle/contracts/feeds/PriceFeedProvider.sol';
 import '@mimic-fi/v2-strategies/contracts/IStrategy.sol';
-import '@mimic-fi/v2-bridge-connector/contracts/IBridgeConnector.sol';
 import '@mimic-fi/v2-swap-connector/contracts/ISwapConnector.sol';
 import '@mimic-fi/v2-registry/contracts/implementations/InitializableAuthorizedImplementation.sol';
 
 import './ISmartVault.sol';
-import './IWrappedNativeToken.sol';
 import './helpers/StrategyLib.sol';
 import './helpers/SwapConnectorLib.sol';
 import './helpers/BridgeConnectorLib.sol';
