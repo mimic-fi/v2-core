@@ -61,12 +61,7 @@ abstract contract BaseImplementation is IImplementation {
      * @return Whether the dependency is stateless or not
      */
     function _validateDependency(address dependency) private view returns (bool) {
-        // If there is an implementation registered for the dependency, check the dependency as an instance.
-        // Otherwise, treat the dependency as an implementation.
-        address dependencyImplementation = IRegistry(registry).implementationOf(dependency);
-        address implementation = dependencyImplementation != address(0) ? dependencyImplementation : dependency;
-
-        (bool stateless, bool deprecated, bytes32 namespace) = IRegistry(registry).implementationData(implementation);
+        (bool stateless, bool deprecated, bytes32 namespace) = IRegistry(registry).implementationData(dependency);
         require(namespace != bytes32(0), 'DEPENDENCY_NOT_REGISTERED');
         require(!deprecated, 'DEPENDENCY_DEPRECATED');
         return stateless;
