@@ -12,6 +12,6 @@ contract InitializableImplementationMock is InitializableImplementation {
     }
 
     function initialize() external initializer {
-        _initialize();
+        // solhint-disable-previous-line no-empty-blocks
     }
 }

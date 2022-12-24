@@ -1,11 +1,4 @@
-import {
-  assertEvent,
-  deploy,
-  getSigners,
-  instanceAt,
-  itBehavesLikeAuthorizer,
-  ZERO_BYTES32,
-} from '@mimic-fi/v2-helpers'
+import { assertEvent, deploy, getSigners, itBehavesLikeAuthorizer } from '@mimic-fi/v2-helpers'
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/dist/src/signer-with-address'
 import { expect } from 'chai'
 import { Contract } from 'ethers'
@@ -185,105 +178,6 @@ describe('Registry', () => {
 
       it('reverts', async () => {
         await expect(registry.deprecate(implementation.address)).to.be.revertedWith('AUTH_SENDER_NOT_ALLOWED')
-      })
-    })
-  })
-
-  describe('clone', () => {
-    let initializeData: string
-
-    before('build initialize data', () => {
-      initializeData = implementation.interface.encodeFunctionData('initialize', [])
-    })
-
-    context('when the implementation is registered', () => {
-      beforeEach('register', async () => {
-        await registry.connect(admin).register(NAMESPACE, implementation.address, true)
-      })
-
-      context('when the implementation is registered with another namespace', () => {
-        context('when the implementation is not deprecated', () => {
-          it('cannot be cloned', async () => {
-            await expect(registry.clone(implementation.address, initializeData)).to.be.revertedWith(
-              'INVALID_IMPLEMENTATION_NAMESPACE'
-            )
-          })
-        })
-
-        context('when the implementation is deprecated', () => {
-          beforeEach('deprecate', async () => {
-            await registry.connect(admin).deprecate(implementation.address)
-          })
-
-          it('reverts', async () => {
-            await expect(registry.clone(implementation.address, initializeData)).to.be.revertedWith(
-              'DEPRECATED_IMPLEMENTATION'
-            )
-          })
-        })
-      })
-
-      context('when the implementation is registered with the correct namespace', () => {
-        let namespace: string
-
-        beforeEach('deploy another implementation and register', async () => {
-          implementation = await deploy('InitializableImplementationMock', [registry.address])
-          namespace = await implementation.NAMESPACE()
-          await registry.connect(admin).register(namespace, implementation.address, true)
-        })
-
-        context('when the implementation is not deprecated', () => {
-          let instance: Contract
-
-          beforeEach('clone', async () => {
-            const tx = await registry.clone(implementation.address, initializeData)
-            const { args } = await assertEvent(tx, 'Cloned', { namespace, implementation })
-            instance = await instanceAt('InitializableImplementationMock', args.instance)
-          })
-
-          it('clones the implementation properly', async () => {
-            expect(await instance.registry()).to.be.equal(registry.address)
-            expect(await instance.NAMESPACE()).to.be.equal(namespace)
-            expect(await registry.implementationOf(instance.address)).to.be.equal(implementation.address)
-          })
-
-          it('initializes the new instance', async () => {
-            await expect(instance.initialize()).to.be.revertedWith('Initializable: contract is already initialized')
-          })
-
-          it('does not register the instance', async () => {
-            const implementationData = await registry.implementationData(instance.address)
-            expect(implementationData.stateless).to.be.equal(false)
-            expect(implementationData.deprecated).to.be.equal(false)
-            expect(implementationData.namespace).to.be.equal(ZERO_BYTES32)
-          })
-
-          it('cannot be registered', async () => {
-            await expect(registry.connect(admin).register(namespace, instance.address, true)).to.be.revertedWith(
-              'CANNOT_REGISTER_INSTANCE'
-            )
-          })
-        })
-
-        context('when the implementation is deprecated', () => {
-          beforeEach('deprecate', async () => {
-            await registry.connect(admin).deprecate(implementation.address)
-          })
-
-          it('reverts', async () => {
-            await expect(registry.clone(implementation.address, initializeData)).to.be.revertedWith(
-              'DEPRECATED_IMPLEMENTATION'
-            )
-          })
-        })
-      })
-    })
-
-    context('when the implementation is not registered', () => {
-      it('reverts', async () => {
-        await expect(registry.clone(implementation.address, initializeData)).to.be.revertedWith(
-          'UNREGISTERED_IMPLEMENTATION'
-        )
       })
     })
   })

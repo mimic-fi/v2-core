@@ -32,17 +32,6 @@ interface IRegistry is IAuthorizer {
     event Deprecated(bytes32 indexed namespace, address indexed implementation);
 
     /**
-     * @dev Emitted every time an implementation is cloned
-     */
-    event Cloned(bytes32 indexed namespace, address indexed implementation, address instance, bytes initResult);
-
-    /**
-     * @dev Tells the implementation associated to a contract instance
-     * @param instance Address of the instance to request it's implementation
-     */
-    function implementationOf(address instance) external view returns (address);
-
-    /**
      * @dev Tells the data of an implementation:
      * @param implementation Address of the implementation to request it's data
      */
@@ -71,12 +60,4 @@ interface IRegistry is IAuthorizer {
      * @param implementation Address of the implementation to be deprecated
      */
     function deprecate(address implementation) external;
-
-    /**
-     * @dev Clones a registered implementation
-     * @param implementation Address of the implementation to be cloned
-     * @param initializeData Arbitrary data to be sent after deployment
-     * @return instance Address of the new instance created
-     */
-    function clone(address implementation, bytes memory initializeData) external returns (address);
 }
