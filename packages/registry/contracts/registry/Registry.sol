@@ -14,9 +14,6 @@
 
 pragma solidity ^0.8.0;
 
-import '@openzeppelin/contracts/proxy/Clones.sol';
-import '@openzeppelin/contracts/utils/Address.sol';
-
 import '@mimic-fi/v2-helpers/contracts/auth/Authorizer.sol';
 
 import './IRegistry.sol';
@@ -28,19 +25,13 @@ import './IRegistry.sol';
  * instances (from cloned implementations).
  *
  * The registry follows the Authorizer mixin and only authorized parties are allowed to register implementations.
- * Instances are automatically registered when a new clone is requested to the registry.
  */
 contract Registry is IRegistry, Authorizer {
-    using Address for address;
-
     struct ImplementationData {
         bool stateless;
         bool deprecated;
         bytes32 namespace;
     }
-
-    // List of instances' implementations indexed by instance address
-    mapping (address => address) public override implementationOf;
 
     // List of implementations indexed by address
     mapping (address => ImplementationData) public override implementationData;
@@ -78,7 +69,6 @@ contract Registry is IRegistry, Authorizer {
 
         ImplementationData storage data = implementationData[implementation];
         require(data.namespace == bytes32(0), 'REGISTERED_IMPLEMENTATION');
-        require(implementationOf[implementation] == address(0), 'CANNOT_REGISTER_INSTANCE');
 
         data.deprecated = false;
         data.stateless = stateless;
@@ -99,27 +89,5 @@ contract Registry is IRegistry, Authorizer {
 
         data.deprecated = true;
         emit Deprecated(data.namespace, implementation);
-    }
-
-    /**
-     * @dev Clones a registered implementation
-     * @param implementation Address of the implementation to be cloned. It must be registered and not deprecated.
-     * @param initializeData Arbitrary data to be sent after deployment. It can be used to initialize the new instance.
-     * @return instance Address of the new instance created
-     */
-    function clone(address implementation, bytes memory initializeData) external override returns (address instance) {
-        require(implementation != address(0), 'IMPLEMENTATION_ADDRESS_ZERO');
-
-        ImplementationData storage data = implementationData[implementation];
-        require(data.namespace != bytes32(0), 'UNREGISTERED_IMPLEMENTATION');
-        require(!data.deprecated, 'DEPRECATED_IMPLEMENTATION');
-
-        instance = Clones.clone(address(implementation));
-        implementationOf[instance] = implementation;
-        bytes memory result = initializeData.length == 0
-            ? new bytes(0)
-            : instance.functionCall(initializeData, 'CLONE_INIT_FAILED');
-
-        emit Cloned(data.namespace, implementation, instance, result);
     }
 }

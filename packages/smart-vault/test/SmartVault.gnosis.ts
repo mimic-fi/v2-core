@@ -1,5 +1,15 @@
 import { getHopBonderFee, SOURCES as BRIDGE_SOURCES } from '@mimic-fi/v2-bridge-connector'
-import { assertEvent, deploy, fp, getSigners, impersonate, instanceAt, MAX_UINT256, toUSDC } from '@mimic-fi/v2-helpers'
+import {
+  assertEvent,
+  deploy,
+  fp,
+  getSigners,
+  impersonate,
+  instanceAt,
+  MAX_UINT256,
+  ONES_BYTES32,
+  toUSDC,
+} from '@mimic-fi/v2-helpers'
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/dist/src/signer-with-address'
 import { expect } from 'chai'
 import { Contract } from 'ethers'
@@ -32,8 +42,9 @@ describe('SmartVault', () => {
     const implementation = await deploy('SmartVault', [WETH, registry.address])
     await registry.connect(admin).register(await implementation.NAMESPACE(), implementation.address, false)
     const initializeData = implementation.interface.encodeFunctionData('initialize', [admin.address])
-    const tx = await registry.clone(implementation.address, initializeData)
-    const event = await assertEvent(tx, 'Cloned', { implementation })
+    const factory = await deploy('SmartVaultsFactory', [registry.address])
+    const tx = await factory.create(ONES_BYTES32, implementation.address, initializeData)
+    const event = await assertEvent(tx, 'Created', { implementation })
     smartVault = await instanceAt('SmartVault', event.args.instance)
   })
 

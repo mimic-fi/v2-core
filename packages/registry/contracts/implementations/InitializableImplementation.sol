@@ -33,15 +33,10 @@ abstract contract InitializableImplementation is BaseImplementation, Initializab
     }
 
     /**
-     * @dev Initialization function to check a new instance is properly set up in the registry.
+     * @dev Initialization function.
      * Note this function can only be called from a function marked with the `initializer` modifier.
      */
     function _initialize() internal view onlyInitializing {
-        address implementation = IRegistry(registry).implementationOf(address(this));
-        require(implementation != address(0), 'IMPLEMENTATION_NOT_REGISTERED');
-
-        (, bool deprecated, bytes32 namespace) = IRegistry(registry).implementationData(implementation);
-        require(!deprecated, 'IMPLEMENTATION_DEPRECATED');
-        require(this.NAMESPACE() == namespace, 'INVALID_IMPLEMENTATION_NAMESPACE');
+        // solhint-disable-previous-line no-empty-blocks
     }
 }

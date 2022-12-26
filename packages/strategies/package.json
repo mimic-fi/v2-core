@@ -1,6 +1,6 @@
 {
   "name": "@mimic-fi/v2-strategies",
-  "version": "0.0.9",
+  "version": "0.1.0",
   "license": "GPL-3.0",
   "engines": {
     "node": ">=16.0.0"
@@ -22,8 +22,8 @@
     "prepare": "yarn build"
   },
   "dependencies": {
-    "@mimic-fi/v2-helpers": "0.0.13",
-    "@mimic-fi/v2-registry": "0.0.7",
+    "@mimic-fi/v2-helpers": "0.1.0",
+    "@mimic-fi/v2-registry": "0.1.0",
     "@openzeppelin/contracts": "4.7.0"
   },
   "devDependencies": {
@@ -34,7 +34,8 @@
     "chai": "^4.2.0",
     "eslint-config-mimic": "^0.0.2",
     "ethereum-waffle": "^3.4.4",
-    "hardhat": "^2.12.3",
+    "ethers": "~5.6.0",
+    "hardhat": "^2.12.4",
     "hardhat-local-networks-config-plugin": "^0.0.6",
     "mocha": "^6.2.3",
     "solhint-config-mimic": "^0.0.1",
