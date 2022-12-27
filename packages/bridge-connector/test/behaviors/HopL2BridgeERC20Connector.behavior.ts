@@ -1,94 +1,100 @@
 import { defaultAbiCoder } from '@ethersproject/abi'
-import { fp, impersonate, instanceAt, MAX_UINT256, toUSDC } from '@mimic-fi/v2-helpers'
+import { bn, fp, impersonate, instanceAt, MAX_UINT256 } from '@mimic-fi/v2-helpers'
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/dist/src/signer-with-address'
 import { expect } from 'chai'
-import { Contract } from 'ethers'
+import { BigNumber, Contract } from 'ethers'
 
 import { SOURCES } from '../../src/constants'
 import { getHopBonderFee } from '../../src/hop'
 
-export function itBehavesLikeHopBridgeConnector(
+export function itBehavesLikeHopBridgeERC20Connector(
   sourceChainId: number,
-  usdcAddress: string,
-  usdcAmmAddress: string,
+  tokenAddress: string,
+  tokenAmmAddress: string,
   whaleAddress: string
 ): void {
-  let usdc: Contract, whale: SignerWithAddress, amm: Contract, hUsdc: Contract, ammExchangeAddress: string
+  let token: Contract, whale: SignerWithAddress, amm: Contract, hToken: Contract, ammExchangeAddress: string
 
   const source = SOURCES.HOP
 
   before('load tokens and accounts', async function () {
-    usdc = await instanceAt('IERC20Metadata', usdcAddress)
+    token = await instanceAt('IERC20Metadata', tokenAddress)
     whale = await impersonate(whaleAddress, fp(100))
   })
 
   beforeEach('load hop AMM', async function () {
-    amm = await instanceAt('IHopL2AMM', usdcAmmAddress)
-    hUsdc = await instanceAt('IERC20', await amm.hToken())
+    amm = await instanceAt('IHopL2AMM', tokenAmmAddress)
+    hToken = await instanceAt('IERC20', await amm.hToken())
     ammExchangeAddress = await amm.exchangeAddress()
   })
 
   function itBridgesFromL2Properly(destinationChainId: number) {
+    let amountIn: BigNumber, minAmountOut: BigNumber
+
     const slippage = 0.01
     const deadline = MAX_UINT256
-    const amountIn = toUSDC(300)
-    const minAmountOut = amountIn.sub(amountIn.mul(fp(slippage)).div(fp(1)))
+
+    beforeEach('set amount in', async () => {
+      const decimals = await token.decimals()
+      amountIn = bn(300).mul(bn(10).pow(decimals))
+      minAmountOut = amountIn.sub(amountIn.mul(fp(slippage)).div(fp(1)))
+    })
 
     if (destinationChainId != sourceChainId) {
       context('when the data is encoded properly', async () => {
         let data: string
 
         beforeEach('estimate bonder fee and compute data', async function () {
-          const bonderFee = await getHopBonderFee(sourceChainId, destinationChainId, usdc, amountIn, slippage)
+          const bonderFee = await getHopBonderFee(sourceChainId, destinationChainId, token, amountIn, slippage)
           data =
             destinationChainId == 1
-              ? defaultAbiCoder.encode(['address', 'uint256'], [usdcAmmAddress, bonderFee])
-              : defaultAbiCoder.encode(['address', 'uint256', 'uint256'], [usdcAmmAddress, bonderFee, deadline])
+              ? defaultAbiCoder.encode(['address', 'uint256'], [tokenAmmAddress, bonderFee])
+              : defaultAbiCoder.encode(['address', 'uint256', 'uint256'], [tokenAmmAddress, bonderFee, deadline])
         })
 
         it('should send the canonical tokens to the exchange', async function () {
-          const previousSenderBalance = await usdc.balanceOf(whale.address)
-          const previousExchangeBalance = await usdc.balanceOf(ammExchangeAddress)
-          const previousConnectorBalance = await usdc.balanceOf(this.connector.address)
+          const previousSenderBalance = await token.balanceOf(whale.address)
+          const previousExchangeBalance = await token.balanceOf(ammExchangeAddress)
+          const previousConnectorBalance = await token.balanceOf(this.connector.address)
 
-          await usdc.connect(whale).transfer(this.connector.address, amountIn)
+          await token.connect(whale).transfer(this.connector.address, amountIn)
           await this.connector
             .connect(whale)
-            .bridge(source, destinationChainId, usdcAddress, amountIn, minAmountOut, whale.address, data)
+            .bridge(source, destinationChainId, tokenAddress, amountIn, minAmountOut, whale.address, data)
 
-          const currentSenderBalance = await usdc.balanceOf(whale.address)
+          const currentSenderBalance = await token.balanceOf(whale.address)
           expect(currentSenderBalance).to.be.equal(previousSenderBalance.sub(amountIn))
 
-          const currentExchangeBalance = await usdc.balanceOf(ammExchangeAddress)
+          const currentExchangeBalance = await token.balanceOf(ammExchangeAddress)
           expect(currentExchangeBalance).to.be.equal(previousExchangeBalance.add(amountIn))
 
-          const currentConnectorBalance = await usdc.balanceOf(this.connector.address)
+          const currentConnectorBalance = await token.balanceOf(this.connector.address)
           expect(currentConnectorBalance).to.be.equal(previousConnectorBalance)
         })
 
         it('should burn at least the requested hop tokens', async function () {
-          const previousHopUsdcSupply = await hUsdc.totalSupply()
+          const previousHopTokenSupply = await hToken.totalSupply()
 
-          await usdc.connect(whale).transfer(this.connector.address, amountIn)
+          await token.connect(whale).transfer(this.connector.address, amountIn)
           await this.connector
             .connect(whale)
-            .bridge(source, destinationChainId, usdcAddress, amountIn, minAmountOut, whale.address, data)
+            .bridge(source, destinationChainId, tokenAddress, amountIn, minAmountOut, whale.address, data)
 
-          const currentHopUsdcSupply = await hUsdc.totalSupply()
-          const burnedAmount = previousHopUsdcSupply.sub(currentHopUsdcSupply)
+          const currentHopTokenSupply = await hToken.totalSupply()
+          const burnedAmount = previousHopTokenSupply.sub(currentHopTokenSupply)
           expect(burnedAmount).to.be.at.least(minAmountOut)
         })
 
         it('does not affect the canonical token balance of the amm', async function () {
-          const previousAmmUsdcBalance = await usdc.balanceOf(usdcAmmAddress)
+          const previousAmmTokenBalance = await token.balanceOf(tokenAmmAddress)
 
-          await usdc.connect(whale).transfer(this.connector.address, amountIn)
+          await token.connect(whale).transfer(this.connector.address, amountIn)
           await this.connector
             .connect(whale)
-            .bridge(source, destinationChainId, usdcAddress, amountIn, minAmountOut, whale.address, data)
+            .bridge(source, destinationChainId, tokenAddress, amountIn, minAmountOut, whale.address, data)
 
-          const currentAmmUsdcBalance = await usdc.balanceOf(usdcAmmAddress)
-          expect(currentAmmUsdcBalance).to.be.equal(previousAmmUsdcBalance)
+          const currentAmmTokenBalance = await token.balanceOf(tokenAmmAddress)
+          expect(currentAmmTokenBalance).to.be.equal(previousAmmTokenBalance)
         })
       })
 
@@ -98,14 +104,14 @@ export function itBehavesLikeHopBridgeConnector(
 
         it('reverts', async function () {
           await expect(
-            this.connector.bridge(source, destinationChainId, usdcAddress, amountIn, minAmountOut, whale.address, data)
+            this.connector.bridge(source, destinationChainId, tokenAddress, amountIn, minAmountOut, whale.address, data)
           ).to.be.revertedWith(reason)
         })
       })
     } else {
       it('reverts', async function () {
         await expect(
-          this.connector.bridge(source, destinationChainId, usdcAddress, amountIn, minAmountOut, whale.address, '0x')
+          this.connector.bridge(source, destinationChainId, tokenAddress, amountIn, minAmountOut, whale.address, '0x')
         ).to.be.revertedWith('BRIDGE_CONNECTOR_SAME_CHAIN_OP')
       })
     }
@@ -146,7 +152,7 @@ export function itBehavesLikeHopBridgeConnector(
 
     it('reverts', async function () {
       await expect(
-        this.connector.bridge(source, destinationChainId, usdcAddress, 0, whale.address, '0x')
+        this.connector.bridge(source, destinationChainId, tokenAddress, 0, whale.address, '0x')
       ).to.be.reverted
     })
   })
