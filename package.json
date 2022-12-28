@@ -1,7 +1,7 @@
 {
   "name": "@mimic-fi/v2-core",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.1.0-rc.1",
   "license": "GPL-3.0",
   "engines": {
     "node": ">=16.0.0"
