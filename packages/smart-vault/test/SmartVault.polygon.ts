@@ -21,6 +21,7 @@ import { defaultAbiCoder } from 'ethers/lib/utils'
 const CHAIN = 137
 const USDC = '0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174'
 const WETH = '0x7ceB23fD6bC0adD59E62ac25578270cFf1b9f619'
+const WMATIC = '0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270'
 const WHALE = '0xa8f49d90b24d6a007e5f47bf86d122a9f3211734'
 
 describe('SmartVault', () => {
@@ -41,7 +42,7 @@ describe('SmartVault', () => {
 
   before('deploy smart vault', async () => {
     registry = await deploy('@mimic-fi/v2-registry/artifacts/contracts/registry/Registry.sol/Registry', [admin.address])
-    const implementation = await deploy('SmartVault', [WETH, registry.address])
+    const implementation = await deploy('SmartVault', [WMATIC, registry.address])
     await registry.connect(admin).register(await implementation.NAMESPACE(), implementation.address, false)
     const initializeData = implementation.interface.encodeFunctionData('initialize', [admin.address])
     const factory = await deploy('SmartVaultsFactory', [registry.address])
@@ -169,7 +170,7 @@ describe('SmartVault', () => {
     before('set bridge connector', async () => {
       bridgeConnector = await deploy(
         '@mimic-fi/v2-bridge-connector/artifacts/contracts/BridgeConnector.sol/BridgeConnector',
-        [registry.address]
+        [WMATIC, registry.address]
       )
       await registry.connect(admin).register(await bridgeConnector.NAMESPACE(), bridgeConnector.address, true)
 

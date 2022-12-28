@@ -21,6 +21,7 @@ import '@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol';
 import '@mimic-fi/v2-helpers/contracts/math/FixedPoint.sol';
 import '@mimic-fi/v2-helpers/contracts/math/UncheckedMath.sol';
 import '@mimic-fi/v2-helpers/contracts/utils/Denominations.sol';
+import '@mimic-fi/v2-helpers/contracts/utils/IWrappedNativeToken.sol';
 
 import '../interfaces/IHopL2AMM.sol';
 import '../interfaces/IHopL1Bridge.sol';
@@ -49,6 +50,24 @@ contract HopConnector {
 
     // Expected data length when bridging from L2 to L2: amm, bonder fee, deadline
     uint256 private constant ENCODED_DATA_FROM_L2_TO_L2_LENGTH = 96;
+
+    // Wrapped native token reference
+    address private immutable wrappedNativeToken;
+
+    /**
+     * @dev Initializes the HopConnector contract
+     * @param _wrappedNativeToken Address of the wrapped native token
+     */
+    constructor(address _wrappedNativeToken) {
+        wrappedNativeToken = _wrappedNativeToken;
+    }
+
+    /**
+     * @dev It allows receiving native token transfers
+     */
+    receive() external payable {
+        // solhint-disable-previous-line no-empty-blocks
+    }
 
     /**
      * @dev Internal function to bridge assets using Hop Exchange
@@ -105,8 +124,16 @@ contract HopConnector {
 
         require(deadline > block.timestamp, 'HOP_BRIDGE_INVALID_DEADLINE');
 
-        IERC20(token).safeApprove(hopBridge, amountIn);
-        IHopL1Bridge(hopBridge).sendToL2(chainId, recipient, amountIn, minAmountOut, deadline, relayer, relayerFee);
+        uint256 value = _unwrapOrApproveTokens(hopBridge, token, amountIn);
+        IHopL1Bridge(hopBridge).sendToL2{ value: value }(
+            chainId,
+            recipient,
+            amountIn,
+            minAmountOut,
+            deadline,
+            relayer,
+            relayerFee
+        );
     }
 
     /**
@@ -132,9 +159,18 @@ contract HopConnector {
         require(data.length == ENCODED_DATA_FROM_L2_TO_L1_LENGTH, 'HOP_INVALID_L2_L1_DATA_LENGTH');
         (address hopAMM, uint256 bonderFee) = abi.decode(data, (address, uint256));
 
-        IERC20(token).safeApprove(hopAMM, amountIn);
-        IHopL2AMM(hopAMM).swapAndSend(chainId, recipient, amountIn, bonderFee, minAmountOut, block.timestamp, 0, 0);
+        uint256 value = _unwrapOrApproveTokens(hopAMM, token, amountIn);
         // No destination min amount nor deadline needed since there is no AMM on L1
+        IHopL2AMM(hopAMM).swapAndSend{ value: value }(
+            chainId,
+            recipient,
+            amountIn,
+            bonderFee,
+            minAmountOut,
+            block.timestamp,
+            0,
+            0
+        );
     }
 
     /**
@@ -163,8 +199,7 @@ contract HopConnector {
         require(deadline > block.timestamp, 'HOP_BRIDGE_INVALID_DEADLINE');
 
         uint256 intermediateMinAmountOut = amountIn - ((amountIn - minAmountOut) / 2);
-        IERC20(token).safeApprove(hopAMM, amountIn);
-        IHopL2AMM(hopAMM).swapAndSend(
+        IHopL2AMM(hopAMM).swapAndSend{ value: _unwrapOrApproveTokens(hopAMM, token, amountIn) }(
             chainId,
             recipient,
             amountIn,
@@ -174,6 +209,23 @@ contract HopConnector {
             minAmountOut,
             deadline
         );
+    }
+
+    /**
+     * @dev Unwraps or approves the given amount of tokens depending on the token being bridged
+     * @param bridge Address of the bridge component to approve the tokens to
+     * @param token Address of the token to be bridged
+     * @param amount Amount of tokens to be bridged
+     * @return value Value that must be used to perform a bridge op
+     */
+    function _unwrapOrApproveTokens(address bridge, address token, uint256 amount) private returns (uint256 value) {
+        if (token == wrappedNativeToken) {
+            value = amount;
+            IWrappedNativeToken(token).withdraw(amount);
+        } else {
+            value = 0;
+            IERC20(token).safeApprove(bridge, amount);
+        }
     }
 
     /**

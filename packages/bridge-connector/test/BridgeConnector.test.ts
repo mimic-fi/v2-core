@@ -1,4 +1,4 @@
-import { deploy, getSigner } from '@mimic-fi/v2-helpers'
+import { deploy, getSigner, ZERO_ADDRESS } from '@mimic-fi/v2-helpers'
 import { expect } from 'chai'
 import { Contract } from 'ethers'
 import { ethers } from 'hardhat'
@@ -9,7 +9,7 @@ describe('BridgeConnector', () => {
   beforeEach('deploy bridge connector', async () => {
     const admin = await getSigner()
     registry = await deploy('@mimic-fi/v2-registry/artifacts/contracts/registry/Registry.sol/Registry', [admin.address])
-    bridgeConnector = await deploy('BridgeConnector', [registry.address])
+    bridgeConnector = await deploy('BridgeConnector', [ZERO_ADDRESS, registry.address])
   })
 
   describe('initialization', async () => {

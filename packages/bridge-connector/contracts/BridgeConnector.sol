@@ -38,8 +38,12 @@ contract BridgeConnector is IBridgeConnector, BaseImplementation, HopConnector {
     /**
      * @dev Initializes the BridgeConnector contract
      * @param registry Address of the Mimic Registry
+     * @param wrappedNativeToken Address of the wrapped native token
      */
-    constructor(address registry) BaseImplementation(registry) {
+    constructor(address wrappedNativeToken, address registry)
+        HopConnector(wrappedNativeToken)
+        BaseImplementation(registry)
+    {
         // solhint-disable-previous-line no-empty-blocks
     }
 
