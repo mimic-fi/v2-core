@@ -12,7 +12,7 @@ export async function overrideTestTask(
   const files = await hre.run(TASK_TEST_GET_TEST_FILES, { testFiles: args.testFiles })
   if (hre.network.name === 'hardhat' && !args.fork) await runNormalTests(args, files, hre, run)
   else if (hre.network.name === 'hardhat' && args.fork) await runForkTests(args, files, hre, run)
-  else await runDeployTests(args, files, hre, run)
+  else await runDeployedTests(args, files, hre, run)
 }
 
 async function runNormalTests(
@@ -29,7 +29,7 @@ async function runNormalTests(
   await run(args)
 }
 
-async function runDeployTests(
+async function runDeployedTests(
   args: any,
   files: string[],
   hre: HardhatRuntimeEnvironment,
@@ -37,7 +37,7 @@ async function runDeployTests(
 ): Promise<void> {
   console.log('Running deployment tests...')
   if (args.fork) throw Error("The 'fork' option is invalid when testing deployments on livenetwork")
-  args.testFiles = files.filter((file: string) => file.endsWith('.deploy.ts'))
+  args.testFiles = files.filter((file: string) => file.endsWith(`.${hre.network.name}.deployed.ts`))
   if (args.testFiles.length == 0) return hre.run(TASK_TEST_RUN_MOCHA_TESTS, { testFiles: [] })
 
   await run(args)
