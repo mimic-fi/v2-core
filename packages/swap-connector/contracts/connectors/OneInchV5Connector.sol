@@ -15,8 +15,9 @@
 pragma solidity ^0.8.0;
 
 import '@openzeppelin/contracts/token/ERC20/IERC20.sol';
-import '@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol';
 import '@openzeppelin/contracts/utils/Address.sol';
+
+import '@mimic-fi/v2-helpers/contracts/utils/ERC20Helpers.sol';
 
 import '../interfaces/IOneInchV5AggregationRouter.sol';
 
@@ -25,8 +26,6 @@ import '../interfaces/IOneInchV5AggregationRouter.sol';
  * @dev Interfaces with 1inch V5 to swap tokens
  */
 contract OneInchV5Connector {
-    using SafeERC20 for IERC20;
-
     // Reference to 1inch aggregation router v5
     IOneInchV5AggregationRouter private immutable oneInchV5Router;
 
@@ -55,7 +54,7 @@ contract OneInchV5Connector {
     ) internal returns (uint256 amountOut) {
         uint256 preBalanceOut = IERC20(tokenOut).balanceOf(address(this));
 
-        IERC20(tokenIn).safeApprove(address(oneInchV5Router), amountIn);
+        ERC20Helpers.approve(tokenIn, address(oneInchV5Router), amountIn);
         Address.functionCall(address(oneInchV5Router), data, '1INCH_V5_SWAP_FAILED');
 
         uint256 postBalanceOut = IERC20(tokenOut).balanceOf(address(this));

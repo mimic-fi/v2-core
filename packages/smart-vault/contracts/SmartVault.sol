@@ -23,6 +23,7 @@ import '@mimic-fi/v2-bridge-connector/contracts/IBridgeConnector.sol';
 import '@mimic-fi/v2-helpers/contracts/math/FixedPoint.sol';
 import '@mimic-fi/v2-helpers/contracts/math/UncheckedMath.sol';
 import '@mimic-fi/v2-helpers/contracts/utils/Denominations.sol';
+import '@mimic-fi/v2-helpers/contracts/utils/ERC20Helpers.sol';
 import '@mimic-fi/v2-helpers/contracts/utils/IWrappedNativeToken.sol';
 import '@mimic-fi/v2-price-oracle/contracts/oracle/IPriceOracle.sol';
 import '@mimic-fi/v2-price-oracle/contracts/feeds/PriceFeedProvider.sol';
@@ -608,8 +609,7 @@ contract SmartVault is ISmartVault, PriceFeedProvider, InitializableAuthorizedIm
      */
     function _safeTransfer(address token, address to, uint256 amount) internal {
         if (amount == 0) return;
-        if (Denominations.isNativeToken(token)) Address.sendValue(payable(to), amount);
-        else IERC20(token).safeTransfer(to, amount);
+        ERC20Helpers.transfer(token, to, amount);
     }
 
     /**

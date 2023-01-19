@@ -16,20 +16,19 @@ pragma solidity ^0.8.0;
 
 import '@openzeppelin/contracts/token/ERC20/IERC20.sol';
 import '@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol';
-import '@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol';
 
 import '@uniswap/v2-core/contracts/interfaces/IUniswapV2Factory.sol';
 import '@uniswap/v2-periphery/contracts/interfaces/IUniswapV2Router02.sol';
 
-import '@mimic-fi/v2-helpers/contracts/utils/Arrays.sol';
 import '@mimic-fi/v2-helpers/contracts/math/UncheckedMath.sol';
+import '@mimic-fi/v2-helpers/contracts/utils/Arrays.sol';
+import '@mimic-fi/v2-helpers/contracts/utils/ERC20Helpers.sol';
 
 /**
  * @title UniswapV2Connector
  * @dev Interfaces with Uniswap V2 to swap tokens
  */
 contract UniswapV2Connector {
-    using SafeERC20 for IERC20;
     using UncheckedMath for uint256;
 
     // Expected data length for Uniswap V2 single swaps: no data expected
@@ -61,7 +60,7 @@ contract UniswapV2Connector {
         uint256 minAmountOut,
         bytes memory data
     ) internal returns (uint256 amountOut) {
-        IERC20(tokenIn).safeApprove(address(uniswapV2Router), amountIn);
+        ERC20Helpers.approve(tokenIn, address(uniswapV2Router), amountIn);
         uint256[] memory amounts = data.length == ENCODED_DATA_SINGLE_SWAP_LENGTH
             ? _singleSwapUniswapV2(tokenIn, tokenOut, amountIn, minAmountOut)
             : _batchSwapUniswapV2(tokenIn, tokenOut, amountIn, minAmountOut, data);
