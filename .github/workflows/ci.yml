@@ -68,6 +68,8 @@ jobs:
         run: yarn build
       - name: Test price oracle mainnet
         run: yarn workspace @mimic-fi/v2-price-oracle test:mainnet
+      - name: Test price oracle polygon
+        run: yarn workspace @mimic-fi/v2-price-oracle test:polygon
       - name: Notify discord
         uses: ./.github/actions/notify-discord
         with:
