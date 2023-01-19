@@ -15,11 +15,11 @@
 pragma solidity ^0.8.0;
 
 import '@openzeppelin/contracts/token/ERC20/IERC20.sol';
-import '@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol';
 import '@openzeppelin/contracts/utils/math/SafeCast.sol';
 
-import '@mimic-fi/v2-helpers/contracts/utils/Arrays.sol';
 import '@mimic-fi/v2-helpers/contracts/math/UncheckedMath.sol';
+import '@mimic-fi/v2-helpers/contracts/utils/Arrays.sol';
+import '@mimic-fi/v2-helpers/contracts/utils/ERC20Helpers.sol';
 
 import '../interfaces/IBalancerV2Vault.sol';
 
@@ -29,7 +29,6 @@ import '../interfaces/IBalancerV2Vault.sol';
  */
 contract BalancerV2Connector {
     using Arrays for address[];
-    using SafeERC20 for IERC20;
     using UncheckedMath for int256;
     using UncheckedMath for uint256;
 
@@ -62,7 +61,7 @@ contract BalancerV2Connector {
         uint256 minAmountOut,
         bytes memory data
     ) internal returns (uint256 amountOut) {
-        IERC20(tokenIn).safeApprove(address(balancerV2Vault), amountIn);
+        ERC20Helpers.approve(tokenIn, address(balancerV2Vault), amountIn);
         return
             data.length == ENCODED_DATA_SINGLE_SWAP_LENGTH
                 ? _singleSwapBalancerV2(tokenIn, tokenOut, amountIn, minAmountOut, data)

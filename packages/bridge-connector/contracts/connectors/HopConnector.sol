@@ -15,12 +15,12 @@
 pragma solidity ^0.8.0;
 
 import '@openzeppelin/contracts/token/ERC20/IERC20.sol';
-import '@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol';
 import '@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol';
 
 import '@mimic-fi/v2-helpers/contracts/math/FixedPoint.sol';
 import '@mimic-fi/v2-helpers/contracts/math/UncheckedMath.sol';
 import '@mimic-fi/v2-helpers/contracts/utils/Denominations.sol';
+import '@mimic-fi/v2-helpers/contracts/utils/ERC20Helpers.sol';
 import '@mimic-fi/v2-helpers/contracts/utils/IWrappedNativeToken.sol';
 
 import '../interfaces/IHopL2AMM.sol';
@@ -31,7 +31,6 @@ import '../interfaces/IHopL1Bridge.sol';
  * @dev Interfaces with Hop Exchange to bridge tokens
  */
 contract HopConnector {
-    using SafeERC20 for IERC20;
     using FixedPoint for uint256;
     using UncheckedMath for uint256;
     using Denominations for address;
@@ -224,7 +223,7 @@ contract HopConnector {
             IWrappedNativeToken(token).withdraw(amount);
         } else {
             value = 0;
-            IERC20(token).safeApprove(bridge, amount);
+            ERC20Helpers.approve(token, bridge, amount);
         }
     }
 

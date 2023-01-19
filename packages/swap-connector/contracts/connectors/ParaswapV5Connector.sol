@@ -15,8 +15,9 @@
 pragma solidity ^0.8.0;
 
 import '@openzeppelin/contracts/token/ERC20/IERC20.sol';
-import '@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol';
 import '@openzeppelin/contracts/utils/Address.sol';
+
+import '@mimic-fi/v2-helpers/contracts/utils/ERC20Helpers.sol';
 
 import '../interfaces/IParaswapV5Augustus.sol';
 
@@ -25,8 +26,6 @@ import '../interfaces/IParaswapV5Augustus.sol';
  * @dev Interfaces with Paraswap V5 to swap tokens
  */
 contract ParaswapV5Connector {
-    using SafeERC20 for IERC20;
-
     // Reference to Paraswap V5 Augustus swapper
     IParaswapV5Augustus private immutable paraswapV5Augustus;
 
@@ -56,7 +55,7 @@ contract ParaswapV5Connector {
         uint256 preBalanceOut = IERC20(tokenOut).balanceOf(address(this));
 
         address tokenTransferProxy = paraswapV5Augustus.getTokenTransferProxy();
-        IERC20(tokenIn).safeApprove(tokenTransferProxy, amountIn);
+        ERC20Helpers.approve(tokenIn, tokenTransferProxy, amountIn);
         Address.functionCall(address(paraswapV5Augustus), data, 'PARASWAP_V5_SWAP_FAILED');
 
         uint256 postBalanceOut = IERC20(tokenOut).balanceOf(address(this));

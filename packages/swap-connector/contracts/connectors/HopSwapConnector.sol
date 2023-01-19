@@ -15,7 +15,8 @@
 pragma solidity ^0.8.0;
 
 import '@openzeppelin/contracts/token/ERC20/IERC20.sol';
-import '@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol';
+
+import '@mimic-fi/v2-helpers/contracts/utils/ERC20Helpers.sol';
 
 import '../interfaces/IHopSwap.sol';
 
@@ -24,8 +25,6 @@ import '../interfaces/IHopSwap.sol';
  * @dev Interfaces with Hop Swap to swap tokens
  */
 contract HopSwapConnector {
-    using SafeERC20 for IERC20;
-
     // Expected data length for Hop swaps: Hop Swap pool address
     uint256 private constant ENCODED_DATA_SWAP_LENGTH = 32;
 
@@ -48,7 +47,7 @@ contract HopSwapConnector {
         uint8 tokenInIndex = hopSwap.getTokenIndex(tokenIn);
         uint8 tokenOutIndex = hopSwap.getTokenIndex(tokenOut);
 
-        IERC20(tokenIn).safeApprove(hopSwapAddress, amountIn);
+        ERC20Helpers.approve(tokenIn, hopSwapAddress, amountIn);
         return hopSwap.swap(tokenInIndex, tokenOutIndex, amountIn, minAmountOut, block.timestamp);
     }
 }

@@ -15,15 +15,15 @@
 pragma solidity ^0.8.0;
 
 import '@openzeppelin/contracts/token/ERC20/IERC20.sol';
-import '@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol';
 
 import '@uniswap/v3-core/contracts/interfaces/IUniswapV3Factory.sol';
 import '@uniswap/v3-periphery/contracts/interfaces/ISwapRouter.sol';
 import '@uniswap/v3-periphery/contracts/interfaces/IPeripheryImmutableState.sol';
 
+import '@mimic-fi/v2-helpers/contracts/math/UncheckedMath.sol';
 import '@mimic-fi/v2-helpers/contracts/utils/Arrays.sol';
 import '@mimic-fi/v2-helpers/contracts/utils/Bytes.sol';
-import '@mimic-fi/v2-helpers/contracts/math/UncheckedMath.sol';
+import '@mimic-fi/v2-helpers/contracts/utils/ERC20Helpers.sol';
 
 /**
  * @title UniswapV3Connector
@@ -31,7 +31,6 @@ import '@mimic-fi/v2-helpers/contracts/math/UncheckedMath.sol';
  */
 contract UniswapV3Connector {
     using Bytes for bytes;
-    using SafeERC20 for IERC20;
     using UncheckedMath for uint256;
 
     // Expected data length for Uniswap V3 single swaps: fee
@@ -63,7 +62,7 @@ contract UniswapV3Connector {
         uint256 minAmountOut,
         bytes memory data
     ) internal returns (uint256 amountOut) {
-        IERC20(tokenIn).safeApprove(address(uniswapV3Router), amountIn);
+        ERC20Helpers.approve(tokenIn, address(uniswapV3Router), amountIn);
         return
             data.length == ENCODED_DATA_SINGLE_SWAP_LENGTH
                 ? _singleSwapUniswapV3(tokenIn, tokenOut, amountIn, minAmountOut, data)
