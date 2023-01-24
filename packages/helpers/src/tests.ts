@@ -36,7 +36,8 @@ async function runForkTests(
 ): Promise<void> {
   console.log(`Running fork tests on ${args.fork}...`)
   if (args.fork === 'hardhat') throw Error('Cannot fork local networks')
-  args.testFiles = files.filter((file: string) => file.endsWith(`.${args.fork}.ts`))
+
+  args.testFiles = files.filter((file: string) => file.endsWith(`.${args.fork}.ts`) || file.endsWith(`.fork.ts`))
   if (args.testFiles.length == 0) return hre.run(TASK_TEST_RUN_MOCHA_TESTS, { testFiles: [] })
 
   const forkingNetworkName = Object.keys(hre.config.networks).find((networkName) => networkName === args.fork)
