@@ -500,6 +500,34 @@
     tweetnacl "^1.0.3"
     tweetnacl-util "^0.15.1"
 
+"@mimic-fi/v2-helpers@0.1.0":
+  version "0.1.0"
+  resolved "https://registry.yarnpkg.com/@mimic-fi/v2-helpers/-/v2-helpers-0.1.0.tgz#9a0a7274608622990d6b7e0b82cc3211ec200b8e"
+  integrity sha512-piA92F0FiV16p15GsmZDZFvSjLf60d1vUSklvVLfju7HrPq7gd+vJ871aLkmao9XzDakFdirebXVhZP9nd3xNQ==
+  dependencies:
+    "@nomiclabs/hardhat-ethers" "^2.2.1"
+    "@nomiclabs/hardhat-waffle" "^2.0.3"
+    "@types/chai" "^4.2.18"
+    "@types/mocha" "^8.2.2"
+    chai "^4.2.0"
+    decimal.js "^10.3.1"
+    ethers "~5.6.0"
+    hardhat "^2.12.4"
+
+"@mimic-fi/v2-helpers@0.1.1":
+  version "0.1.1"
+  resolved "https://registry.yarnpkg.com/@mimic-fi/v2-helpers/-/v2-helpers-0.1.1.tgz#46ecee5efd713737ba2ce66f3aae1c89d7b43b35"
+  integrity sha512-v6SauCupdSewdcU7DUeN6GsxnUmDM0hZNZlYlSuBUDGEyzheacAGgN4la5ElrL2KA2L+5u3IiboVscLpU6p59w==
+  dependencies:
+    "@nomiclabs/hardhat-ethers" "^2.2.1"
+    "@nomiclabs/hardhat-waffle" "^2.0.3"
+    "@types/chai" "^4.2.18"
+    "@types/mocha" "^8.2.2"
+    chai "^4.2.0"
+    decimal.js "^10.3.1"
+    ethers "~5.6.0"
+    hardhat "^2.12.4"
+
 "@noble/hashes@1.1.2", "@noble/hashes@~1.1.1":
   version "1.1.2"
   resolved "https://registry.yarnpkg.com/@noble/hashes/-/hashes-1.1.2.tgz#e9e035b9b166ca0af657a7848eb2718f0f22f183"
@@ -741,6 +769,11 @@
   dependencies:
     "@types/sinon-chai" "^3.2.3"
     "@types/web3" "1.0.19"
+
+"@openzeppelin/contracts-upgradeable@4.7.0":
+  version "4.7.0"
+  resolved "https://registry.yarnpkg.com/@openzeppelin/contracts-upgradeable/-/contracts-upgradeable-4.7.0.tgz#6437261286879d353f6de7bf3ac8216bef8a486d"
+  integrity sha512-wO3PyoAaAV/rA77cK8H4c3SbO98QylTjfiFxyvURUZKTFLV180rnAvna1x7/Nxvt0Gqv+jt1sXKC7ygxsq8iCw==
 
 "@openzeppelin/contracts@3.4.2-solc-0.7":
   version "3.4.2-solc-0.7"

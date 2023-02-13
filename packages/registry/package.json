@@ -21,7 +21,9 @@
     "prepare": "yarn build"
   },
   "dependencies": {
-    "@mimic-fi/v2-helpers": "0.1.0"
+    "@mimic-fi/v2-helpers": "0.1.0",
+    "@openzeppelin/contracts": "4.7.0",
+    "@openzeppelin/contracts-upgradeable": "4.7.0"
   },
   "devDependencies": {
     "@nomiclabs/hardhat-ethers": "^2.2.1",

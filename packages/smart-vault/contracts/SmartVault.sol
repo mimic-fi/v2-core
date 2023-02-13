@@ -18,6 +18,7 @@ import '@openzeppelin/contracts/token/ERC20/IERC20.sol';
 import '@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol';
 import '@openzeppelin/contracts/utils/Address.sol';
 import '@openzeppelin/contracts/utils/math/Math.sol';
+import '@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol';
 
 import '@mimic-fi/v2-bridge-connector/contracts/IBridgeConnector.sol';
 import '@mimic-fi/v2-helpers/contracts/math/FixedPoint.sol';
@@ -44,7 +45,12 @@ import './helpers/BridgeConnectorLib.sol';
  * It inherits from InitializableAuthorizedImplementation which means it's implementation can be cloned
  * from the Mimic Registry and should be initialized depending on each case.
  */
-contract SmartVault is ISmartVault, PriceFeedProvider, InitializableAuthorizedImplementation {
+contract SmartVault is
+    ISmartVault,
+    ReentrancyGuardUpgradeable,
+    PriceFeedProvider,
+    InitializableAuthorizedImplementation
+{
     using SafeERC20 for IERC20;
     using FixedPoint for uint256;
     using UncheckedMath for uint256;
@@ -120,6 +126,7 @@ contract SmartVault is ISmartVault, PriceFeedProvider, InitializableAuthorizedIm
      * @param admin Address that will be granted with admin rights
      */
     function initialize(address admin) external initializer {
+        __ReentrancyGuard_init();
         _initialize(admin);
     }
 
@@ -135,7 +142,7 @@ contract SmartVault is ISmartVault, PriceFeedProvider, InitializableAuthorizedIm
      * @param strategy Address of the strategy to be set
      * @param allowed Whether the strategy is allowed or not
      */
-    function setStrategy(address strategy, bool allowed) external override auth {
+    function setStrategy(address strategy, bool allowed) external override nonReentrant auth {
         _setStrategy(strategy, allowed);
     }
 
@@ -143,7 +150,7 @@ contract SmartVault is ISmartVault, PriceFeedProvider, InitializableAuthorizedIm
      * @dev Sets a new price oracle to a Smart Vault. Sender must be authorized.
      * @param newPriceOracle Address of the new price oracle to be set
      */
-    function setPriceOracle(address newPriceOracle) external override auth {
+    function setPriceOracle(address newPriceOracle) external override nonReentrant auth {
         _setPriceOracle(newPriceOracle);
     }
 
@@ -151,7 +158,7 @@ contract SmartVault is ISmartVault, PriceFeedProvider, InitializableAuthorizedIm
      * @dev Sets a new swap connector to a Smart Vault. Sender must be authorized.
      * @param newSwapConnector Address of the new swap connector to be set
      */
-    function setSwapConnector(address newSwapConnector) external override auth {
+    function setSwapConnector(address newSwapConnector) external override nonReentrant auth {
         _setSwapConnector(newSwapConnector);
     }
 
@@ -159,7 +166,7 @@ contract SmartVault is ISmartVault, PriceFeedProvider, InitializableAuthorizedIm
      * @dev Sets a new bridge connector to a Smart Vault. Sender must be authorized.
      * @param newBridgeConnector Address of the new bridge connector to be set
      */
-    function setBridgeConnector(address newBridgeConnector) external override auth {
+    function setBridgeConnector(address newBridgeConnector) external override nonReentrant auth {
         _setBridgeConnector(newBridgeConnector);
     }
 
@@ -167,7 +174,7 @@ contract SmartVault is ISmartVault, PriceFeedProvider, InitializableAuthorizedIm
      * @dev Sets a new fee collector. Sender must be authorized.
      * @param newFeeCollector Address of the new fee collector to be set
      */
-    function setFeeCollector(address newFeeCollector) external override auth {
+    function setFeeCollector(address newFeeCollector) external override nonReentrant auth {
         _setFeeCollector(newFeeCollector);
     }
 
@@ -178,7 +185,12 @@ contract SmartVault is ISmartVault, PriceFeedProvider, InitializableAuthorizedIm
      * @param token Address of the token cap to be set
      * @param period New cap period length in seconds for the withdraw fee
      */
-    function setWithdrawFee(uint256 pct, uint256 cap, address token, uint256 period) external override auth {
+    function setWithdrawFee(uint256 pct, uint256 cap, address token, uint256 period)
+        external
+        override
+        nonReentrant
+        auth
+    {
         _setFeeConfiguration(withdrawFee, pct, cap, token, period);
         emit WithdrawFeeSet(pct, cap, token, period);
     }
@@ -190,7 +202,12 @@ contract SmartVault is ISmartVault, PriceFeedProvider, InitializableAuthorizedIm
      * @param token Address of the token cap to be set
      * @param period New cap period length in seconds for the performance fee
      */
-    function setPerformanceFee(uint256 pct, uint256 cap, address token, uint256 period) external override auth {
+    function setPerformanceFee(uint256 pct, uint256 cap, address token, uint256 period)
+        external
+        override
+        nonReentrant
+        auth
+    {
         _setFeeConfiguration(performanceFee, pct, cap, token, period);
         emit PerformanceFeeSet(pct, cap, token, period);
     }
@@ -202,7 +219,7 @@ contract SmartVault is ISmartVault, PriceFeedProvider, InitializableAuthorizedIm
      * @param token Address of the token cap to be set
      * @param period New cap period length in seconds for the swap fee
      */
-    function setSwapFee(uint256 pct, uint256 cap, address token, uint256 period) external override auth {
+    function setSwapFee(uint256 pct, uint256 cap, address token, uint256 period) external override nonReentrant auth {
         _setFeeConfiguration(swapFee, pct, cap, token, period);
         emit SwapFeeSet(pct, cap, token, period);
     }
@@ -214,7 +231,7 @@ contract SmartVault is ISmartVault, PriceFeedProvider, InitializableAuthorizedIm
      * @param token Address of the token cap to be set
      * @param period New cap period length in seconds for the bridge fee
      */
-    function setBridgeFee(uint256 pct, uint256 cap, address token, uint256 period) external override auth {
+    function setBridgeFee(uint256 pct, uint256 cap, address token, uint256 period) external override nonReentrant auth {
         _setFeeConfiguration(bridgeFee, pct, cap, token, period);
         emit BridgeFeeSet(pct, cap, token, period);
     }
@@ -228,6 +245,7 @@ contract SmartVault is ISmartVault, PriceFeedProvider, InitializableAuthorizedIm
     function setPriceFeed(address base, address quote, address feed)
         public
         override(IPriceFeedProvider, PriceFeedProvider)
+        nonReentrant
         auth
     {
         super.setPriceFeed(base, quote, feed);
@@ -260,6 +278,7 @@ contract SmartVault is ISmartVault, PriceFeedProvider, InitializableAuthorizedIm
     function call(address target, bytes memory callData, uint256 value, bytes memory data)
         external
         override
+        nonReentrant
         auth
         returns (bytes memory result)
     {
@@ -278,6 +297,7 @@ contract SmartVault is ISmartVault, PriceFeedProvider, InitializableAuthorizedIm
     function collect(address token, address from, uint256 amount, bytes memory data)
         external
         override
+        nonReentrant
         auth
         returns (uint256 collected)
     {
@@ -302,6 +322,7 @@ contract SmartVault is ISmartVault, PriceFeedProvider, InitializableAuthorizedIm
     function withdraw(address token, uint256 amount, address recipient, bytes memory data)
         external
         override
+        nonReentrant
         auth
         returns (uint256 withdrawn)
     {
@@ -320,7 +341,7 @@ contract SmartVault is ISmartVault, PriceFeedProvider, InitializableAuthorizedIm
      * @param data Extra data only logged
      * @return wrapped Amount of tokens wrapped
      */
-    function wrap(uint256 amount, bytes memory data) external override auth returns (uint256 wrapped) {
+    function wrap(uint256 amount, bytes memory data) external override nonReentrant auth returns (uint256 wrapped) {
         require(amount > 0, 'WRAP_AMOUNT_ZERO');
         require(address(this).balance >= amount, 'WRAP_INSUFFICIENT_AMOUNT');
 
@@ -339,7 +360,7 @@ contract SmartVault is ISmartVault, PriceFeedProvider, InitializableAuthorizedIm
      * @param data Extra data only logged
      * @return unwrapped Amount of tokens unwrapped
      */
-    function unwrap(uint256 amount, bytes memory data) external override auth returns (uint256 unwrapped) {
+    function unwrap(uint256 amount, bytes memory data) external override nonReentrant auth returns (uint256 unwrapped) {
         require(amount > 0, 'UNWRAP_AMOUNT_ZERO');
 
         uint256 previousBalance = address(this).balance;
@@ -360,6 +381,7 @@ contract SmartVault is ISmartVault, PriceFeedProvider, InitializableAuthorizedIm
     function claim(address strategy, bytes memory data)
         external
         override
+        nonReentrant
         auth
         returns (address[] memory tokens, uint256[] memory amounts)
     {
@@ -384,7 +406,7 @@ contract SmartVault is ISmartVault, PriceFeedProvider, InitializableAuthorizedIm
         uint256[] memory amountsIn,
         uint256 slippage,
         bytes memory data
-    ) external override auth returns (address[] memory tokensOut, uint256[] memory amountsOut) {
+    ) external override nonReentrant auth returns (address[] memory tokensOut, uint256[] memory amountsOut) {
         require(isStrategyAllowed[strategy], 'STRATEGY_NOT_ALLOWED');
         require(slippage <= FixedPoint.ONE, 'JOIN_SLIPPAGE_ABOVE_ONE');
         require(tokensIn.length == amountsIn.length, 'JOIN_INPUT_INVALID_LENGTH');
@@ -413,7 +435,7 @@ contract SmartVault is ISmartVault, PriceFeedProvider, InitializableAuthorizedIm
         uint256[] memory amountsIn,
         uint256 slippage,
         bytes memory data
-    ) external override auth returns (address[] memory tokensOut, uint256[] memory amountsOut) {
+    ) external override nonReentrant auth returns (address[] memory tokensOut, uint256[] memory amountsOut) {
         require(isStrategyAllowed[strategy], 'STRATEGY_NOT_ALLOWED');
         require(investedValue[strategy] > 0, 'EXIT_NO_INVESTED_VALUE');
         require(slippage <= FixedPoint.ONE, 'EXIT_SLIPPAGE_ABOVE_ONE');
@@ -475,7 +497,7 @@ contract SmartVault is ISmartVault, PriceFeedProvider, InitializableAuthorizedIm
         SwapLimit limitType,
         uint256 limitAmount,
         bytes memory data
-    ) external override auth returns (uint256 amountOut) {
+    ) external override nonReentrant auth returns (uint256 amountOut) {
         require(tokenIn != tokenOut, 'SWAP_SAME_TOKEN');
         require(swapConnector != address(0), 'SWAP_CONNECTOR_NOT_SET');
 
@@ -528,7 +550,7 @@ contract SmartVault is ISmartVault, PriceFeedProvider, InitializableAuthorizedIm
         uint256 limitAmount,
         address recipient,
         bytes memory data
-    ) external override auth returns (uint256 bridged) {
+    ) external override nonReentrant auth returns (uint256 bridged) {
         require(block.chainid != chainId, 'BRIDGE_SAME_CHAIN');
         require(recipient != address(0), 'BRIDGE_RECIPIENT_ZERO');
         require(bridgeConnector != address(0), 'BRIDGE_CONNECTOR_NOT_SET');
