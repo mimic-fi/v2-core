@@ -1,6 +1,6 @@
 {
   "name": "@mimic-fi/v2-registry",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "license": "GPL-3.0",
   "engines": {
     "node": ">=16.0.0"
