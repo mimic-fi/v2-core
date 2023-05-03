@@ -8092,10 +8092,10 @@ solc@^0.6.3:
     semver "^5.5.0"
     tmp "0.0.33"
 
-solhint-config-mimic@^0.0.1:
-  version "0.0.1"
-  resolved "https://registry.yarnpkg.com/solhint-config-mimic/-/solhint-config-mimic-0.0.1.tgz#724c1ec15f6b1edc6745e0f1b2370a3cd3f9df4d"
-  integrity sha512-PMkAgnAk3mQ6TPMQOWBCDvSvETMDlRYDnga+IUWYFXAY1DlIWslEpHHKU04kXGA9HSxoeU+jmkmepuC80dG8rQ==
+solhint-config-mimic@^0.0.2:
+  version "0.0.2"
+  resolved "https://registry.yarnpkg.com/solhint-config-mimic/-/solhint-config-mimic-0.0.2.tgz#07f678d0bb05680a5949f50881b213641e1c4979"
+  integrity sha512-iKEnMbIkU/R9JNgdvniI9d7aMjBgHK6dInnzO+vN1QFRIRew7G+r1tZ155QJI9so4F0n90Wl0LL+j5tbf7uAVw==
   dependencies:
     eslint "^7.9.0"
     eslint-plugin-prettier "^3.1.4"
