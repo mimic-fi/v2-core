@@ -86,7 +86,7 @@ describe('SmartVault', () => {
             '@mimic-fi/v2-bridge-connector/artifacts/contracts/interfaces/IHopL2AMM.sol/IHopL2AMM',
             hopAmm
           )
-          const bonderFee = await getHopBonderFee(CHAIN, destinationChainId, usdc, amountIn, LIMIT_TYPE, SLIPPAGE)
+          const bonderFee = await getHopBonderFee(CHAIN, destinationChainId, usdc, amountIn, SLIPPAGE)
           data =
             destinationChainId == 1
               ? defaultAbiCoder.encode(['address', 'uint256'], [hopAmm, bonderFee])
