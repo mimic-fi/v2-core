@@ -18,10 +18,11 @@ import '@mimic-fi/v2-registry/contracts/implementations/BaseImplementation.sol';
 
 import './IBridgeConnector.sol';
 import './connectors/HopConnector.sol';
+import './connectors/AxelarConnector.sol';
 
 /**
  * @title BridgeConnector
- * @dev Bridge Connector implementation that interfaces with Hop Exchange only for now.
+ * @dev Bridge Connector implementation that interfaces only with Hop Exchange and Axelar for now.
  *
  * It inherits from BaseImplementation which means it's implementation can be used directly from the Mimic Registry,
  * it does not require initialization.
@@ -31,17 +32,19 @@ import './connectors/HopConnector.sol';
  * libraries yet. Therefore, we are relying on contracts without storage variables so they can be safely
  * delegate-called if desired.
  */
-contract BridgeConnector is IBridgeConnector, BaseImplementation, HopConnector {
+contract BridgeConnector is IBridgeConnector, BaseImplementation, HopConnector, AxelarConnector {
     // Namespace under which the Swap Connector is registered in the Mimic Registry
     bytes32 public constant override NAMESPACE = keccak256('BRIDGE_CONNECTOR');
 
     /**
      * @dev Initializes the BridgeConnector contract
-     * @param registry Address of the Mimic Registry
      * @param wrappedNativeToken Address of the wrapped native token
+     * @param axelarGateway Address of the Axelar gateway for the source chain
+     * @param registry Address of the Mimic Registry
      */
-    constructor(address wrappedNativeToken, address registry)
+    constructor(address wrappedNativeToken, address axelarGateway, address registry)
         HopConnector(wrappedNativeToken)
+        AxelarConnector(axelarGateway)
         BaseImplementation(registry)
     {
         // solhint-disable-previous-line no-empty-blocks
@@ -68,6 +71,8 @@ contract BridgeConnector is IBridgeConnector, BaseImplementation, HopConnector {
     ) external override {
         require(chainId != block.chainid, 'BRIDGE_CONNECTOR_SAME_CHAIN_OP');
         if (Source(source) == Source.Hop) return _bridgeHop(chainId, token, amountIn, minAmountOut, recipient, data);
+        else if (Source(source) == Source.Axelar)
+            return _bridgeAxelar(chainId, token, amountIn, minAmountOut, recipient, data);
         else revert('BRIDGE_CONNECTOR_INVALID_SOURCE');
     }
 }

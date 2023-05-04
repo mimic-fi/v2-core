@@ -6,6 +6,7 @@ import { Contract } from 'ethers'
 import { ethers } from 'hardhat'
 
 import { SOURCES } from '../src/constants'
+import { itBehavesLikeAxelarBridgeConnector } from './behaviors/AxelarBridgeConnector.behavior'
 
 /* eslint-disable no-secrets/no-secrets */
 
@@ -13,21 +14,29 @@ const USDC = '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48'
 const WETH = '0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2'
 const WHALE = '0xf584f8728b874a6a5c7a8d4d387c9aae9172d621'
 
+const AXELAR_GATEWAY = '0x4F4495243837681061C4743b74B3eEdf548D56A5'
+
 describe('BridgeConnector', () => {
-  let connector: Contract, usdc: Contract, weth: Contract, whale: SignerWithAddress
+  const SOURCE_CHAIN_ID = 1
 
-  before('create bridge connector', async () => {
-    connector = await deploy('BridgeConnector', [WETH, ZERO_ADDRESS])
-  })
-
-  before('load tokens and accounts', async () => {
-    usdc = await instanceAt('IERC20', USDC)
-    weth = await instanceAt('IERC20', WETH)
-    whale = await impersonate(WHALE, fp(100))
+  before('create bridge connector', async function () {
+    this.connector = await deploy('BridgeConnector', [WETH, AXELAR_GATEWAY, ZERO_ADDRESS])
   })
 
   context('Hop', () => {
+    let connector: Contract, usdc: Contract, weth: Contract, whale: SignerWithAddress
+
     const source = SOURCES.HOP
+
+    before('create bridge connector', async function () {
+      connector = this.connector
+    })
+
+    before('load tokens and accounts', async () => {
+      usdc = await instanceAt('IERC20', USDC)
+      weth = await instanceAt('IERC20', WETH)
+      whale = await impersonate(WHALE, fp(100))
+    })
 
     context('WETH', () => {
       const HOP_ETH_BRIDGE = '0xb8901acB165ed027E32754E0FFe830802919727f'
@@ -215,6 +224,16 @@ describe('BridgeConnector', () => {
           ).to.be.revertedWith('HOP_BRIDGE_OP_NOT_SUPPORTED')
         })
       })
+    })
+  })
+
+  context('Axelar', () => {
+    context('WETH', () => {
+      itBehavesLikeAxelarBridgeConnector(SOURCE_CHAIN_ID, WETH, AXELAR_GATEWAY, WHALE)
+    })
+
+    context('USDC', () => {
+      itBehavesLikeAxelarBridgeConnector(SOURCE_CHAIN_ID, USDC, AXELAR_GATEWAY, WHALE)
     })
   })
 })

@@ -22,10 +22,11 @@ import '@mimic-fi/v2-registry/contracts/implementations/IImplementation.sol';
  */
 interface IBridgeConnector is IImplementation {
     /**
-     * @dev Enum identifying the sources proposed: Hop only for now.
+     * @dev Enum identifying the sources proposed: Hop or Axelar for now.
      */
     enum Source {
-        Hop
+        Hop,
+        Axelar
     }
 
     /**

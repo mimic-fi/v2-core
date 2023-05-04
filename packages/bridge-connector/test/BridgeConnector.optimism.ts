@@ -13,7 +13,7 @@ describe('BridgeConnector', () => {
   const SOURCE_CHAIN_ID = 10
 
   before('create bridge connector', async function () {
-    this.connector = await deploy('BridgeConnector', [WETH, ZERO_ADDRESS])
+    this.connector = await deploy('BridgeConnector', [WETH, ZERO_ADDRESS, ZERO_ADDRESS])
   })
 
   context('Hop', () => {
