@@ -1,6 +1,7 @@
-import { deploy, ZERO_ADDRESS } from '@mimic-fi/v2-helpers'
+import { deploy, fp, toUSDC, ZERO_ADDRESS } from '@mimic-fi/v2-helpers'
 
 import { itBehavesLikeAxelarBridgeConnector } from './behaviors/AxelarBridgeConnector.behavior'
+import { itBehavesLikeConnextBridgeConnector } from './behaviors/ConnextBridgeConnector.behavior'
 import { itBehavesLikeHopBridgeERC20Connector } from './behaviors/HopL2BridgeERC20Connector.behavior'
 import { itBehavesLikeHopBridgeNativeConnector } from './behaviors/HopL2BridgeNativeConnector.behavior'
 
@@ -10,13 +11,14 @@ const ARB = '0x912CE59144191C1204E64559FE8253a0e49E6548'
 const USDC = '0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8'
 const WETH = '0x82aF49447D8a07e3bd95BD0d56f35241523fBab1'
 
+const CONNEXT = '0xEE9deC2712cCE65174B561151701Bf54b99C24C8'
 const AXELAR_GATEWAY = '0xe432150cce91c13a887f7D836923d5597adD8E31'
 
 describe('BridgeConnector', () => {
   const SOURCE_CHAIN_ID = 42161
 
   before('create bridge connector', async function () {
-    this.connector = await deploy('BridgeConnector', [WETH, AXELAR_GATEWAY, ZERO_ADDRESS])
+    this.connector = await deploy('BridgeConnector', [WETH, AXELAR_GATEWAY, CONNEXT, ZERO_ADDRESS])
   })
 
   context('Hop', () => {
@@ -40,6 +42,18 @@ describe('BridgeConnector', () => {
 
     context('ARB', () => {
       itBehavesLikeAxelarBridgeConnector(SOURCE_CHAIN_ID, ARB, AXELAR_GATEWAY, WHALE)
+    })
+  })
+
+  context('Connext', () => {
+    const WHALE = '0xc31e54c7a869b9fcbecc14363cf510d1c41fa443'
+
+    context('USDC', () => {
+      itBehavesLikeConnextBridgeConnector(SOURCE_CHAIN_ID, USDC, toUSDC(300), CONNEXT, WHALE)
+    })
+
+    context('WETH', () => {
+      itBehavesLikeConnextBridgeConnector(SOURCE_CHAIN_ID, WETH, fp(2), CONNEXT, WHALE)
     })
   })
 })

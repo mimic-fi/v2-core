@@ -22,7 +22,6 @@ import { defaultAbiCoder } from 'ethers/lib/utils'
 const USDC = '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48'
 const WETH = '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2'
 const WHALE = '0xf584f8728b874a6a5c7a8d4d387c9aae9172d621'
-const AXELAR_GATEWAY = '0x4F4495243837681061C4743b74B3eEdf548D56A5'
 
 describe('SmartVault', () => {
   let smartVault: Contract, registry: Contract
@@ -167,10 +166,13 @@ describe('SmartVault', () => {
     const LIMIT_TYPE = 0 // slippage
     const SLIPPAGE = fp(0.002)
 
+    const CONNEXT = '0x8898B472C54c31894e3B9bb83cEA802a5d0e63C6'
+    const AXELAR_GATEWAY = '0x4F4495243837681061C4743b74B3eEdf548D56A5'
+
     before('set bridge connector', async () => {
       bridgeConnector = await deploy(
         '@mimic-fi/v2-bridge-connector/artifacts/contracts/BridgeConnector.sol/BridgeConnector',
-        [WETH, AXELAR_GATEWAY, registry.address]
+        [WETH, AXELAR_GATEWAY, CONNEXT, registry.address]
       )
       await registry.connect(admin).register(await bridgeConnector.NAMESPACE(), bridgeConnector.address, true)
 

@@ -19,10 +19,11 @@ import '@mimic-fi/v2-registry/contracts/implementations/BaseImplementation.sol';
 import './IBridgeConnector.sol';
 import './connectors/HopConnector.sol';
 import './connectors/AxelarConnector.sol';
+import './connectors/ConnextConnector.sol';
 
 /**
  * @title BridgeConnector
- * @dev Bridge Connector implementation that interfaces only with Hop Exchange and Axelar for now.
+ * @dev Bridge Connector implementation that interfaces only with Hop Exchange, Axelar, and Connext for now.
  *
  * It inherits from BaseImplementation which means it's implementation can be used directly from the Mimic Registry,
  * it does not require initialization.
@@ -32,7 +33,7 @@ import './connectors/AxelarConnector.sol';
  * libraries yet. Therefore, we are relying on contracts without storage variables so they can be safely
  * delegate-called if desired.
  */
-contract BridgeConnector is IBridgeConnector, BaseImplementation, HopConnector, AxelarConnector {
+contract BridgeConnector is IBridgeConnector, BaseImplementation, HopConnector, AxelarConnector, ConnextConnector {
     // Namespace under which the Swap Connector is registered in the Mimic Registry
     bytes32 public constant override NAMESPACE = keccak256('BRIDGE_CONNECTOR');
 
@@ -40,11 +41,13 @@ contract BridgeConnector is IBridgeConnector, BaseImplementation, HopConnector, 
      * @dev Initializes the BridgeConnector contract
      * @param wrappedNativeToken Address of the wrapped native token
      * @param axelarGateway Address of the Axelar gateway for the source chain
+     * @param connext Address of the Connext contract for the source chain
      * @param registry Address of the Mimic Registry
      */
-    constructor(address wrappedNativeToken, address axelarGateway, address registry)
+    constructor(address wrappedNativeToken, address axelarGateway, address connext, address registry)
         HopConnector(wrappedNativeToken)
         AxelarConnector(axelarGateway)
+        ConnextConnector(connext)
         BaseImplementation(registry)
     {
         // solhint-disable-previous-line no-empty-blocks
@@ -73,6 +76,8 @@ contract BridgeConnector is IBridgeConnector, BaseImplementation, HopConnector, 
         if (Source(source) == Source.Hop) return _bridgeHop(chainId, token, amountIn, minAmountOut, recipient, data);
         else if (Source(source) == Source.Axelar)
             return _bridgeAxelar(chainId, token, amountIn, minAmountOut, recipient, data);
+        else if (Source(source) == Source.Connext)
+            return _bridgeConnext(chainId, token, amountIn, minAmountOut, recipient, data);
         else revert('BRIDGE_CONNECTOR_INVALID_SOURCE');
     }
 }

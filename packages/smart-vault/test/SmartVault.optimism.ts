@@ -23,7 +23,6 @@ const CHAIN = 10
 const USDC = '0x7F5c764cBc14f9669B88837ca1490cCa17c31607'
 const WETH = '0x4200000000000000000000000000000000000006'
 const WHALE = '0x489f866c0698c8d6879f5c0f527bc8281046042d'
-const AXELAR_GATEWAY = ZERO_ADDRESS
 
 describe('SmartVault', () => {
   let smartVault: Contract, registry: Contract
@@ -132,10 +131,14 @@ describe('SmartVault', () => {
 
     const LIMIT_TYPE = 0 // slippage
     const SLIPPAGE = 0.003
+
+    const CONNEXT = '0x8f7492DE823025b4CfaAB1D34c58963F2af5DEDA'
+    const AXELAR_GATEWAY = ZERO_ADDRESS
+
     before('set bridge connector', async () => {
       bridgeConnector = await deploy(
         '@mimic-fi/v2-bridge-connector/artifacts/contracts/BridgeConnector.sol/BridgeConnector',
-        [WETH, AXELAR_GATEWAY, registry.address]
+        [WETH, AXELAR_GATEWAY, CONNEXT, registry.address]
       )
       await registry.connect(admin).register(await bridgeConnector.NAMESPACE(), bridgeConnector.address, true)
 
