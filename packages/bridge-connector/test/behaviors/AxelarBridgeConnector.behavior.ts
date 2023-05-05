@@ -21,17 +21,16 @@ export function itBehavesLikeAxelarBridgeConnector(
   })
 
   context('when the data is encoded properly', async () => {
+    let amountIn: BigNumber
     const data = '0x'
+    const minAmountOut = 0 // irrelevant for Axelar
+
+    beforeEach('set amount in', async () => {
+      const decimals = await token.decimals()
+      amountIn = bn(300).mul(bn(10).pow(decimals))
+    })
 
     function bridgesProperly(destinationChainId: number) {
-      let amountIn: BigNumber
-      const minAmountOut = 0 // irrelevant for Axelar
-
-      beforeEach('set amount in', async () => {
-        const decimals = await token.decimals()
-        amountIn = bn(300).mul(bn(10).pow(decimals))
-      })
-
       if (destinationChainId != sourceChainId) {
         it('should send the tokens to the gateway', async function () {
           const previousSenderBalance = await token.balanceOf(whale.address)
@@ -108,9 +107,19 @@ export function itBehavesLikeAxelarBridgeConnector(
 
       it('reverts', async function () {
         await expect(
-          this.connector.bridge(source, destinationChainId, tokenAddress, 0, 0, whale.address, data)
+          this.connector.bridge(source, destinationChainId, tokenAddress, amountIn, minAmountOut, whale.address, data)
         ).to.be.revertedWith('AXELAR_UNKNOWN_CHAIN_ID')
       })
+    })
+  })
+
+  context('when the data is not encoded properly', async () => {
+    const data = '0xab'
+
+    it('reverts', async function () {
+      await expect(this.connector.bridge(source, 0, tokenAddress, 0, 0, whale.address, data)).to.be.revertedWith(
+        'AXELAR_INVALID_DATA_LENGTH'
+      )
     })
   })
 }
