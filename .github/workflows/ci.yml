@@ -63,7 +63,7 @@ jobs:
       - name: Set up environment
         uses: ./.github/actions/setup
       - name: Set up hardhat config
-        run: .github/scripts/setup-hardhat-config.sh ${{secrets.MAINNET_RPC}} ${{secrets.POLYGON_RPC}} ${{secrets.OPTIMISM_RPC}} ${{secrets.ARBITRUM_RPC}} ${{secrets.GNOSIS_RPC}}
+        run: .github/scripts/setup-hardhat-config.sh ${{secrets.MAINNET_RPC}} ${{secrets.POLYGON_RPC}} ${{secrets.OPTIMISM_RPC}} ${{secrets.ARBITRUM_RPC}} ${{secrets.GNOSIS_RPC}} ${{secrets.BSC_RPC}} ${{secrets.FANTOM_RPC}} ${{secrets.AVALANCHE_RPC}}
       - name: Build
         run: yarn build
       - name: Test price oracle mainnet
@@ -85,7 +85,7 @@ jobs:
       - name: Set up environment
         uses: ./.github/actions/setup
       - name: Set up hardhat config
-        run: .github/scripts/setup-hardhat-config.sh ${{secrets.MAINNET_RPC}} ${{secrets.POLYGON_RPC}} ${{secrets.OPTIMISM_RPC}} ${{secrets.ARBITRUM_RPC}} ${{secrets.GNOSIS_RPC}}
+        run: .github/scripts/setup-hardhat-config.sh ${{secrets.MAINNET_RPC}} ${{secrets.POLYGON_RPC}} ${{secrets.OPTIMISM_RPC}} ${{secrets.ARBITRUM_RPC}} ${{secrets.GNOSIS_RPC}} ${{secrets.BSC_RPC}} ${{secrets.FANTOM_RPC}} ${{secrets.AVALANCHE_RPC}}
       - name: Build
         run: yarn build
       - name: Test swap connector mainnet
@@ -96,6 +96,8 @@ jobs:
         run: yarn workspace @mimic-fi/v2-swap-connector test:optimism
       - name: Test swap connector arbitrum
         run: yarn workspace @mimic-fi/v2-swap-connector test:arbitrum
+      - name: Test swap connector gnosis
+        run: yarn workspace @mimic-fi/v2-swap-connector test:gnosis
       - name: Notify discord
         uses: ./.github/actions/notify-discord
         with:
@@ -111,7 +113,7 @@ jobs:
       - name: Set up environment
         uses: ./.github/actions/setup
       - name: Set up hardhat config
-        run: .github/scripts/setup-hardhat-config.sh ${{secrets.MAINNET_RPC}} ${{secrets.POLYGON_RPC}} ${{secrets.OPTIMISM_RPC}} ${{secrets.ARBITRUM_RPC}} ${{secrets.GNOSIS_RPC}}
+        run: .github/scripts/setup-hardhat-config.sh ${{secrets.MAINNET_RPC}} ${{secrets.POLYGON_RPC}} ${{secrets.OPTIMISM_RPC}} ${{secrets.ARBITRUM_RPC}} ${{secrets.GNOSIS_RPC}} ${{secrets.BSC_RPC}} ${{secrets.FANTOM_RPC}} ${{secrets.AVALANCHE_RPC}}
       - name: Build
         run: yarn build
       - name: Test bridge connector mainnet
@@ -122,6 +124,14 @@ jobs:
         run: yarn workspace @mimic-fi/v2-bridge-connector test:optimism
       - name: Test bridge connector arbitrum
         run: yarn workspace @mimic-fi/v2-bridge-connector test:arbitrum
+      - name: Test bridge connector gnosis
+        run: yarn workspace @mimic-fi/v2-bridge-connector test:gnosis
+      - name: Test bridge connector bsc
+        run: yarn workspace @mimic-fi/v2-bridge-connector test:bsc
+      - name: Test bridge connector fantom
+        run: yarn workspace @mimic-fi/v2-bridge-connector test:fantom
+      - name: Test bridge connector avalanche
+        run: yarn workspace @mimic-fi/v2-bridge-connector test:avalanche
       - name: Notify discord
         uses: ./.github/actions/notify-discord
         with:
@@ -137,7 +147,7 @@ jobs:
       - name: Set up environment
         uses: ./.github/actions/setup
       - name: Set up hardhat config
-        run: .github/scripts/setup-hardhat-config.sh ${{secrets.MAINNET_RPC}} ${{secrets.POLYGON_RPC}} ${{secrets.OPTIMISM_RPC}} ${{secrets.ARBITRUM_RPC}} ${{secrets.GNOSIS_RPC}}
+        run: .github/scripts/setup-hardhat-config.sh ${{secrets.MAINNET_RPC}} ${{secrets.POLYGON_RPC}} ${{secrets.OPTIMISM_RPC}} ${{secrets.ARBITRUM_RPC}} ${{secrets.GNOSIS_RPC}} ${{secrets.BSC_RPC}} ${{secrets.FANTOM_RPC}} ${{secrets.AVALANCHE_RPC}}
       - name: Build
         run: yarn build
       - name: Test smart vault mainnet
