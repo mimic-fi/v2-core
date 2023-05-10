@@ -9,7 +9,7 @@ describe('BridgeConnector', () => {
   beforeEach('deploy bridge connector', async () => {
     const admin = await getSigner()
     registry = await deploy('@mimic-fi/v2-registry/artifacts/contracts/registry/Registry.sol/Registry', [admin.address])
-    bridgeConnector = await deploy('BridgeConnector', [ZERO_ADDRESS, registry.address])
+    bridgeConnector = await deploy('BridgeConnector', [ZERO_ADDRESS, ZERO_ADDRESS, registry.address])
   })
 
   describe('initialization', async () => {

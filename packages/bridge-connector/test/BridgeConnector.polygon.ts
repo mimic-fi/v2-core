@@ -1,5 +1,6 @@
 import { deploy, ZERO_ADDRESS } from '@mimic-fi/v2-helpers'
 
+import { itBehavesLikeAxelarBridgeConnector } from './behaviors/AxelarBridgeConnector.behavior'
 import { itBehavesLikeHopBridgeERC20Connector } from './behaviors/HopL2BridgeERC20Connector.behavior'
 import { itBehavesLikeHopBridgeNativeConnector } from './behaviors/HopL2BridgeNativeConnector.behavior'
 
@@ -9,11 +10,13 @@ const USDC = '0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174'
 const WMATIC = '0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270'
 const WHALE = '0xfffbcd322ceace527c8ec6da8de2461c6d9d4e6e'
 
+const AXELAR_GATEWAY = '0x6f015F16De9fC8791b234eF68D486d2bF203FBA8'
+
 describe('BridgeConnector', () => {
   const SOURCE_CHAIN_ID = 137
 
   before('create bridge connector', async function () {
-    this.connector = await deploy('BridgeConnector', [WMATIC, ZERO_ADDRESS])
+    this.connector = await deploy('BridgeConnector', [WMATIC, AXELAR_GATEWAY, ZERO_ADDRESS])
   })
 
   context('Hop', () => {
@@ -28,6 +31,16 @@ describe('BridgeConnector', () => {
       const ignoreChains = [10, 42161] // optimism & arbitrum
 
       itBehavesLikeHopBridgeNativeConnector(SOURCE_CHAIN_ID, WMATIC, HOP_MATIC_AMM, WHALE, ignoreChains)
+    })
+  })
+
+  context('Axelar', () => {
+    context('USDC', () => {
+      itBehavesLikeAxelarBridgeConnector(SOURCE_CHAIN_ID, USDC, AXELAR_GATEWAY, WHALE)
+    })
+
+    context('WMATIC', () => {
+      itBehavesLikeAxelarBridgeConnector(SOURCE_CHAIN_ID, WMATIC, AXELAR_GATEWAY, WHALE)
     })
   })
 })

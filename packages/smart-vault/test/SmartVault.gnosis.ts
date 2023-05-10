@@ -9,6 +9,7 @@ import {
   MAX_UINT256,
   ONES_BYTES32,
   toUSDC,
+  ZERO_ADDRESS,
 } from '@mimic-fi/v2-helpers'
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/dist/src/signer-with-address'
 import { expect } from 'chai'
@@ -21,6 +22,7 @@ const CHAIN = 100
 const USDC = '0xDDAfbb505ad214D7b80b1f830fcCc89B60fb7A83'
 const WXDAI = '0xe91D153E0b41518A2Ce8Dd3D7944Fa863463a97d'
 const WHALE = '0xb4c575308221caa398e0dd2cdeb6b2f10d7b000a'
+const AXELAR_GATEWAY = ZERO_ADDRESS
 
 describe('SmartVault', () => {
   let smartVault: Contract, registry: Contract
@@ -57,7 +59,7 @@ describe('SmartVault', () => {
     before('set bridge connector', async () => {
       bridgeConnector = await deploy(
         '@mimic-fi/v2-bridge-connector/artifacts/contracts/BridgeConnector.sol/BridgeConnector',
-        [WXDAI, registry.address]
+        [WXDAI, AXELAR_GATEWAY, registry.address]
       )
       await registry.connect(admin).register(await bridgeConnector.NAMESPACE(), bridgeConnector.address, true)
 
