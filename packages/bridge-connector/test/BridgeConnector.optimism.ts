@@ -1,5 +1,6 @@
-import { deploy, ZERO_ADDRESS } from '@mimic-fi/v2-helpers'
+import { deploy, fp, toUSDC, ZERO_ADDRESS } from '@mimic-fi/v2-helpers'
 
+import { itBehavesLikeConnextBridgeConnector } from './behaviors/ConnextBridgeConnector.behavior'
 import { itBehavesLikeHopBridgeERC20Connector } from './behaviors/HopL2BridgeERC20Connector.behavior'
 import { itBehavesLikeHopBridgeNativeConnector } from './behaviors/HopL2BridgeNativeConnector.behavior'
 
@@ -9,11 +10,13 @@ const USDC = '0x7F5c764cBc14f9669B88837ca1490cCa17c31607'
 const WETH = '0x4200000000000000000000000000000000000006'
 const WHALE = '0x85149247691df622eaf1a8bd0cafd40bc45154a9'
 
+const CONNEXT = '0x8f7492DE823025b4CfaAB1D34c58963F2af5DEDA'
+
 describe('BridgeConnector', () => {
   const SOURCE_CHAIN_ID = 10
 
   before('create bridge connector', async function () {
-    this.connector = await deploy('BridgeConnector', [WETH, ZERO_ADDRESS, ZERO_ADDRESS])
+    this.connector = await deploy('BridgeConnector', [WETH, ZERO_ADDRESS, CONNEXT, ZERO_ADDRESS])
   })
 
   context('Hop', () => {
@@ -27,6 +30,16 @@ describe('BridgeConnector', () => {
       const HOP_ETH_AMM = '0x86cA30bEF97fB651b8d866D45503684b90cb3312'
 
       itBehavesLikeHopBridgeNativeConnector(SOURCE_CHAIN_ID, WETH, HOP_ETH_AMM, WHALE)
+    })
+  })
+
+  context('Connext', () => {
+    context('USDC', () => {
+      itBehavesLikeConnextBridgeConnector(SOURCE_CHAIN_ID, USDC, toUSDC(300), CONNEXT, WHALE)
+    })
+
+    context('WETH', () => {
+      itBehavesLikeConnextBridgeConnector(SOURCE_CHAIN_ID, WETH, fp(2), CONNEXT, WHALE)
     })
   })
 })
