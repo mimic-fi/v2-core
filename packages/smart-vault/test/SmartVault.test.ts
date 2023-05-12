@@ -12,7 +12,6 @@ import {
   itBehavesLikeAuthorizer,
   MONTH,
   NATIVE_TOKEN_ADDRESS,
-  ONES_BYTES32,
   ZERO_ADDRESS,
 } from '@mimic-fi/v2-helpers'
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/dist/src/signer-with-address'
@@ -21,7 +20,7 @@ import { BigNumber, Contract } from 'ethers'
 import { ethers } from 'hardhat'
 
 describe('SmartVault', () => {
-  let smartVault: Contract, factory: Contract, registry: Contract, wrappedNativeToken: Contract
+  let smartVault: Contract, registry: Contract, wrappedNativeToken: Contract
   let strategy: Contract, priceOracle: Contract, swapConnector: Contract, bridgeConnector: Contract
   let admin: SignerWithAddress, other: SignerWithAddress, feeCollector: SignerWithAddress
 
@@ -34,11 +33,10 @@ describe('SmartVault', () => {
     registry = await deploy('@mimic-fi/v2-registry/artifacts/contracts/registry/Registry.sol/Registry', [admin.address])
     wrappedNativeToken = await deploy('WrappedNativeTokenMock')
     const implementation = await deploy('SmartVault', [wrappedNativeToken.address, registry.address])
-    await registry.connect(admin).register(await implementation.NAMESPACE(), implementation.address, false)
     const initializeData = implementation.interface.encodeFunctionData('initialize', [admin.address])
-    factory = await deploy('SmartVaultsFactory', [registry.address])
-    const tx = await factory.create(ONES_BYTES32, implementation.address, initializeData)
-    const event = await assertEvent(tx, 'Created', { implementation })
+    const factory = await deploy('ClonesFactory')
+    const tx = await factory.create(implementation.address, initializeData)
+    const event = await assertEvent(tx, 'Created')
     smartVault = await instanceAt('SmartVault', event.args.instance)
   })
 
@@ -81,21 +79,6 @@ describe('SmartVault', () => {
       await expect(smartVault.initialize(admin.address)).to.be.revertedWith(
         'Initializable: contract is already initialized'
       )
-    })
-
-    it('its implementation is already initialized', async () => {
-      const implementation = await instanceAt('SmartVault', await factory.implementationOf(smartVault.address))
-      await expect(implementation.initialize(admin.address)).to.be.revertedWith(
-        'Initializable: contract is already initialized'
-      )
-    })
-
-    it('is properly registered in the registry', async () => {
-      const implementation = await factory.implementationOf(smartVault.address)
-      const implementationData = await registry.implementationData(implementation)
-
-      expect(implementationData.deprecated).to.be.false
-      expect(implementationData.namespace).to.be.equal(await smartVault.NAMESPACE())
     })
 
     it('has the proper wrapped native token reference', async () => {

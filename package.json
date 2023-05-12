@@ -22,7 +22,8 @@
       "packages/bridge-connector",
       "packages/strategies",
       "packages/smart-vault",
-      "packages/permissions-manager"
+      "packages/permissions-manager",
+      "packages/deployer"
     ],
     "nohoist": [
       "**/hardhat",
