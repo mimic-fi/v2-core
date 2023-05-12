@@ -68,8 +68,8 @@ contract Deployer is BaseImplementation {
 
     /**
      * @dev Permissions Manager params
-     * @param name TODO
-     * @param impl TODO
+     * @param name Name to register the new Permissions Manager for the sender address
+     * @param impl Address of the Permissions Manager implementation to be used
      */
     struct PermissionsManagerParams {
         string name;
@@ -78,7 +78,7 @@ contract Deployer is BaseImplementation {
 
     /**
      * @dev Smart vault params
-     * @param name TODO
+     * @param name Name to register the new Smart Vault for the sender address
      * @param impl Address of the Smart Vault implementation to be used
      * @param factory Address of the factory that will be used to deploy an instance of the Smart Vault
      * @param strategies List of strategies to be allowed for the Smart Vault
@@ -149,7 +149,10 @@ contract Deployer is BaseImplementation {
     }
 
     /**
-     * @dev TODO
+     * @dev Deploy a new Permissions Manager instance
+     * @param namespace Namespace to register the Permissions Manager for the sender address
+     * @param params Deployment params to set up a Permissions Manager
+     * @param owners List of addresses that will have permissions to execute the Permissions Manager
      */
     function deployPermissionsManager(
         string memory namespace,
@@ -182,10 +185,10 @@ contract Deployer is BaseImplementation {
     }
 
     /**
-     * @dev Deploy a new smart vault instance
-     * @param namespace TODO
-     * @param params Deployment params to set up a smart vault
-     * @param owners TODO
+     * @dev Deploy a new Smart Vault instance
+     * @param namespace Namespace to register the Smart Vault for the sender address
+     * @param params Deployment params to set up a Smart Vault
+     * @param owners List of addresses that will have permissions to authorize and unauthorize accounts
      */
     function deploySmartVault(string memory namespace, SmartVaultParams memory params, address[] memory owners)
         public
@@ -301,8 +304,8 @@ contract Deployer is BaseImplementation {
 
     /**
      * @dev Creates a new clone to an implementation using CREATE2
-     * @param namespace TODO
-     * @param name TODO
+     * @param namespace Namespace to register the new instance for the sender address
+     * @param name Name to register the new instance for the sender address
      * @param implementation Address of the implementation to be instanced. It must be registered and not deprecated.
      * @param initializeData Arbitrary data to be sent after deployment. It can be used to initialize the new instance.
      * @return instance Address of the new instance created
@@ -319,7 +322,7 @@ contract Deployer is BaseImplementation {
     }
 
     /**
-     * @dev TODO
+     * @dev Build permissions change
      */
     function _buildPermissionChange(bool grant, bytes4 what, address who)
         internal
