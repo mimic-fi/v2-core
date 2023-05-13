@@ -19,10 +19,20 @@ jobs:
         uses: ./.github/actions/setup
       - name: Lint
         run: yarn lint
-      - name: Notify discord
-        uses: ./.github/actions/notify-discord
+      - name: Job failed
+        if: failure()
+        uses: rjstone/discord-webhook-notify@v1
         with:
-          discord-webhook: ${{ secrets.DISCORD_WEBHOOK }}
+          severity: error
+          details: Job failed!
+          webhookUrl: ${{ secrets.DISCORD_WEBHOOK }}
+      - name: Job cancelled
+        if: cancelled()
+        uses: rjstone/discord-webhook-notify@v1
+        with:
+          severity: warn
+          details: Job cancelled!
+          webhookUrl: ${{ secrets.DISCORD_WEBHOOK }}
 
   build:
     runs-on: ubuntu-latest
@@ -33,10 +43,20 @@ jobs:
         uses: ./.github/actions/setup
       - name: Build
         run: yarn build
-      - name: Notify discord
-        uses: ./.github/actions/notify-discord
+      - name: Job failed
+        if: failure()
+        uses: rjstone/discord-webhook-notify@v1
         with:
-          discord-webhook: ${{ secrets.DISCORD_WEBHOOK }}
+          severity: error
+          details: Job failed!
+          webhookUrl: ${{ secrets.DISCORD_WEBHOOK }}
+      - name: Job cancelled
+        if: cancelled()
+        uses: rjstone/discord-webhook-notify@v1
+        with:
+          severity: warn
+          details: Job cancelled!
+          webhookUrl: ${{ secrets.DISCORD_WEBHOOK }}
 
   test:
     runs-on: ubuntu-latest
@@ -49,10 +69,20 @@ jobs:
         run: yarn build
       - name: Test
         run: yarn test
-      - name: Notify discord
-        uses: ./.github/actions/notify-discord
+      - name: Job failed
+        if: failure()
+        uses: rjstone/discord-webhook-notify@v1
         with:
-          discord-webhook: ${{ secrets.DISCORD_WEBHOOK }}
+          severity: error
+          details: Job failed!
+          webhookUrl: ${{ secrets.DISCORD_WEBHOOK }}
+      - name: Job cancelled
+        if: cancelled()
+        uses: rjstone/discord-webhook-notify@v1
+        with:
+          severity: warn
+          details: Job cancelled!
+          webhookUrl: ${{ secrets.DISCORD_WEBHOOK }}
 
   integration-price-oracle:
     name: Integration price oracle
@@ -70,10 +100,20 @@ jobs:
         run: yarn workspace @mimic-fi/v2-price-oracle test:mainnet
       - name: Test price oracle polygon
         run: yarn workspace @mimic-fi/v2-price-oracle test:polygon
-      - name: Notify discord
-        uses: ./.github/actions/notify-discord
+      - name: Job failed
+        if: failure()
+        uses: rjstone/discord-webhook-notify@v1
         with:
-          discord-webhook: ${{ secrets.DISCORD_WEBHOOK }}
+          severity: error
+          details: Job failed!
+          webhookUrl: ${{ secrets.DISCORD_WEBHOOK }}
+      - name: Job cancelled
+        if: cancelled()
+        uses: rjstone/discord-webhook-notify@v1
+        with:
+          severity: warn
+          details: Job cancelled!
+          webhookUrl: ${{ secrets.DISCORD_WEBHOOK }}
 
   integration-swap-connector:
     needs: integration-price-oracle
@@ -98,10 +138,20 @@ jobs:
         run: yarn workspace @mimic-fi/v2-swap-connector test:arbitrum
       - name: Test swap connector gnosis
         run: yarn workspace @mimic-fi/v2-swap-connector test:gnosis
-      - name: Notify discord
-        uses: ./.github/actions/notify-discord
+      - name: Job failed
+        if: failure()
+        uses: rjstone/discord-webhook-notify@v1
         with:
-          discord-webhook: ${{ secrets.DISCORD_WEBHOOK }}
+          severity: error
+          details: Job failed!
+          webhookUrl: ${{ secrets.DISCORD_WEBHOOK }}
+      - name: Job cancelled
+        if: cancelled()
+        uses: rjstone/discord-webhook-notify@v1
+        with:
+          severity: warn
+          details: Job cancelled!
+          webhookUrl: ${{ secrets.DISCORD_WEBHOOK }}
 
   integration-bridge-connector:
     needs: integration-swap-connector
@@ -132,10 +182,20 @@ jobs:
         run: yarn workspace @mimic-fi/v2-bridge-connector test:fantom
       - name: Test bridge connector avalanche
         run: yarn workspace @mimic-fi/v2-bridge-connector test:avalanche
-      - name: Notify discord
-        uses: ./.github/actions/notify-discord
+      - name: Job failed
+        if: failure()
+        uses: rjstone/discord-webhook-notify@v1
         with:
-          discord-webhook: ${{ secrets.DISCORD_WEBHOOK }}
+          severity: error
+          details: Job failed!
+          webhookUrl: ${{ secrets.DISCORD_WEBHOOK }}
+      - name: Job cancelled
+        if: cancelled()
+        uses: rjstone/discord-webhook-notify@v1
+        with:
+          severity: warn
+          details: Job cancelled!
+          webhookUrl: ${{ secrets.DISCORD_WEBHOOK }}
 
   integration-smart-vault:
     needs: integration-bridge-connector
@@ -158,7 +218,17 @@ jobs:
         run: yarn workspace @mimic-fi/v2-smart-vault test:optimism
       - name: Test smart vault arbitrum
         run: yarn workspace @mimic-fi/v2-smart-vault test:arbitrum
-      - name: Notify discord
-        uses: ./.github/actions/notify-discord
+      - name: Job failed
+        if: failure()
+        uses: rjstone/discord-webhook-notify@v1
         with:
-          discord-webhook: ${{ secrets.DISCORD_WEBHOOK }}
+          severity: error
+          details: Job failed!
+          webhookUrl: ${{ secrets.DISCORD_WEBHOOK }}
+      - name: Job cancelled
+        if: cancelled()
+        uses: rjstone/discord-webhook-notify@v1
+        with:
+          severity: warn
+          details: Job cancelled!
+          webhookUrl: ${{ secrets.DISCORD_WEBHOOK }}
