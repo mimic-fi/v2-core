@@ -39,6 +39,14 @@ library Arrays {
     /**
      * @dev Builds an array of addresses based on the given ones
      */
+    function from(address a) internal pure returns (address[] memory result) {
+        result = new address[](1);
+        result[0] = a;
+    }
+
+    /**
+     * @dev Builds an array of addresses based on the given ones
+     */
     function from(address a, address b) internal pure returns (address[] memory result) {
         result = new address[](2);
         result[0] = a;
