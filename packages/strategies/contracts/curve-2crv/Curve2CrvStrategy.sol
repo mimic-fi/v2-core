@@ -172,7 +172,7 @@ contract Curve2CrvStrategy is IStrategy, BaseImplementation {
         uint256 cvxPoolTokenBalance = finalCvxPoolTokenBalance - initialCvxPoolTokenBalance;
 
         // Compute value
-        value = cvxPoolTokenBalance.mulDown(poolTokenBalance);
+        value = poolTokenBalance.mulDown(poolTokenPrice);
         amountsOut[0] = cvxPoolTokenBalance;
     }
 
