@@ -232,3 +232,35 @@ jobs:
           severity: warn
           details: Job cancelled!
           webhookUrl: ${{ secrets.DISCORD_WEBHOOK }}
+
+  integration-strategies:
+    needs: integration-smart-vault
+    name: Integration strategies
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+      - name: Set up environment
+        uses: ./.github/actions/setup
+      - name: Set up hardhat config
+        run: .github/scripts/setup-hardhat-config.sh ${{secrets.MAINNET_RPC}} ${{secrets.POLYGON_RPC}} ${{secrets.OPTIMISM_RPC}} ${{secrets.ARBITRUM_RPC}} ${{secrets.GNOSIS_RPC}} ${{secrets.BSC_RPC}} ${{secrets.FANTOM_RPC}} ${{secrets.AVALANCHE_RPC}}
+      - name: Build
+        run: yarn build
+      - name: Test strategies mainnet
+        run: yarn workspace @mimic-fi/v2-strategies test:mainnet
+      - name: Test strategies arbitrum
+        run: yarn workspace @mimic-fi/v2-strategies test:arbitrum
+      - name: Job failed
+        if: failure()
+        uses: rjstone/discord-webhook-notify@v1
+        with:
+          severity: error
+          details: Job failed!
+          webhookUrl: ${{ secrets.DISCORD_WEBHOOK }}
+      - name: Job cancelled
+        if: cancelled()
+        uses: rjstone/discord-webhook-notify@v1
+        with:
+          severity: warn
+          details: Job cancelled!
+          webhookUrl: ${{ secrets.DISCORD_WEBHOOK }}
