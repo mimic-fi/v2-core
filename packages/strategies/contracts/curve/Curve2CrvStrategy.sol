@@ -21,8 +21,6 @@ import '@mimic-fi/v2-helpers/contracts/math/FixedPoint.sol';
 import '@mimic-fi/v2-registry/contracts/implementations/BaseImplementation.sol';
 
 import './I2CrvPool.sol';
-import './ICvxPool.sol';
-import './ICvxBooster.sol';
 import '../IStrategy.sol';
 
 /**
@@ -40,18 +38,6 @@ contract Curve2CrvStrategy is IStrategy, BaseImplementation {
     // 2CRV pool address
     I2CrvPool public immutable pool;
 
-    // Convex pool token
-    ICvxPool public immutable cvxPool;
-
-    // CRV token
-    IERC20 public immutable crv;
-
-    // Convex booster
-    ICvxBooster public immutable booster;
-
-    // ID of the rewards pool in the Convex
-    uint256 public immutable poolId;
-
     // Index of the underlying token in the 2CRV pool
     uint256 public immutable tokenIndex;
 
@@ -61,17 +47,10 @@ contract Curve2CrvStrategy is IStrategy, BaseImplementation {
     /**
      * @dev Creates a new 2CRV strategy
      */
-    constructor(I2CrvPool _pool, IERC20 _token, ICvxBooster _booster, address _registry) BaseImplementation(_registry) {
+    constructor(I2CrvPool _pool, IERC20 _token, address _registry) BaseImplementation(_registry) {
         pool = _pool;
         token = _token;
-        booster = _booster;
-
-        tokenIndex = _findTokenIndex(_pool, _token);
-        (poolId, cvxPool, crv) = _findCvxPoolInfo(_booster, _pool);
-
-        uint256 decimals = IERC20Metadata(address(_token)).decimals();
-        require(decimals <= 18, '2CRV_TOKEN_ABOVE_18_DECIMALS');
-        tokenScale = 10**(18 - decimals);
+        (tokenIndex, tokenScale) = _findTokenInfo(_pool, _token);
     }
 
     /**
@@ -87,7 +66,7 @@ contract Curve2CrvStrategy is IStrategy, BaseImplementation {
      */
     function exitTokens() public view override returns (address[] memory tokens) {
         tokens = new address[](1);
-        tokens[0] = address(cvxPool);
+        tokens[0] = address(pool);
     }
 
     /**
@@ -107,30 +86,27 @@ contract Curve2CrvStrategy is IStrategy, BaseImplementation {
      */
     function lastValue(address account) public view override returns (uint256) {
         uint256 poolTokenPrice = pool.get_virtual_price();
-        uint256 cvxPoolBalance = cvxPool.balanceOf(account);
-        return cvxPoolBalance.mulDown(poolTokenPrice);
+        uint256 poolBalance = pool.balanceOf(account);
+        return poolBalance.mulDown(poolTokenPrice);
     }
 
     /**
-     * @dev Claims CVX pool rewards
+     * @dev No claim available
      * @param data No extra data, must be empty
      */
-    function claim(bytes memory data) external override returns (address[] memory tokens, uint256[] memory amounts) {
+    function claim(bytes memory data)
+        external
+        pure
+        override
+        returns (address[] memory tokens, uint256[] memory amounts)
+    {
         require(data.length == 0, '2CRV_INVALID_EXTRA_DATA_LENGTH');
-
-        uint256 initialCrvBalance = crv.balanceOf(address(this));
-        cvxPool.getReward(address(this));
-        uint256 finalCrvBalance = crv.balanceOf(address(this));
-
-        amounts = new uint256[](1);
-        amounts[0] = finalCrvBalance - initialCrvBalance;
-
-        tokens = new address[](1);
-        tokens[0] = address(crv);
+        tokens = new address[](0);
+        amounts = new uint256[](0);
     }
 
     /**
-     * @dev Add liquidity to 2CRV pool and deposit LP tokens in Convex
+     * @dev Adds liquidity to the 2CRV pool
      * @param tokensIn List of tokens the strategy should use to join, must match output from `joinTokens`
      * @param amountsIn List of amounts the strategy should use to join for each token in
      * @param slippage Slippage value to be used to compute the desired min amount out of pool tokens
@@ -164,20 +140,13 @@ contract Curve2CrvStrategy is IStrategy, BaseImplementation {
         uint256 finalPoolTokenBalance = pool.balanceOf(address(this));
         uint256 poolTokenBalance = finalPoolTokenBalance - initialPoolTokenBalance;
 
-        // Stake in Convex
-        uint256 initialCvxPoolTokenBalance = cvxPool.balanceOf(address(this));
-        pool.approve(address(booster), poolTokenBalance);
-        require(booster.deposit(poolId, poolTokenBalance), '2CRV_BOOSTER_DEPOSIT_FAILED');
-        uint256 finalCvxPoolTokenBalance = cvxPool.balanceOf(address(this));
-        uint256 cvxPoolTokenBalance = finalCvxPoolTokenBalance - initialCvxPoolTokenBalance;
-
         // Compute value
         value = poolTokenBalance.mulDown(poolTokenPrice);
-        amountsOut[0] = cvxPoolTokenBalance;
+        amountsOut[0] = poolTokenBalance;
     }
 
     /**
-     * @dev Withdraw LP tokens from Convex and remove liquidity from 2CRV pool
+     * @dev Removes liquidity from 2CRV pool
      * @param tokensIn List of tokens the strategy should use to exit, must match output from `exitTokens`
      * @param amountsIn List of amounts the strategy should use to exit for each token in
      * @param slippage Slippage value to be used to compute the desired min amount out of strategy tokens
@@ -189,7 +158,7 @@ contract Curve2CrvStrategy is IStrategy, BaseImplementation {
     {
         require(tokensIn.length == 1, '2CRV_INVALID_TOKENS_IN_LENGTH');
         require(amountsIn.length == 1, '2CRV_INVALID_AMOUNTS_IN_LENGTH');
-        require(tokensIn[0] == address(cvxPool), '2CRV_INVALID_EXIT_TOKEN');
+        require(tokensIn[0] == address(pool), '2CRV_INVALID_EXIT_TOKEN');
         require(slippage <= FixedPoint.ONE, '2CRV_INVALID_SLIPPAGE');
         require(data.length == 0, '2CRV_INVALID_EXTRA_DATA_LENGTH');
 
@@ -197,52 +166,37 @@ contract Curve2CrvStrategy is IStrategy, BaseImplementation {
         amountsOut = new uint256[](1);
         if (amountsIn[0] == 0) return (tokensOut, amountsOut, 0);
 
-        // Unstake from Convex
-        uint256 initialPoolTokenBalance = pool.balanceOf(address(this));
-        require(cvxPool.withdraw(amountsIn[0], true), '2CRV_CVX_POOL_WITHDRAW_FAILED');
-        uint256 finalPoolTokenBalance = pool.balanceOf(address(this));
-        uint256 poolTokenBalance = finalPoolTokenBalance - initialPoolTokenBalance;
-
         // Compute min amount out
         uint256 poolTokenPrice = pool.get_virtual_price();
-        uint256 expectedAmountOut = poolTokenBalance.mulUp(poolTokenPrice) / tokenScale;
+        uint256 expectedAmountOut = amountsIn[0].mulUp(poolTokenPrice) / tokenScale;
         uint256 minAmountOut = expectedAmountOut.mulUp(FixedPoint.ONE - slippage);
 
         // Exit pool
         uint256 initialTokenBalance = IERC20(token).balanceOf(address(this));
-        pool.remove_liquidity_one_coin(poolTokenBalance, int128(int256(tokenIndex)), minAmountOut);
+        pool.remove_liquidity_one_coin(amountsIn[0], int128(int256(tokenIndex)), minAmountOut);
         uint256 finalTokenBalance = IERC20(token).balanceOf(address(this));
         uint256 tokenBalance = finalTokenBalance - initialTokenBalance;
 
         // Compute value
-        value = poolTokenBalance.mulDown(poolTokenPrice);
+        value = amountsIn[0].mulDown(poolTokenPrice);
         amountsOut[0] = tokenBalance;
     }
 
     /**
-     * @dev Private function to find the index of the strategy entry token in the 2CRV pool
+     * @dev Private function to find the index and scale factor of the entry token in the 2CRV pool
      */
-    function _findTokenIndex(I2CrvPool _pool, IERC20 _token) private view returns (uint256) {
+    function _findTokenInfo(I2CrvPool _pool, IERC20 _token) private view returns (uint256 index, uint256 scale) {
         for (uint256 i = 0; true; i++) {
             try _pool.coins(i) returns (address coin) {
-                if (address(_token) == coin) return i;
+                if (address(_token) == coin) {
+                    uint256 decimals = IERC20Metadata(address(_token)).decimals();
+                    require(decimals <= 18, '2CRV_TOKEN_ABOVE_18_DECIMALS');
+                    return (i, 10**(18 - decimals));
+                }
             } catch {
                 revert('2CRV_TOKEN_NOT_FOUND');
             }
         }
         revert('2CRV_TOKEN_NOT_FOUND');
-    }
-
-    /**
-     * @dev Private function to find the Convex pool information for the 2CRV pool
-     */
-    function _findCvxPoolInfo(ICvxBooster _booster, I2CrvPool _pool) private view returns (uint256, ICvxPool, IERC20) {
-        for (uint256 i = 0; i < _booster.poolLength(); i++) {
-            (address lp, , address rewards, bool shutdown, ) = _booster.poolInfo(i);
-            if (lp == address(_pool) && !shutdown) {
-                return (i, ICvxPool(rewards), IERC20(ICvxPool(rewards).crv()));
-            }
-        }
-        revert('2CRV_CVX_POOL_NOT_FOUND');
     }
 }
