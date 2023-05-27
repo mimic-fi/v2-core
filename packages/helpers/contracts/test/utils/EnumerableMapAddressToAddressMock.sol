@@ -6,7 +6,7 @@ import '../../utils/EnumerableMap.sol';
 
 // solhint-disable func-name-mixedcase
 
-contract EnumerableMapMock {
+contract EnumerableMapAddressToAddressMock {
     using EnumerableMap for EnumerableMap.AddressToAddressMap;
 
     event OperationResult(bool result);
@@ -41,5 +41,13 @@ contract EnumerableMapMock {
 
     function tryGet(address key) public view returns (bool exists, address value) {
         return _map.tryGet(key);
+    }
+
+    function keys() public view returns (address[] memory) {
+        return _map.keys();
+    }
+
+    function values() public view returns (address[] memory) {
+        return _map.values();
     }
 }
