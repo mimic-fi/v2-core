@@ -25,9 +25,9 @@ import './ICvxBooster.sol';
 import '../IStrategy.sol';
 
 /**
- * @title ConvexStrategy
+ * @title ConvexCrvStrategy
  */
-contract ConvexStrategy is IStrategy, BaseImplementation {
+contract ConvexCrvStrategy is IStrategy, BaseImplementation {
     using FixedPoint for uint256;
 
     // Namespace under which the Strategies implementations are registered in the Mimic Registry

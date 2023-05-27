@@ -13,7 +13,7 @@ const BOOSTER = '0xF403C135812408BFbE8713b5A23a04b3D48AAE31'
 
 const WHALE = '0xf403c135812408bfbe8713b5a23a04b3d48aae31'
 
-describe('ConvexStrategy - 2CRV', function () {
+describe('ConvexCrvStrategy - 2CRV', function () {
   let whale: SignerWithAddress
   let strategy: Contract, pool: Contract, cvxPool: Contract, crv: Contract, registry: Contract
 
@@ -28,7 +28,7 @@ describe('ConvexStrategy - 2CRV', function () {
   before('deploy strategy', async () => {
     const admin = await getSigner()
     registry = await deploy('@mimic-fi/v2-registry/artifacts/contracts/registry/Registry.sol/Registry', [admin.address])
-    strategy = await deploy('ConvexStrategy', [POOL, BOOSTER, registry.address])
+    strategy = await deploy('ConvexCrvStrategy', [POOL, BOOSTER, registry.address])
   })
 
   before('load dependencies', async () => {

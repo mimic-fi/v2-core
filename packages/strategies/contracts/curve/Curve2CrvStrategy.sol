@@ -92,17 +92,9 @@ contract Curve2CrvStrategy is IStrategy, BaseImplementation {
 
     /**
      * @dev No claim available
-     * @param data No extra data, must be empty
      */
-    function claim(bytes memory data)
-        external
-        pure
-        override
-        returns (address[] memory tokens, uint256[] memory amounts)
-    {
-        require(data.length == 0, '2CRV_INVALID_EXTRA_DATA_LENGTH');
-        tokens = new address[](0);
-        amounts = new uint256[](0);
+    function claim(bytes memory) external pure override returns (address[] memory, uint256[] memory) {
+        revert('2CRV_CLAIM_NOT_ALLOWED');
     }
 
     /**
