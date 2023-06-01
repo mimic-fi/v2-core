@@ -14,6 +14,7 @@
 
 pragma solidity ^0.8.0;
 
+import '@openzeppelin/contracts/utils/Strings.sol';
 import '@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol';
 
 import '@mimic-fi/v2-helpers/contracts/utils/ERC20Helpers.sol';
@@ -76,7 +77,7 @@ contract AxelarConnector {
         string memory symbol = IERC20Metadata(token).symbol();
 
         ERC20Helpers.approve(token, axelarGateway, amountIn);
-        IAxelarGateway(axelarGateway).sendToken(chainName, string(abi.encodePacked(recipient)), symbol, amountIn);
+        IAxelarGateway(axelarGateway).sendToken(chainName, Strings.toHexString(recipient), symbol, amountIn);
     }
 
     /**
