@@ -69,15 +69,21 @@ contract CircleRelayerConnector {
         uint256 chainId,
         address token,
         uint256 amountIn,
-        uint256 minAmountOut,
+        uint256, /* minAmountOut */
         address recipient,
         bytes memory data
     ) internal {
         require(data.length == ENCODED_DATA_LENGTH, 'CIRCLE_RELAYER_INVALID_DATA_LENGTH');
-        uint16 domain = _getChainDomain(chainId);
+        uint16 domain = _getWormholeChainDomain(chainId);
 
         ERC20Helpers.approve(token, circleRelayer, amountIn);
-        ICircleRelayer(circleRelayer).transferTokensWithRelay(token, amountIn, 0, domain, recipient);
+        ICircleRelayer(circleRelayer).transferTokensWithRelay(
+            token, 
+            amountIn, 
+            0,  // don't swap to native token
+            domain, 
+            bytes32(uint256(uint160(recipient)) << 96)  // convert from address to bytes32
+        );
     }
 
     /**
@@ -85,7 +91,7 @@ contract CircleRelayerConnector {
      * @param chainId ID of the chain being queried
      * @return Chain domain associated to the requested chain ID
      */
-    function _getChainDomain(uint256 chainId) private pure returns (uint16) {
+    function _getWormholeChainDomain(uint256 chainId) private pure returns (uint16) {
         if (chainId == ETHEREUM_ID) return ETHEREUM_DOMAIN;
         else if (chainId == POLYGON_ID) return POLYGON_DOMAIN;
         else if (chainId == ARBITRUM_ID) return ARBITRUM_DOMAIN;
