@@ -14,7 +14,7 @@
 
 pragma solidity >=0.8.0;
 
-interface ICircleRelayer {
+interface IWormhole {
     function transferTokensWithRelay(
         address token,
         uint256 amount,

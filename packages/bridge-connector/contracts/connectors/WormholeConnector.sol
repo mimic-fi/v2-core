@@ -18,14 +18,14 @@ import '@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol';
 
 import '@mimic-fi/v2-helpers/contracts/utils/ERC20Helpers.sol';
 
-import '../interfaces/ICircleRelayer.sol';
+import '../interfaces/IWormhole.sol';
 
 /**
- * @title CircleRelayerConnector
- * @dev Interfaces with CircleRelayer to bridge tokens
+ * @title WormholeConnector
+ * @dev Interfaces with Wormhole to bridge tokens
  */
-contract CircleRelayerConnector {
-    // Expected data length when bridging with CircleRelayer: none
+contract WormholeConnector {
+    // Expected data length when bridging with Wormhole: none
     uint256 private constant ENCODED_DATA_LENGTH = 0;
 
     // List of Wormhole chain IDs
@@ -46,26 +46,26 @@ contract CircleRelayerConnector {
     uint256 private constant FANTOM_ID = 250;
     uint256 private constant AVALANCHE_ID = 43114;
 
-    // Reference to the CircleRelayer contract of the source chain
-    address private immutable circleRelayer;
+    // Reference to the Wormhole's CircleRelayer integration contract of the source chain
+    address private immutable wormholeCircleRelayer;
 
     /**
-     * @dev Creates a new CircleRelayer connector
-     * @param _circleRelayer Address of the CircleRelayer contract for the source chain
+     * @dev Creates a new Wormhole connector
+     * @param _wormholeCircleRelayer Address of the Wormhole's CircleRelayer integration contract for the source chain
      */
-    constructor(address _circleRelayer) {
-        circleRelayer = _circleRelayer;
+    constructor(address _wormholeCircleRelayer) {
+        wormholeCircleRelayer = _wormholeCircleRelayer;
     }
 
     /**
-     * @dev Internal function to bridge assets using CircleRelayer
+     * @dev Internal function to bridge assets using Wormhole's CircleRelayer integration
      * @param chainId ID of the destination chain
      * @param token Address of the token to be bridged
      * @param amountIn Amount of tokens to be bridged
      * @param recipient Address that will receive the tokens on the destination chain
-     * @param data ABI encoded data expected to include the CircleRelayer to be used
+     * @param data ABI encoded data expected to include the Wormhole to be used
      */
-    function _bridgeCircleRelayer(
+    function _bridgeWormhole(
         uint256 chainId,
         address token,
         uint256 amountIn,
@@ -73,16 +73,16 @@ contract CircleRelayerConnector {
         address recipient,
         bytes memory data
     ) internal {
-        require(data.length == ENCODED_DATA_LENGTH, 'CIRCLE_RELAYER_INVALID_DATA_LENGTH');
+        require(data.length == ENCODED_DATA_LENGTH, 'WORMHOLE_INVALID_DATA_LENGTH');
         uint16 domain = _getWormholeChainDomain(chainId);
 
-        ERC20Helpers.approve(token, circleRelayer, amountIn);
-        ICircleRelayer(circleRelayer).transferTokensWithRelay(
+        ERC20Helpers.approve(token, wormholeCircleRelayer, amountIn);
+        IWormhole(wormholeCircleRelayer).transferTokensWithRelay(
             token, 
             amountIn, 
             0,  // don't swap to native token
             domain, 
-            bytes32(uint256(uint160(recipient)) << 96)  // convert from address to bytes32
+            bytes32(uint256(uint160(recipient)))  // convert from address to bytes32
         );
     }
 
@@ -99,6 +99,6 @@ contract CircleRelayerConnector {
         else if (chainId == BSC_ID) return BSC_DOMAIN;
         else if (chainId == FANTOM_ID) return FANTOM_DOMAIN;
         else if (chainId == AVALANCHE_ID) return AVALANCHE_DOMAIN;
-        else revert('CIRCLE_RELAYER_UNKNOWN_CHAIN_ID');
+        else revert('WORMHOLE_RELAYER_UNKNOWN_CHAIN_ID');
     }
 }
