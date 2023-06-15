@@ -19,7 +19,7 @@ describe('BridgeConnector', () => {
   const SOURCE_CHAIN_ID = 137
 
   before('create bridge connector', async function () {
-    this.connector = await deploy('BridgeConnector', [WMATIC, AXELAR_GATEWAY, CONNEXT, ZERO_ADDRESS])
+    this.connector = await deploy('BridgeConnector', [WMATIC, AXELAR_GATEWAY, CONNEXT, ZERO_ADDRESS, ZERO_ADDRESS])
   })
 
   context('Hop', () => {

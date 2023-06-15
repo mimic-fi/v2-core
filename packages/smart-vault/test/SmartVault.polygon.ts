@@ -1,5 +1,5 @@
 import { getHopBonderFee, SOURCES as BRIDGE_SOURCES } from '@mimic-fi/v2-bridge-connector'
-import { assertEvent, deploy, fp, getSigners, impersonate, instanceAt, MAX_UINT256, toUSDC } from '@mimic-fi/v2-helpers'
+import { assertEvent, deploy, fp, getSigners, impersonate, instanceAt, MAX_UINT256, toUSDC, ZERO_ADDRESS } from '@mimic-fi/v2-helpers'
 import { SOURCES as SWAP_SOURCES } from '@mimic-fi/v2-swap-connector'
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/dist/src/signer-with-address'
 import { expect } from 'chai'
@@ -157,13 +157,14 @@ describe('SmartVault', () => {
     const LIMIT_TYPE = 0 // slippage
     const SLIPPAGE = 0.002
 
+    const WORMHOLE_CIRCLE_RELAYER = ZERO_ADDRESS
     const CONNEXT = '0x11984dc4465481512eb5b777E44061C158CF2259'
     const AXELAR_GATEWAY = '0x6f015F16De9fC8791b234eF68D486d2bF203FBA8'
 
     before('set bridge connector', async () => {
       bridgeConnector = await deploy(
         '@mimic-fi/v2-bridge-connector/artifacts/contracts/BridgeConnector.sol/BridgeConnector',
-        [WMATIC, AXELAR_GATEWAY, CONNEXT, registry.address]
+        [WMATIC, AXELAR_GATEWAY, CONNEXT, WORMHOLE_CIRCLE_RELAYER, registry.address]
       )
       await registry.connect(admin).register(await bridgeConnector.NAMESPACE(), bridgeConnector.address, true)
 

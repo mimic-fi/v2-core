@@ -131,13 +131,14 @@ describe('SmartVault', () => {
     const LIMIT_TYPE = 0 // slippage
     const SLIPPAGE = 0.003
 
+    const WORMHOLE_CIRCLE_RELAYER = ZERO_ADDRESS
     const CONNEXT = '0x8f7492DE823025b4CfaAB1D34c58963F2af5DEDA'
     const AXELAR_GATEWAY = ZERO_ADDRESS
 
     before('set bridge connector', async () => {
       bridgeConnector = await deploy(
         '@mimic-fi/v2-bridge-connector/artifacts/contracts/BridgeConnector.sol/BridgeConnector',
-        [WETH, AXELAR_GATEWAY, CONNEXT, registry.address]
+        [WETH, AXELAR_GATEWAY, CONNEXT, WORMHOLE_CIRCLE_RELAYER, registry.address]
       )
       await registry.connect(admin).register(await bridgeConnector.NAMESPACE(), bridgeConnector.address, true)
 

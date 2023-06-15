@@ -46,12 +46,12 @@ contract WormholeConnector {
     uint256 private constant FANTOM_ID = 250;
     uint256 private constant AVALANCHE_ID = 43114;
 
-    // Reference to the Wormhole's CircleRelayer integration contract of the source chain
+    // Reference to the Wormhole's CircleRelayer contract of the source chain
     address private immutable wormholeCircleRelayer;
 
     /**
      * @dev Creates a new Wormhole connector
-     * @param _wormholeCircleRelayer Address of the Wormhole's CircleRelayer integration contract for the source chain
+     * @param _wormholeCircleRelayer Address of the Wormhole's CircleRelayer contract for the source chain
      */
     constructor(address _wormholeCircleRelayer) {
         wormholeCircleRelayer = _wormholeCircleRelayer;
@@ -99,6 +99,6 @@ contract WormholeConnector {
         else if (chainId == BSC_ID) return BSC_DOMAIN;
         else if (chainId == FANTOM_ID) return FANTOM_DOMAIN;
         else if (chainId == AVALANCHE_ID) return AVALANCHE_DOMAIN;
-        else revert('WORMHOLE_RELAYER_UNKNOWN_CHAIN_ID');
+        else revert('WORMHOLE_UNKNOWN_CHAIN_ID');
     }
 }
