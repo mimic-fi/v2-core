@@ -34,7 +34,14 @@ import './connectors/WormholeConnector.sol';
  * libraries yet. Therefore, we are relying on contracts without storage variables so they can be safely
  * delegate-called if desired.
  */
-contract BridgeConnector is IBridgeConnector, BaseImplementation, HopConnector, AxelarConnector, ConnextConnector, WormholeConnector {
+contract BridgeConnector is
+    IBridgeConnector,
+    BaseImplementation,
+    HopConnector,
+    AxelarConnector,
+    ConnextConnector,
+    WormholeConnector
+{
     // Namespace under which the Swap Connector is registered in the Mimic Registry
     bytes32 public constant override NAMESPACE = keccak256('BRIDGE_CONNECTOR');
 

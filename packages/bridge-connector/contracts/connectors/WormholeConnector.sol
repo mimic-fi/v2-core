@@ -78,11 +78,11 @@ contract WormholeConnector {
 
         ERC20Helpers.approve(token, wormholeCircleRelayer, amountIn);
         IWormhole(wormholeCircleRelayer).transferTokensWithRelay(
-            token, 
-            amountIn, 
-            0,  // don't swap to native token
-            domain, 
-            bytes32(uint256(uint160(recipient)))  // convert from address to bytes32
+            token,
+            amountIn,
+            0, // don't swap to native token
+            domain,
+            bytes32(uint256(uint160(recipient))) // convert from address to bytes32
         );
     }
 
