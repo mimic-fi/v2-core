@@ -22,20 +22,20 @@ import '../interfaces/IWormhole.sol';
 
 /**
  * @title WormholeConnector
- * @dev Interfaces with Wormhole to bridge tokens
+ * @dev Interfaces with Wormhole to bridge tokens through CCTP
  */
 contract WormholeConnector {
     // Expected data length when bridging with Wormhole: none
     uint256 private constant ENCODED_DATA_LENGTH = 0;
 
     // List of Wormhole chain IDs
-    uint16 private constant ETHEREUM_DOMAIN = 2;
-    uint16 private constant POLYGON_DOMAIN = 5;
-    uint16 private constant ARBITRUM_DOMAIN = 23;
-    uint16 private constant OPTIMISM_DOMAIN = 24;
-    uint16 private constant BSC_DOMAIN = 4;
-    uint16 private constant FANTOM_DOMAIN = 10;
-    uint16 private constant AVALANCHE_DOMAIN = 6;
+    uint16 private constant ETHEREUM_WORMHOLE_NETWORK_ID = 2;
+    uint16 private constant POLYGON_WORMHOLE_NETWORK_ID = 5;
+    uint16 private constant ARBITRUM_WORMHOLE_NETWORK_ID = 23;
+    uint16 private constant OPTIMISM_WORMHOLE_NETWORK_ID = 24;
+    uint16 private constant BSC_WORMHOLE_NETWORK_ID = 4;
+    uint16 private constant FANTOM_WORMHOLE_NETWORK_ID = 10;
+    uint16 private constant AVALANCHE_WORMHOLE_NETWORK_ID = 6;
 
     // List of chain IDs supported by Wormhole
     uint256 private constant ETHEREUM_ID = 1;
@@ -74,31 +74,31 @@ contract WormholeConnector {
         bytes memory data
     ) internal {
         require(data.length == ENCODED_DATA_LENGTH, 'WORMHOLE_INVALID_DATA_LENGTH');
-        uint16 domain = _getWormholeChainDomain(chainId);
+        uint16 wormholeNetworkId = _getWormholeNetworkId(chainId);
 
         ERC20Helpers.approve(token, wormholeCircleRelayer, amountIn);
         IWormhole(wormholeCircleRelayer).transferTokensWithRelay(
             token,
             amountIn,
             0, // don't swap to native token
-            domain,
+            wormholeNetworkId,
             bytes32(uint256(uint160(recipient))) // convert from address to bytes32
         );
     }
 
     /**
-     * @dev Internal function to tell the chain domain based on a chain ID
+     * @dev Internal function to tell the Wormhole network ID based on a chain ID
      * @param chainId ID of the chain being queried
-     * @return Chain domain associated to the requested chain ID
+     * @return Wormhole network ID associated to the requested chain ID
      */
-    function _getWormholeChainDomain(uint256 chainId) private pure returns (uint16) {
-        if (chainId == ETHEREUM_ID) return ETHEREUM_DOMAIN;
-        else if (chainId == POLYGON_ID) return POLYGON_DOMAIN;
-        else if (chainId == ARBITRUM_ID) return ARBITRUM_DOMAIN;
-        else if (chainId == OPTIMISM_ID) return OPTIMISM_DOMAIN;
-        else if (chainId == BSC_ID) return BSC_DOMAIN;
-        else if (chainId == FANTOM_ID) return FANTOM_DOMAIN;
-        else if (chainId == AVALANCHE_ID) return AVALANCHE_DOMAIN;
+    function _getWormholeNetworkId(uint256 chainId) private pure returns (uint16) {
+        if (chainId == ETHEREUM_ID) return ETHEREUM_WORMHOLE_NETWORK_ID;
+        else if (chainId == POLYGON_ID) return POLYGON_WORMHOLE_NETWORK_ID;
+        else if (chainId == ARBITRUM_ID) return ARBITRUM_WORMHOLE_NETWORK_ID;
+        else if (chainId == OPTIMISM_ID) return OPTIMISM_WORMHOLE_NETWORK_ID;
+        else if (chainId == BSC_ID) return BSC_WORMHOLE_NETWORK_ID;
+        else if (chainId == FANTOM_ID) return FANTOM_WORMHOLE_NETWORK_ID;
+        else if (chainId == AVALANCHE_ID) return AVALANCHE_WORMHOLE_NETWORK_ID;
         else revert('WORMHOLE_UNKNOWN_CHAIN_ID');
     }
 }
