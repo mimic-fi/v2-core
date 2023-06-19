@@ -21,12 +21,15 @@ export function itBehavesLikeWormholeBridgeConnector(
 
   context('when the data is encoded properly', async () => {
     let amountIn: BigNumber
-    const data = '0x'
-    const minAmountOut = 0 // irrelevant for Wormhole
+    let minAmountOut: BigNumber
 
-    beforeEach('set amount in', async () => {
+    const relayerFee = bn(35000000)
+    const data = '0x'
+
+    beforeEach('set amount in and min amount out', async () => {
       const decimals = await token.decimals()
       amountIn = bn(300).mul(bn(10).pow(decimals))
+      minAmountOut = amountIn.sub(relayerFee)
     })
 
     function bridgesProperly(destinationChainId: number) {

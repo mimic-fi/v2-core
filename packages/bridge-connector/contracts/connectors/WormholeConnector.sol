@@ -62,6 +62,7 @@ contract WormholeConnector {
      * @param chainId ID of the destination chain
      * @param token Address of the token to be bridged
      * @param amountIn Amount of tokens to be bridged
+     * @param minAmountOut Minimum amount of tokens willing to receive on the destination chain
      * @param recipient Address that will receive the tokens on the destination chain
      * @param data ABI encoded data expected to include the Wormhole to be used
      */
@@ -69,12 +70,15 @@ contract WormholeConnector {
         uint256 chainId,
         address token,
         uint256 amountIn,
-        uint256, /* minAmountOut */
+        uint256 minAmountOut,
         address recipient,
         bytes memory data
     ) internal {
         require(data.length == ENCODED_DATA_LENGTH, 'WORMHOLE_INVALID_DATA_LENGTH');
         uint16 wormholeNetworkId = _getWormholeNetworkId(chainId);
+        uint256 relayerFee = IWormhole(wormholeCircleRelayer).relayerFee(wormholeNetworkId, token);
+        // solhint-disable-next-line reason-string
+        require(minAmountOut <= amountIn - relayerFee, 'WORMHOLE_MIN_AMOUNT_GT_AMOUNT_IN_MINUS_RELAYER_FEE');
 
         ERC20Helpers.approve(token, wormholeCircleRelayer, amountIn);
         IWormhole(wormholeCircleRelayer).transferTokensWithRelay(
