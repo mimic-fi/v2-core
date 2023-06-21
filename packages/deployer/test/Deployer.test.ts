@@ -64,7 +64,7 @@ describe('Deployer', () => {
 
     const bridgeConnector = await deploy(
       '@mimic-fi/v2-bridge-connector/artifacts/contracts/BridgeConnector.sol/BridgeConnector',
-      [ZERO_ADDRESS, ZERO_ADDRESS, ZERO_ADDRESS, registry.address]
+      [ZERO_ADDRESS, ZERO_ADDRESS, ZERO_ADDRESS, ZERO_ADDRESS, registry.address]
     )
 
     const permissionsManager = await deploy(

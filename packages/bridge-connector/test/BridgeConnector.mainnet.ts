@@ -8,6 +8,7 @@ import { ethers } from 'hardhat'
 import { SOURCES } from '../src/constants'
 import { itBehavesLikeAxelarBridgeConnector } from './behaviors/AxelarBridgeConnector.behavior'
 import { itBehavesLikeConnextBridgeConnector } from './behaviors/ConnextBridgeConnector.behavior'
+import { itBehavesLikeWormholeBridgeConnector } from './behaviors/WormholeBridgeConnector.behavior'
 
 /* eslint-disable no-secrets/no-secrets */
 
@@ -15,6 +16,7 @@ const USDC = '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48'
 const WETH = '0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2'
 const WHALE = '0xf584f8728b874a6a5c7a8d4d387c9aae9172d621'
 
+const WORMHOLE_CIRCLE_RELAYER = '0x32DeC3F4A0723Ce02232f87e8772024E0C86d834'
 const CONNEXT = '0x8898B472C54c31894e3B9bb83cEA802a5d0e63C6'
 const AXELAR_GATEWAY = '0x4F4495243837681061C4743b74B3eEdf548D56A5'
 
@@ -22,7 +24,13 @@ describe('BridgeConnector', () => {
   const SOURCE_CHAIN_ID = 1
 
   before('create bridge connector', async function () {
-    this.connector = await deploy('BridgeConnector', [WETH, AXELAR_GATEWAY, CONNEXT, ZERO_ADDRESS])
+    this.connector = await deploy('BridgeConnector', [
+      WETH,
+      AXELAR_GATEWAY,
+      CONNEXT,
+      WORMHOLE_CIRCLE_RELAYER,
+      ZERO_ADDRESS,
+    ])
   })
 
   context('Hop', () => {
@@ -246,6 +254,12 @@ describe('BridgeConnector', () => {
 
     context('WETH', () => {
       itBehavesLikeConnextBridgeConnector(SOURCE_CHAIN_ID, WETH, fp(2), CONNEXT, WHALE)
+    })
+  })
+
+  context('Wormhole', () => {
+    context('USDC', () => {
+      itBehavesLikeWormholeBridgeConnector(SOURCE_CHAIN_ID, USDC, WHALE)
     })
   })
 })
