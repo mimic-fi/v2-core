@@ -28,7 +28,7 @@ contract WormholeConnector {
     // Expected data length when bridging with Wormhole: none
     uint256 private constant ENCODED_DATA_LENGTH = 0;
 
-    // List of Wormhole chain IDs
+    // List of Wormhole network IDs
     uint16 private constant ETHEREUM_WORMHOLE_NETWORK_ID = 2;
     uint16 private constant POLYGON_WORMHOLE_NETWORK_ID = 5;
     uint16 private constant ARBITRUM_WORMHOLE_NETWORK_ID = 23;
@@ -77,8 +77,7 @@ contract WormholeConnector {
         require(data.length == ENCODED_DATA_LENGTH, 'WORMHOLE_INVALID_DATA_LENGTH');
         uint16 wormholeNetworkId = _getWormholeNetworkId(chainId);
         uint256 relayerFee = IWormhole(wormholeCircleRelayer).relayerFee(wormholeNetworkId, token);
-        // solhint-disable-next-line reason-string
-        require(minAmountOut <= amountIn - relayerFee, 'WORMHOLE_MIN_AMOUNT_GT_AMOUNT_IN_MINUS_RELAYER_FEE');
+        require(minAmountOut <= amountIn - relayerFee, 'WORMHOLE_MIN_AMOUNT_OUT_TOO_BIG');
 
         ERC20Helpers.approve(token, wormholeCircleRelayer, amountIn);
         IWormhole(wormholeCircleRelayer).transferTokensWithRelay(

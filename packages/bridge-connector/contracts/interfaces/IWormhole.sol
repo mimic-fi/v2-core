@@ -23,5 +23,5 @@ interface IWormhole {
         bytes32 targetRecipientWallet
     ) external payable returns (uint64 messageSequence);
 
-    function relayerFee(uint16 chainId_, address token) external view returns (uint256);
+    function relayerFee(uint16 chainId, address token) external view returns (uint256);
 }
