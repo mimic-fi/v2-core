@@ -76,7 +76,7 @@ contract ConnextConnector {
         require(relayerFee <= amountIn, 'CONNEXT_RELAYER_FEE_GT_AMOUNT_IN');
 
         uint32 domain = _getChainDomain(chainId);
-        uint256 slippage = minAmountOut > amountIn ? 0 : 100 - ((minAmountOut * 100) / amountIn); // in BPS e.g. 30 = 0.3%
+        uint256 slippage = minAmountOut > amountIn ? 0 : 10000 - ((minAmountOut * 10000) / amountIn); // in BPS e.g. 30 = 0.3%
         uint256 amountInAfterFees = amountIn - relayerFee;
 
         ERC20Helpers.approve(token, connext, amountIn);

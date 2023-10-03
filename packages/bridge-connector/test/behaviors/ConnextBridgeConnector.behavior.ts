@@ -23,7 +23,7 @@ export function itBehavesLikeConnextBridgeConnector(
   })
 
   context('when the data is encoded properly', async () => {
-    const slippage = 0.5
+    const slippage = 0.005
     const relayerFee = amountIn.div(10)
     const data = defaultAbiCoder.encode(['uint256'], [relayerFee])
 
